@@ -19,7 +19,7 @@ class StudentController extends Controller
         $version = Cache::get('students_cache_version', 1);
         $cacheKey = "students_v{$version}_" . md5(json_encode($queryParams) . "_role_{$roleId}");
 
-        $data = Cache::remember($cacheKey, 60, function () use ($request, $roleId) {
+        $data = Cache::remember($cacheKey, 86400, function () use ($request, $roleId) {
             $targetMonth = $request->query('month', date('Y-m'));
             $query = User::with(['academyClass:id,name', 'major:id,name', 'section:id,name'])
                 ->select('users.*')

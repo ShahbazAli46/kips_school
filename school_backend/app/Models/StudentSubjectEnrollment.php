@@ -22,6 +22,17 @@ class StudentSubjectEnrollment extends Model
         'percentage' => 'decimal:2',
     ];
 
+    protected static function booted()
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
+        });
+    }
+
     public function student()
     {
         return $this->belongsTo(User::class, 'student_id');
