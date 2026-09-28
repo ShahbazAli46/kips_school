@@ -241,11 +241,16 @@ class StudentImportController extends Controller
         }
 
         // Link IDs, assign session, and assign roll numbers
-        $activeSession = \App\Models\AcademicSession::getActiveSession();
+        $activeSession = \App\Models\AcademicSession::getActiveSession() ?: \App\Models\AcademicSession::where('is_active', true)->first() ?: \App\Models\AcademicSession::orderBy('id', 'desc')->first();
         if (!$activeSession) {
-            $activeSession = \App\Models\AcademicSession::orderBy('id', 'desc')->first();
+            $activeSession = \App\Models\AcademicSession::create([
+                'name' => 'Session ' . date('Y') . '-' . (date('Y') + 1),
+                'start_date' => date('Y-01-01'),
+                'end_date' => (date('Y') + 1) . '-12-31',
+                'is_active' => true,
+            ]);
         }
-        $sessionId = $activeSession ? $activeSession->id : null;
+        $sessionId = $activeSession->id;
 
         // Keep track of max roll numbers per class to allow sequential assignment in the batch
         $classMaxRolls = [];
@@ -391,9 +396,17 @@ class StudentImportController extends Controller
             return response()->json(['message' => 'The uploaded Excel file is empty.'], 422);
         }
 
-        // Active Academic Session
-        $activeSession = AcademicSession::getActiveSession() ?: AcademicSession::orderBy('id', 'desc')->first();
-        $sessionId = $activeSession ? $activeSession->id : null;
+        // Active Academic Session - guaranteed to exist
+        $activeSession = AcademicSession::getActiveSession() ?: AcademicSession::where('is_active', true)->first() ?: AcademicSession::orderBy('id', 'desc')->first();
+        if (!$activeSession) {
+            $activeSession = AcademicSession::create([
+                'name' => 'Session ' . date('Y') . '-' . (date('Y') + 1),
+                'start_date' => date('Y-01-01'),
+                'end_date' => (date('Y') + 1) . '-12-31',
+                'is_active' => true,
+            ]);
+        }
+        $sessionId = $activeSession->id;
 
         // Cache classes & sections
         $existingClasses = AcademyClass::pluck('id', 'name')->mapWithKeys(fn($id, $name) => [strtolower(trim($name)) => $id])->toArray();
