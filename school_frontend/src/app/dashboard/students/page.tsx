@@ -781,6 +781,14 @@ function ManageStudentsPageContent() {
                 Import CSV
               </button>
               <button
+                onClick={() => window.location.href = '/dashboard/students/import-portal'}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95 hover:shadow-md"
+                style={{ borderColor: "#93c5fd", color: "#1d4ed8", background: "#eff6ff" }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Import Portal Excel
+              </button>
+              <button
                 onClick={() => router.push("/dashboard/students/admission")}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md transition-all active:scale-95 hover:shadow-lg cursor-pointer"
                 style={{ background: "linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)" }}

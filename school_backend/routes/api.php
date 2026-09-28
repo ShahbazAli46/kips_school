@@ -177,6 +177,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('students/bulk-delete', [\App\Http\Controllers\Api\StudentController::class, 'bulkDelete']);
         Route::post('students/promote', [\App\Http\Controllers\Api\StudentController::class, 'promote']);
         Route::post('students/import', [\App\Http\Controllers\Api\StudentImportController::class, 'importStudents']);
+        Route::post('students/import-portal', [\App\Http\Controllers\Api\StudentImportController::class, 'importPortalExcel']);
         Route::post('students/{student}', [StudentController::class, 'update']); // Workaround for multipart/form-data PUT
         Route::patch('students/{student}/toggle-status', [StudentController::class, 'toggleStatus']);
         Route::apiResource('students', StudentController::class)->except(['update']);

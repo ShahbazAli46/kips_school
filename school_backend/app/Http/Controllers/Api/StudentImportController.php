@@ -4,14 +4,19 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcademyClass;
+use App\Models\AcademicSession;
 use App\Models\Major;
 use App\Models\Section;
+use App\Models\StudentFeeItem;
+use App\Models\StudentSessionEnrollment;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Rap2hpoutre\FastExcel\FastExcel;
 
 class StudentImportController extends Controller
 {
@@ -356,6 +361,430 @@ class StudentImportController extends Controller
 
         return response()->json([
             'message' => 'Import completed',
+            'imported' => $imported,
+            'failed' => $failed,
+            'errors' => $errors,
+        ]);
+    }
+
+    public function importPortalExcel(Request $request)
+    {
+        if ($request->user() && $request->user()->role_id == 5) {
+            return response()->json(['message' => 'Forbidden: Office Admin does not have permission to import students.'], 403);
+        }
+
+        set_time_limit(300); // 5 minutes max execution time
+
+        $request->validate([
+            'file' => 'required|file|max:20480', // 20MB max
+        ]);
+
+        $file = $request->file('file');
+        
+        try {
+            $rows = (new FastExcel)->import($file);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to parse Excel file: ' . $e->getMessage()], 422);
+        }
+
+        if ($rows->isEmpty()) {
+            return response()->json(['message' => 'The uploaded Excel file is empty.'], 422);
+        }
+
+        // Active Academic Session
+        $activeSession = AcademicSession::getActiveSession() ?: AcademicSession::orderBy('id', 'desc')->first();
+        $sessionId = $activeSession ? $activeSession->id : null;
+
+        // Cache classes & sections
+        $existingClasses = AcademyClass::pluck('id', 'name')->mapWithKeys(fn($id, $name) => [strtolower(trim($name)) => $id])->toArray();
+        $existingSections = Section::pluck('id', 'name')->mapWithKeys(fn($id, $name) => [strtolower(trim($name)) => $id])->toArray();
+
+        // 1. Auto-create any missing classes and sections in bulk
+        $classesToCreate = [];
+        $sectionsToCreate = [];
+        $classSectionPairs = [];
+
+        foreach ($rows as $row) {
+            $grade = trim($row['Grade'] ?? $row['grade'] ?? $row['Class'] ?? $row['class'] ?? '');
+            $section = trim($row['Section'] ?? $row['section'] ?? '');
+            if ($grade && $grade !== '0' && !isset($existingClasses[strtolower($grade)])) {
+                $classesToCreate[strtolower($grade)] = $grade;
+            }
+            if ($section && $section !== '0' && !isset($existingSections[strtolower($section)])) {
+                $sectionsToCreate[strtolower($section)] = $section;
+            }
+            if ($grade && $section && $grade !== '0' && $section !== '0') {
+                $classSectionPairs[] = [strtolower($grade), strtolower($section)];
+            }
+        }
+
+        foreach ($classesToCreate as $low => $name) {
+            $c = AcademyClass::firstOrCreate(['name' => $name]);
+            $existingClasses[$low] = $c->id;
+        }
+
+        foreach ($sectionsToCreate as $low => $name) {
+            $s = Section::firstOrCreate(['name' => $name]);
+            $existingSections[$low] = $s->id;
+        }
+
+        foreach ($classSectionPairs as $pair) {
+            $cid = $existingClasses[$pair[0]] ?? null;
+            $sid = $existingSections[$pair[1]] ?? null;
+            if ($cid && $sid) {
+                DB::table('class_section')->insertOrIgnore(['class_id' => $cid, 'section_id' => $sid]);
+            }
+        }
+
+        // 2. Index existing students by ERP Reg (stored in cnic/remarks/email) and Name+Father+Class
+        $existingStudentsByErp = [];
+        $existingStudentsByName = [];
+        $allStudents = User::where('role_id', 3)->get(['id', 'name', 'father_name', 'class_id', 'student_cnic', 'email', 'remarks']);
+        foreach ($allStudents as $s) {
+            if (!empty($s->student_cnic)) {
+                $cleanCnic = strtolower(trim(preg_replace('/[^a-zA-Z0-9]/', '', $s->student_cnic)));
+                if ($cleanCnic) $existingStudentsByErp[$cleanCnic] = $s->id;
+            }
+            if (!empty($s->remarks) && preg_match('/ERP(?:\s*Reg#)?:\s*([a-zA-Z0-9-]+)/i', $s->remarks, $m)) {
+                $cleanErp = strtolower(trim(preg_replace('/[^a-zA-Z0-9]/', '', $m[1])));
+                if ($cleanErp) $existingStudentsByErp[$cleanErp] = $s->id;
+            }
+            $nameKey = strtolower(trim($s->name)) . '|' . strtolower(trim((string)$s->father_name)) . '|' . (int)$s->class_id;
+            $existingStudentsByName[$nameKey] = $s->id;
+        }
+
+        // Definition of fee heads mapping from Excel column names
+        $feeHeadDefinitions = [
+            'tuition_fee' => ['name' => 'Tuition Fee', 'type' => 'monthly', 'keys' => ['Tuition fee', 'Tuition Fee', 'tuition_fee', 'fee', 'monthly_fee', 'Monthly Fee']],
+            'ac_charges' => ['name' => 'AC Charges', 'type' => 'monthly', 'keys' => ['AC Charges', 'ac_charges', 'ac', 'AC charges']],
+            'id_card_charges' => ['name' => 'ID Card Charges', 'type' => 'one_time', 'keys' => ['Id Card', 'id_card', 'id_card_charges', 'ID Card', 'Id card']],
+            'r_and_t_charges' => ['name' => 'R & T Charges', 'type' => 'annual', 'keys' => ['R & T Charges', 'r_and_t_charges', 'R&T Charges']],
+            'brd_reg_charges' => ['name' => 'Board Reg Charges', 'type' => 'one_time', 'keys' => ['Brd Reg Charges', 'brd_reg_charges', 'Board Reg Charges']],
+            'service_charges' => ['name' => 'Service Charges', 'type' => 'monthly', 'keys' => ['Service Charges', 'service_charges']],
+            'exam_charges' => ['name' => 'Exam Charges', 'type' => 'annual', 'keys' => ['Exam Charges', 'exam_charges']],
+            'lab_charges' => ['name' => 'Lab Charges', 'type' => 'monthly', 'keys' => ['Lab Chanrges', 'Lab Charges', 'lab_charges', 'lab_chanrges']],
+            'security_fee' => ['name' => 'Security Fee', 'type' => 'one_time', 'keys' => ['Security fee', 'security_fee', 'Security Fee']],
+            'library_charges' => ['name' => 'Library Charges', 'type' => 'annual', 'keys' => ['Lib. Charges', 'lib_charges', 'library_charges', 'Library Charges']],
+            'lms_charges' => ['name' => 'LMS Charges', 'type' => 'monthly', 'keys' => ['LMS', 'lms_charges', 'lms']],
+            'fine' => ['name' => 'Fine', 'type' => 'fine', 'keys' => ['Fine', 'fine']],
+            'adm_fee' => ['name' => 'Admission Fee', 'type' => 'one_time', 'keys' => ['Registration Fee', 'registration_fee', 'adm_fee', 'Registration fee']],
+            'adm_test' => ['name' => 'Admission Test', 'type' => 'one_time', 'keys' => ['Admission Test', 'admission_test', 'adm_test', 'Admission test']],
+            'kdp' => ['name' => 'KDP Charges', 'type' => 'one_time', 'keys' => ['KDP', 'kdp']],
+            'books' => ['name' => 'Books Charges', 'type' => 'one_time', 'keys' => ['Books', 'books']],
+            'slj' => ['name' => 'SLJ Charges', 'type' => 'one_time', 'keys' => ['SLJ', 'slj']],
+        ];
+
+        $usersToInsert = [];
+        $usersToUpdate = [];
+        $userRowMap = [];
+        $defaultHash = Hash::make('Kips1234');
+        $imported = 0;
+        $failed = 0;
+        $errors = [];
+
+        DB::beginTransaction();
+
+        try {
+            foreach ($rows as $index => $row) {
+                $normalizedRow = [];
+                foreach ($row as $k => $v) {
+                    $normalizedRow[trim($k)] = is_string($v) ? trim($v) : $v;
+                }
+
+                $getVal = function(array $candidateKeys) use ($normalizedRow) {
+                    foreach ($candidateKeys as $ck) {
+                        if (isset($normalizedRow[$ck]) && $normalizedRow[$ck] !== '') {
+                            return $normalizedRow[$ck];
+                        }
+                    }
+                    foreach ($normalizedRow as $k => $v) {
+                        foreach ($candidateKeys as $ck) {
+                            if (strcasecmp(trim($k), trim($ck)) === 0 && $v !== '') {
+                                return $v;
+                            }
+                        }
+                    }
+                    return null;
+                };
+
+                $name = $getVal(['Student Name', 'name', 'student_name', 'Student']);
+                $fatherName = $getVal(['Father Name', 'father_name', 'Father']);
+                $erpReg = $getVal(['ERP Reg#', 'erp_reg', 'erp reg#', 'ERP Reg', 'ERP#', 'Reg#']);
+                $invoiceNo = $getVal(['Invoice No', 'Invoice No ', 'invoice_no', 'Invoice']);
+                $campus = $getVal(['Campus', 'campus']);
+                $gradeName = $getVal(['Grade', 'grade', 'Class', 'class']);
+                $sectionName = $getVal(['Section', 'section']);
+                $arrear = $getVal(['Arrear', 'arrears', 'arrear', 'pending amount', 'pending']);
+                $tuitionFee = $getVal(['Tuition fee', 'Tuition Fee', 'fee', 'monthly fee', 'tuition']);
+
+                if (empty($name) || strtolower($name) === 'total' || strtolower($name) === 'grand total') {
+                    continue;
+                }
+
+                $monthlyFeeNum = $tuitionFee !== null ? (float)preg_replace('/[^\d.]/', '', (string)$tuitionFee) : 0;
+                $pendingAmountNum = $arrear !== null ? (float)preg_replace('/[^\d.]/', '', (string)$arrear) : 0;
+
+                $classId = $gradeName ? ($existingClasses[strtolower($gradeName)] ?? null) : null;
+                $sectionId = $sectionName ? ($existingSections[strtolower($sectionName)] ?? null) : null;
+
+                $gender = 'male';
+                if ($sectionName && (preg_match('/\b[Gg]\b|\(G\)|\(g\)/', $sectionName) || str_ends_with($sectionName, ' G') || str_ends_with($sectionName, ' (G)'))) {
+                    $gender = 'female';
+                }
+
+                $cleanErpKey = $erpReg ? strtolower(trim(preg_replace('/[^a-zA-Z0-9]/', '', (string)$erpReg))) : null;
+                $studentId = null;
+
+                if ($cleanErpKey && isset($existingStudentsByErp[$cleanErpKey])) {
+                    $studentId = $existingStudentsByErp[$cleanErpKey];
+                } else {
+                    $nameKey = strtolower(trim($name)) . '|' . strtolower(trim((string)$fatherName)) . '|' . (int)$classId;
+                    if (isset($existingStudentsByName[$nameKey])) {
+                        $studentId = $existingStudentsByName[$nameKey];
+                    }
+                }
+
+                $remarksStr = trim("ERP Reg#: " . ($erpReg ?? 'N/A') . ($invoiceNo ? " | Invoice: {$invoiceNo}" : "") . ($campus ? " | Campus: {$campus}" : ""));
+
+                $rowFeeItems = [];
+                foreach ($feeHeadDefinitions as $headKey => $def) {
+                    $val = $getVal($def['keys']);
+                    $amount = $val !== null ? (float)preg_replace('/[^\d.]/', '', (string)$val) : 0;
+                    if ($headKey === 'tuition_fee' && $amount == 0 && $monthlyFeeNum > 0) {
+                        $amount = $monthlyFeeNum;
+                    }
+                    if ($amount > 0 || $headKey === 'tuition_fee') {
+                        $rowFeeItems[$headKey] = [
+                            'name' => $def['name'],
+                            'type' => $def['type'],
+                            'amount' => $amount
+                        ];
+                    }
+                }
+
+                if ($studentId) {
+                    $usersToUpdate[$studentId] = [
+                        'id' => $studentId,
+                        'father_name' => $fatherName,
+                        'class_id' => $classId,
+                        'section_id' => $sectionId,
+                        'academic_session_id' => $sessionId,
+                        'monthly_fee' => $monthlyFeeNum,
+                        'pending_amount' => $pendingAmountNum,
+                        'student_cnic' => $erpReg,
+                        'remarks' => $remarksStr,
+                        'fee_items' => $rowFeeItems,
+                    ];
+                } else {
+                    $uuid = (string) Str::uuid();
+                    $emailSlug = $cleanErpKey ?: (preg_replace('/[^a-zA-Z0-9]/', '', strtolower($name)) . '_' . rand(1000, 9999));
+                    $email = "erp_{$emailSlug}@kips.edu.pk";
+
+                    $usersToInsert[] = [
+                        'uuid' => $uuid,
+                        'name' => $name,
+                        'father_name' => $fatherName,
+                        'gender' => $gender,
+                        'role_id' => 3,
+                        'class_id' => $classId,
+                        'section_id' => $sectionId,
+                        'academic_session_id' => $sessionId,
+                        'monthly_fee' => $monthlyFeeNum,
+                        'pending_amount' => $pendingAmountNum,
+                        'student_cnic' => $erpReg,
+                        'email' => $email,
+                        'password' => $defaultHash,
+                        'remarks' => $remarksStr,
+                        'is_active' => true,
+                        'admission_month' => date('Y-m'),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+
+                    $userRowMap[$uuid] = [
+                        'class_id' => $classId,
+                        'section_id' => $sectionId,
+                        'monthly_fee' => $monthlyFeeNum,
+                        'fee_items' => $rowFeeItems,
+                    ];
+                }
+            }
+
+            // 3. Bulk insert new users
+            if (!empty($usersToInsert)) {
+                foreach (array_chunk($usersToInsert, 200) as $chunk) {
+                    User::insert($chunk);
+                }
+            }
+
+            // Update existing users
+            foreach ($usersToUpdate as $uid => $uData) {
+                User::where('id', $uid)->update([
+                    'father_name' => $uData['father_name'],
+                    'class_id' => $uData['class_id'],
+                    'section_id' => $uData['section_id'],
+                    'academic_session_id' => $uData['academic_session_id'],
+                    'monthly_fee' => $uData['monthly_fee'],
+                    'pending_amount' => $uData['pending_amount'],
+                    'student_cnic' => $uData['student_cnic'],
+                    'remarks' => $uData['remarks'],
+                ]);
+            }
+
+            // Fetch new users IDs
+            $newUuids = array_column($usersToInsert, 'uuid');
+            $newUsers = !empty($newUuids) ? User::whereIn('uuid', $newUuids)->pluck('id', 'uuid') : collect();
+
+            // 4. Enrollments & Roll numbers & Fee Items
+            $classMaxRolls = [];
+            $enrollmentsToUpsert = [];
+            $feeItemsToUpsert = [];
+
+            // For new users
+            foreach ($usersToInsert as $u) {
+                $uid = $newUsers[$u['uuid']] ?? null;
+                if (!$uid) continue;
+                $cid = $u['class_id'];
+                $sid = $u['section_id'];
+                $fee = $u['monthly_fee'];
+
+                if ($sessionId && $cid) {
+                    if (!isset($classMaxRolls[$cid])) {
+                        $classMaxRolls[$cid] = StudentSessionEnrollment::where('academic_session_id', $sessionId)
+                            ->where('class_id', $cid)
+                            ->max(DB::raw('CAST(roll_number AS UNSIGNED)')) ?? 0;
+                    }
+                    $classMaxRolls[$cid]++;
+                    $roll = $classMaxRolls[$cid];
+                } else {
+                    $roll = null;
+                }
+
+                $enrollmentsToUpsert[] = [
+                    'student_id' => $uid,
+                    'academic_session_id' => $sessionId,
+                    'class_id' => $cid,
+                    'section_id' => $sid,
+                    'monthly_fee' => $fee,
+                    'roll_number' => $roll,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                if ($roll) {
+                    User::where('id', $uid)->update(['roll_number' => $roll]);
+                }
+
+                $items = $userRowMap[$u['uuid']]['fee_items'] ?? [];
+                foreach ($items as $hKey => $hInfo) {
+                    $feeItemsToUpsert[] = [
+                        'student_id' => $uid,
+                        'academic_session_id' => $sessionId,
+                        'head_key' => $hKey,
+                        'head_name' => $hInfo['name'],
+                        'head_type' => $hInfo['type'],
+                        'actual_amount' => $hInfo['amount'],
+                        'discount_amount' => 0,
+                        'payable_amount' => $hInfo['amount'],
+                        'paid_amount' => 0,
+                        'balance_amount' => $hInfo['amount'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+
+                $imported++;
+            }
+
+            // For existing users
+            foreach ($usersToUpdate as $uid => $uData) {
+                $cid = $uData['class_id'];
+                $sid = $uData['section_id'];
+                $fee = $uData['monthly_fee'];
+
+                $existingEnr = StudentSessionEnrollment::where('student_id', $uid)
+                    ->where('academic_session_id', $sessionId)
+                    ->first();
+
+                $roll = $existingEnr ? $existingEnr->roll_number : null;
+                if (!$roll && $sessionId && $cid) {
+                    if (!isset($classMaxRolls[$cid])) {
+                        $classMaxRolls[$cid] = StudentSessionEnrollment::where('academic_session_id', $sessionId)
+                            ->where('class_id', $cid)
+                            ->max(DB::raw('CAST(roll_number AS UNSIGNED)')) ?? 0;
+                    }
+                    $classMaxRolls[$cid]++;
+                    $roll = $classMaxRolls[$cid];
+                }
+
+                $enrollmentsToUpsert[] = [
+                    'student_id' => $uid,
+                    'academic_session_id' => $sessionId,
+                    'class_id' => $cid,
+                    'section_id' => $sid,
+                    'monthly_fee' => $fee,
+                    'roll_number' => $roll,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                if ($roll) {
+                    User::where('id', $uid)->update(['roll_number' => $roll]);
+                }
+
+                $items = $uData['fee_items'] ?? [];
+                foreach ($items as $hKey => $hInfo) {
+                    StudentFeeItem::updateOrCreate(
+                        [
+                            'student_id' => $uid,
+                            'academic_session_id' => $sessionId,
+                            'head_key' => $hKey,
+                        ],
+                        [
+                            'head_name' => $hInfo['name'],
+                            'head_type' => $hInfo['type'],
+                            'actual_amount' => $hInfo['amount'],
+                            'discount_amount' => 0,
+                            'payable_amount' => $hInfo['amount'],
+                            'paid_amount' => 0,
+                            'balance_amount' => $hInfo['amount'],
+                        ]
+                    );
+                }
+
+                $imported++;
+            }
+
+            // Bulk upsert enrollments
+            if (!empty($enrollmentsToUpsert)) {
+                foreach (array_chunk($enrollmentsToUpsert, 200) as $chunk) {
+                    StudentSessionEnrollment::upsert(
+                        $chunk, 
+                        ['student_id', 'academic_session_id'], 
+                        ['class_id', 'section_id', 'monthly_fee', 'roll_number', 'updated_at']
+                    );
+                }
+            }
+
+            // Bulk insert new fee items
+            if (!empty($feeItemsToUpsert)) {
+                foreach (array_chunk($feeItemsToUpsert, 200) as $chunk) {
+                    StudentFeeItem::insert($chunk);
+                }
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Import failed due to an error: ' . $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => basename($e->getFile()),
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'Import completed successfully',
             'imported' => $imported,
             'failed' => $failed,
             'errors' => $errors,
