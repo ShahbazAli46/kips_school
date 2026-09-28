@@ -34,6 +34,14 @@ class DatabaseSeeder extends Seeder
                 'role_id' => 1,
                 'created_at' => now(),
                 'updated_at' => now(),
+            ],
+            [
+                'name' => 'Bilal Khan',
+                'email' => 'bilalkhan02010@gmail.com',
+                'password' => \Illuminate\Support\Facades\Hash::make('Pak@1234istan'), // Standard fallback, they login via OTP
+                'role_id' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]
         ]);
 
