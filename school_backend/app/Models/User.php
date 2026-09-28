@@ -79,6 +79,24 @@ class User extends Authenticatable
                 $user->uuid = (string) \Illuminate\Support\Str::uuid();
             }
         });
+
+        static::saved(function ($user) {
+            if ($user->role_id == 3) {
+                \Illuminate\Support\Facades\Cache::increment('students_cache_version');
+            }
+        });
+
+        static::deleted(function ($user) {
+            if ($user->role_id == 3) {
+                \Illuminate\Support\Facades\Cache::increment('students_cache_version');
+            }
+        });
+
+        static::restored(function ($user) {
+            if ($user->role_id == 3) {
+                \Illuminate\Support\Facades\Cache::increment('students_cache_version');
+            }
+        });
     }
 
     public function academicSession()

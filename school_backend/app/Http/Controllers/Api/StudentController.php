@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
@@ -12,90 +13,100 @@ class StudentController extends Controller
 {
     public function index(Request $request)
     {
-        $targetMonth = $request->query('month', date('Y-m'));
-        $query = User::with(['academyClass:id,name', 'major:id,name', 'section:id,name'])
-            ->select('users.*')
-            ->selectSub(function ($q) use ($targetMonth) {
-                $q->from('student_subject_enrollments as sse')
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('sse.student_id', 'users.id')
-                    ->where('sse.is_active', true)
-                    ->where('sse.month', function ($sub) use ($targetMonth) {
-                        $sub->from('student_subject_enrollments as sse2')
-                            ->selectRaw('COALESCE(MAX(month), ?)', [$targetMonth])
-                            ->whereColumn('sse2.student_id', 'users.id')
-                            ->where('sse2.month', '<=', $targetMonth);
-                    });
-            }, 'enrolled_subjects_count')
-            ->selectSub(function ($q) {
-                $q->from('fee_payments')
-                    ->selectRaw('COALESCE(SUM(amount_paid), 0)')
-                    ->whereColumn('fee_payments.student_id', 'users.id');
-            }, 'total_received')
-            ->selectSub(function ($q) {
-                $q->from('student_fee_items')
-                    ->selectRaw('COALESCE(SUM(balance_amount), 0)')
-                    ->whereColumn('student_fee_items.student_id', 'users.id');
-            }, 'total_receivable')
-            ->where('role_id', 3);
+        $roleId = $request->user()?->role_id ?? 0;
+        $queryParams = $request->all();
+        ksort($queryParams);
+        $version = Cache::get('students_cache_version', 1);
+        $cacheKey = "students_v{$version}_" . md5(json_encode($queryParams) . "_role_{$roleId}");
 
-        if ($request->has('search') && !empty($request->search)) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('father_name', 'like', "%{$search}%")
-                  ->orWhere('student_cnic', 'like', "%{$search}%")
-                  ->orWhere('roll_number', 'like', "%{$search}%")
-                  ->orWhere('remarks', 'like', "%{$search}%")
-                  ->orWhere('contact_number', 'like', "%{$search}%");
-            });
-        }
+        $data = Cache::remember($cacheKey, 60, function () use ($request, $roleId) {
+            $targetMonth = $request->query('month', date('Y-m'));
+            $query = User::with(['academyClass:id,name', 'major:id,name', 'section:id,name'])
+                ->select('users.*')
+                ->selectSub(function ($q) use ($targetMonth) {
+                    $q->from('student_subject_enrollments as sse')
+                        ->selectRaw('COUNT(*)')
+                        ->whereColumn('sse.student_id', 'users.id')
+                        ->where('sse.is_active', true)
+                        ->where('sse.month', function ($sub) use ($targetMonth) {
+                            $sub->from('student_subject_enrollments as sse2')
+                                ->selectRaw('COALESCE(MAX(month), ?)', [$targetMonth])
+                                ->whereColumn('sse2.student_id', 'users.id')
+                                ->where('sse2.month', '<=', $targetMonth);
+                        });
+                }, 'enrolled_subjects_count')
+                ->selectSub(function ($q) {
+                    $q->from('fee_payments')
+                        ->selectRaw('COALESCE(SUM(amount_paid), 0)')
+                        ->whereColumn('fee_payments.student_id', 'users.id');
+                }, 'total_received')
+                ->selectSub(function ($q) {
+                    $q->from('student_fee_items')
+                        ->selectRaw('COALESCE(SUM(balance_amount), 0)')
+                        ->whereColumn('student_fee_items.student_id', 'users.id');
+                }, 'total_receivable')
+                ->where('role_id', 3);
 
-        if ($request->has('class_id') && !empty($request->class_id)) {
-            $query->where('class_id', $request->class_id);
-        }
+            if ($request->has('search') && !empty($request->search)) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('father_name', 'like', "%{$search}%")
+                      ->orWhere('student_cnic', 'like', "%{$search}%")
+                      ->orWhere('roll_number', 'like', "%{$search}%")
+                      ->orWhere('remarks', 'like', "%{$search}%")
+                      ->orWhere('contact_number', 'like', "%{$search}%");
+                });
+            }
 
-        if ($request->has('major_id') && !empty($request->major_id)) {
-            $query->where('major_id', $request->major_id);
-        }
+            if ($request->has('class_id') && !empty($request->class_id)) {
+                $query->where('class_id', $request->class_id);
+            }
 
-        if ($request->has('section_id') && !empty($request->section_id)) {
-            $query->where('section_id', $request->section_id);
-        }
+            if ($request->has('major_id') && !empty($request->major_id)) {
+                $query->where('major_id', $request->major_id);
+            }
 
-        if ($request->has('gender') && !empty($request->gender)) {
-            $query->where('gender', $request->gender);
-        }
+            if ($request->has('section_id') && !empty($request->section_id)) {
+                $query->where('section_id', $request->section_id);
+            }
 
-        if ($request->has('all') && $request->all === 'true') {
-            $results = $query->orderByRaw('CASE WHEN roll_number IS NULL THEN 1 ELSE 0 END')
+            if ($request->has('gender') && !empty($request->gender)) {
+                $query->where('gender', $request->gender);
+            }
+
+            if ($request->has('all') && $request->all === 'true') {
+                $results = $query->orderByRaw('CASE WHEN roll_number IS NULL THEN 1 ELSE 0 END')
+                    ->orderBy('class_id', 'asc')
+                    ->orderByRaw('CAST(roll_number AS UNSIGNED) ASC')
+                    ->orderBy('name', 'asc')
+                    ->get();
+
+                if ($roleId == 5) {
+                    $results->makeHidden(['monthly_fee', 'pending_amount', 'total_paid']);
+                }
+
+                return $results->toArray();
+            }
+
+            $students = $query->orderByRaw('CASE WHEN roll_number IS NULL THEN 1 ELSE 0 END')
                 ->orderBy('class_id', 'asc')
                 ->orderByRaw('CAST(roll_number AS UNSIGNED) ASC')
                 ->orderBy('name', 'asc')
-                ->get();
+                ->paginate($request->input('per_page', 100));
 
-            if ($request->user() && $request->user()->role_id == 5) {
-                $results->makeHidden(['monthly_fee', 'pending_amount', 'total_paid']);
+            if ($roleId == 5) {
+                $students->getCollection()->transform(function ($student) {
+                    $student->makeHidden(['monthly_fee', 'pending_amount', 'total_paid']);
+                    return $student;
+                });
             }
 
-            return response()->json($results);
-        }
+            return $students->toArray();
+        });
 
-        $students = $query->orderByRaw('CASE WHEN roll_number IS NULL THEN 1 ELSE 0 END')
-            ->orderBy('class_id', 'asc')
-            ->orderByRaw('CAST(roll_number AS UNSIGNED) ASC')
-            ->orderBy('name', 'asc')
-            ->paginate($request->input('per_page', 100));
-
-        if ($request->user() && $request->user()->role_id == 5) {
-            $students->getCollection()->transform(function ($student) {
-                $student->makeHidden(['monthly_fee', 'pending_amount', 'total_paid']);
-                return $student;
-            });
-        }
-
-        return response()->json($students);
+        return response()->json($data);
     }
 
     public function show($id)
