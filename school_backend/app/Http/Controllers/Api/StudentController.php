@@ -45,6 +45,9 @@ class StudentController extends Controller
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
                   ->orWhere('father_name', 'like', "%{$search}%")
+                  ->orWhere('student_cnic', 'like', "%{$search}%")
+                  ->orWhere('roll_number', 'like', "%{$search}%")
+                  ->orWhere('remarks', 'like', "%{$search}%")
                   ->orWhere('contact_number', 'like', "%{$search}%");
             });
         }

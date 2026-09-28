@@ -33,6 +33,7 @@ interface Student {
   roll_number?: number;
   name: string;
   email: string;
+  student_cnic?: string | null;
   father_name: string | null;
   gender: string | null;
   contact_number: string | null;
@@ -48,6 +49,7 @@ interface Student {
   major: Major | null;
   section: Section | null;
   created_at: string;
+  remarks?: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -899,8 +901,8 @@ function ManageStudentsPageContent() {
                         }}
                       />
                     </td>
-                    <td className="px-3 py-3.5 text-sm font-bold" style={{ color: "#0f224a" }}>
-                      KIPS-{String(student.roll_number || student.id).padStart(4, '0')}
+                    <td className="px-3 py-3.5 text-xs font-mono font-semibold" style={{ color: "#0f224a" }}>
+                      {student.student_cnic || (student.email?.startsWith('erp_') ? student.email.replace('@kips.edu.pk', '').replace('erp_', '') : (student.roll_number ? String(student.roll_number) : String(student.id)))}
                     </td>
                     <td className="px-1 py-3.5">
                       <div className="flex items-center gap-3">
@@ -930,7 +932,9 @@ function ManageStudentsPageContent() {
                         )}
                         <div>
                           <p className="font-bold text-[#0f224a]">{student.name}</p>
-                          <p className="text-xs text-[#38bdf8]">{student.email}</p>
+                          {student.email && !student.email.startsWith('erp_') && (
+                            <p className="text-xs text-[#38bdf8]">{student.email}</p>
+                          )}
                         </div>
                       </div>
                     </td>
