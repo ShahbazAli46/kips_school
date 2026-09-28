@@ -59,7 +59,8 @@ fi
 
 # 4. Reload Services
 echo "🔄 Reloading Nginx & PHP-FPM..."
-systemctl reload php8.3-fpm
+PHP_VERSION=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+systemctl reload php${PHP_VERSION}-fpm
 systemctl reload nginx
 supervisorctl reread || true
 supervisorctl update || true

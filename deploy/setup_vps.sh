@@ -28,22 +28,20 @@ if [ ! -f /swapfile ]; then
     echo 'vm.swappiness=10' | tee -a /etc/sysctl.conf
 fi
 
-# 3. Add PHP 8.3 Repository & Install PHP
-add-apt-repository -y ppa:ondrej/php
+# 3. Install PHP (Using default Ubuntu repository to ensure compatibility)
 apt-get update
 apt-get install -y \
-    php8.3 \
-    php8.3-fpm \
-    php8.3-cli \
-    php8.3-mysql \
-    php8.3-mbstring \
-    php8.3-xml \
-    php8.3-bcmath \
-    php8.3-curl \
-    php8.3-gd \
-    php8.3-zip \
-    php8.3-intl \
-    php8.3-opcache
+    php \
+    php-fpm \
+    php-cli \
+    php-mysql \
+    php-mbstring \
+    php-xml \
+    php-bcmath \
+    php-curl \
+    php-gd \
+    php-zip \
+    php-intl
 
 # 4. Install Composer
 if ! command -v composer &> /dev/null; then
@@ -63,7 +61,8 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 apt-get install -y nginx
 
 # 7. Apply OPcache Configuration
-cat << 'EOF' > /etc/php/8.3/mods-available/opcache.ini
+PHP_VERSION=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+cat << EOF > /etc/php/$PHP_VERSION/mods-available/opcache.ini
 [opcache]
 opcache.enable=1
 opcache.enable_cli=1
@@ -75,7 +74,7 @@ opcache.revalidate_freq=60
 opcache.fast_shutdown=1
 EOF
 phpenmod opcache
-systemctl restart php8.3-fpm
+systemctl restart php${PHP_VERSION}-fpm
 
 # 8. Firewall Setup (UFW)
 ufw allow OpenSSH
