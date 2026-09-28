@@ -17,13 +17,15 @@ class StudentController extends Controller
             ->select('users.*')
             ->selectSub(function ($q) use ($targetMonth) {
                 $q->from('student_subject_enrollments as sse')
-                    ->selectRaw('COALESCE(COUNT(*), 0)')
+                    ->selectRaw('COUNT(*)')
                     ->whereColumn('sse.student_id', 'users.id')
                     ->where('sse.is_active', true)
-                    ->whereRaw("sse.month = COALESCE(
-                        (SELECT MAX(sse2.month) FROM student_subject_enrollments sse2 WHERE sse2.student_id = sse.student_id AND sse2.subject_id = sse.subject_id AND sse2.month <= ?),
-                        (SELECT MAX(sse3.month) FROM student_subject_enrollments sse3 WHERE sse3.student_id = sse.student_id AND sse3.subject_id = sse.subject_id)
-                    )", [$targetMonth]);
+                    ->where('sse.month', function ($sub) use ($targetMonth) {
+                        $sub->from('student_subject_enrollments as sse2')
+                            ->selectRaw('COALESCE(MAX(month), ?)', [$targetMonth])
+                            ->whereColumn('sse2.student_id', 'users.id')
+                            ->where('sse2.month', '<=', $targetMonth);
+                    });
             }, 'enrolled_subjects_count')
             ->selectSub(function ($q) {
                 $q->from('fee_payments')
