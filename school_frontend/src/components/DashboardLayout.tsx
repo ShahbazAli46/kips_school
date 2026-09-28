@@ -20,7 +20,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     const storedRole = localStorage.getItem("userRole");
 
     if (!storedToken) {
-      window.location.href = "/login";
+      window.location.href = "/";
       return;
     }
     
@@ -37,7 +37,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     localStorage.removeItem("userRole");
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
     document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   if (!token) return null;

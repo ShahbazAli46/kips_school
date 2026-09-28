@@ -773,7 +773,7 @@ function ManageStudentsPageContent() {
           {userRole !== "5" && (
             <>
               <button
-                onClick={() => window.location.href = '/dashboard/students/import'}
+                onClick={() => router.push('/dashboard/students/import')}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95 hover:shadow-md"
                 style={{ borderColor: "#bfdbfe", color: "#1e3a8a", background: "#f0f4f8" }}
               >
@@ -781,7 +781,7 @@ function ManageStudentsPageContent() {
                 Import CSV
               </button>
               <button
-                onClick={() => window.location.href = '/dashboard/students/import-portal'}
+                onClick={() => router.push('/dashboard/students/import-portal')}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all active:scale-95 hover:shadow-md"
                 style={{ borderColor: "#93c5fd", color: "#1d4ed8", background: "#eff6ff" }}
               >

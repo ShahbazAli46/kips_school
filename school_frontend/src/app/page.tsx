@@ -445,6 +445,13 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [alreadyMigrated, setAlreadyMigrated] = useState(false);
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      router.push("/dashboard");
+    }
+  }, [router]);
+
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
   const showPassword = identifier.trim().length > 0 && !isEmail;
 
