@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Jameel Noori Nastaleeq';
+  src: url('/jameel-noori-nastaleeq.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-urdu {
+  font-family: 'Jameel Noori Nastaleeq', 'Jameel Noori Nastaleeq Regular', serif !important;
+  direction: rtl;
+  text-align: right;
+}
+
+/* ============================================================
+   Brand Color System - Blue/Navy (Logo Theme)
+   Primary palette extracted from the new branding.
+   ============================================================ */
+:root {
+  /* Brand Colors — Blue / Navy */
+  --brand-950: #172554;
+  --brand-900: #1e3a8a;
+  --brand-800: #1e40af;
+  --brand-700: #1d4ed8;
+  --brand-600: #2563eb;
+  --brand-500: #3b82f6;
+  --brand-400: #60a5fa;
+  --brand-300: #93c5fd;
+  --brand-200: #bfdbfe;
+  --brand-100: #dbeafe;
+  --brand-50:  #eff6ff;
+
+  /* Semantic Aliases */
+  --color-primary:      var(--brand-800);
+  --color-primary-dark: var(--brand-900);
+  --color-primary-light:var(--brand-600);
+  --color-accent:       var(--brand-700);
+  --color-surface:      #ffffff;
+  --color-surface-alt:  var(--brand-50);
+  --color-border:       var(--brand-200);
+
+  --background: var(--brand-50);
+  --foreground: var(--brand-950);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Inter", Arial, Helvetica, sans-serif;
+
+  /* Expose brand colors to Tailwind utilities */
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+}
+
+/* Base */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling (brand-themed) */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--brand-50); }
+::-webkit-scrollbar-thumb { background: var(--brand-300); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand-500); }
+
+@media print {
+  aside, header, footer, .no-print, [class*="fixed"], [class*="floating"], button.fixed, div.fixed {
+    display: none !important;
+  }
+  html, body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .flex-1 { margin-left: 0 !important; }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
