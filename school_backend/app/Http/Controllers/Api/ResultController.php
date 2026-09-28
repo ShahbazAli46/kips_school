@@ -465,7 +465,7 @@ class ResultController extends Controller
         $message = "📢 *KIPS SCHOOL CHUNIAN CAMPUS*\n"
             . "*امتحانی نتیجہ / Official Result Card*\n\n"
             . "محترم والدین / سرپرست،\n"
-            . "آپ کے بچے کے امتحانی نتائج کی تفصیل درج ذیل ہے:\n\n"
+            . "طالب علم کے امتحانی نتائج کی تفصیل درج ذیل ہے:\n\n"
             . "👤 *طالب علم / Student:* {$student->name}\n"
             . "🔢 *رول نمبر / Roll No:* {$rollNo}\n"
             . "📚 *کلاس / Class:* {$className}\n"
@@ -478,7 +478,7 @@ class ResultController extends Controller
             . "━━━━━━━━━━━━━━━━━━━━\n\n"
             . "⚠️ باقاعدہ محنت اور وقت کی پابندی بہترین کامیابی کی ضامن ہے۔ مزید تفصیلات اکیڈمی پورٹل پر دیکھی جا سکتی ہیں۔\n\n"
             . "📞 *Helpline:* 0300 39 39 581\n"
-            . "🌐 *Portal:* https://usachunian.com";
+            . "🌐 *Portal:* https://kips.usachunian.com";
 
         $res = $whatsAppService->sendTextMessage($phone, $message);
 

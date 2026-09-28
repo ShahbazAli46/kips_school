@@ -906,8 +906,8 @@ class DashboardAttentionSeekerController extends Controller
                 . "*تعلیمی کارکردگی نوٹس | Academic Performance Alert*\n\n"
                 . "محترم والدین / سرپرست،\n"
                 . "Assalam-o-Alaikum Respected Parent,\n\n"
-                . "یہ اطلاع آپ کے بچے کی تعلیمی کارکردگی کے حوالے سے ہے:\n"
-                . "Academic status alert regarding your child:\n\n"
+                . "یہ اطلاع طالب علم کی تعلیمی کارکردگی کے حوالے سے ہے:\n"
+                . "Academic status alert regarding student:\n\n"
                 . "👤 *طالب علم / Student:* {$student->name}\n"
                 . "🔢 *رول نمبر / Roll No:* {$rollNo}\n"
                 . "📚 *کلاس / Class:* {$className}\n"
@@ -915,9 +915,9 @@ class DashboardAttentionSeekerController extends Controller
                 . "📝 *ٹیسٹ کی تعداد / Tests:* {$testsTaken} / {$totalTests}\n"
                 . "📌 *کیفیت / Status:* {$diagnosticNote}\n"
                 . $weakestLine . "\n"
-                . "⚠️ برائے مہربانی اپنے بچے کے تعلیمی تسلسل اور باقاعدگی پر خصوصی توجہ دیں۔ کسی بھی رہنمائی کے لیے اکیڈمی انتظامیہ سے رابطہ فرمائیں۔\n\n"
+                . "⚠️ برائے مہربانی طالب علم کے تعلیمی تسلسل اور باقاعدگی پر خصوصی توجہ دیں۔ کسی بھی رہنمائی کے لیے اکیڈمی انتظامیہ سے رابطہ فرمائیں۔\n\n"
                 . "📞 *Helpline:* 0300 39 39 581\n"
-                . "🌐 *Portal:* https://usachunian.com";
+                . "🌐 *Portal:* https://kips.usachunian.com";
         }
 
         $res = $whatsAppService->sendTextMessage($formattedPhone, $message);

@@ -79,14 +79,14 @@ class SendAbsenteeWhatsAppBatchJob implements ShouldQueue
                         $message = "📢 *KIPS SCHOOL CHUNIAN CAMPUS*\n"
                             . "*غیر حاضری کی اطلاع | Student Absence Alert*\n\n"
                             . "محترم والدین / سرپرست،\n"
-                            . "اطلاع دی جاتی ہے کہ آپ کا بچہ آج اکیڈمی سے غیر حاضر ہے۔\n\n"
+                            . "اطلاع دی جاتی ہے کہ طالب علم آج اکیڈمی سے غیر حاضر ہے۔\n\n"
                             . "👤 *طالب علم / Student:* {$student->name}\n"
                             . "🔢 *رول نمبر / Roll No:* {$rollNo}\n"
                             . "📚 *کلاس / Class:* {$className}\n"
                             . "📅 *تاریخ / Date:* {$formattedDate}\n\n"
                             . "⚠️ باقاعدہ حاضری طالب علم کے تعلیمی تسلسل اور شاندار نتائج کے لیے لازمی ہے۔ اگر چھٹی کی کوئی پیشگی درخواست نہیں تھی تو براہ کرم اکیڈمی انتظامیہ سے رابطہ کریں۔\n\n"
                             . "📞 *Helpline:* 0300 39 39 581\n"
-                            . "🌐 *Portal:* https://usachunian.com";
+                            . "🌐 *Portal:* https://kips.usachunian.com";
 
                         $result = $whatsAppService->sendTextMessage($phone, $message);
 

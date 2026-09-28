@@ -91,7 +91,7 @@ class SendFeeReminderWhatsAppBatchJob implements ShouldQueue
                         $message = "📢 *KIPS SCHOOL CHUNIAN CAMPUS*\n"
                             . "*فیس کی ادائیگی کی یاد دہانی | Fee Due Notice*\n\n"
                             . "محترم والدین / سرپرست،\n"
-                            . "امید ہے آپ خیریت سے ہوں گے۔ برائے مہربانی اپنے بچے کی واجب الادا اکیڈمی فیس کی تفصیلات ملاحظہ فرمائیں:\n\n"
+                            . "امید ہے آپ خیریت سے ہوں گے۔ برائے مہربانی طالب علم کی واجب الادا اکیڈمی فیس کی تفصیلات ملاحظہ فرمائیں:\n\n"
                             . "👤 *طالب علم / Student:* {$student->name}\n"
                             . "🔢 *رول نمبر / Roll No:* {$rollNo}\n"
                             . "📚 *کلاس / Class:* {$className}\n"
@@ -100,7 +100,7 @@ class SendFeeReminderWhatsAppBatchJob implements ShouldQueue
                             . "📅 *مہینہ / Billing Month:* {$formattedMonth}\n\n"
                             . "⚠️ *گزارش:* برائے مہربانی کسی بھی تعطل سے بچنے کے لیے واجب الادا فیس جلد از جلد اکیڈمی آفس میں جمع کروائیں۔ شکریہ!\n\n"
                             . "📞 *Helpline:* 0300 39 39 581\n"
-                            . "🌐 *Portal:* https://usachunian.com";
+                            . "🌐 *Portal:* https://kips.usachunian.com";
 
                         $result = $whatsAppService->sendTextMessage($phone, $message);
 
