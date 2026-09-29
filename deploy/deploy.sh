@@ -51,7 +51,7 @@ bun run build
 
 # Restart Next.js in PM2
 if pm2 list | grep -q "kips-frontend"; then
-    pm2 reload kips-frontend
+    pm2 restart kips-frontend --update-env
 else
     pm2 start "bun run start" --name "kips-frontend" -i 1 --max-memory-restart 300M
     pm2 save
