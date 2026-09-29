@@ -422,17 +422,11 @@ function PrintableSalarySlipContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function PrintableSalarySlipWrapper() {
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
-      <PrintableSalarySlip />
-    </React.Suspense>
-  );
-}
-
-function PrintableSalarySlip() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-500 font-medium">Loading...</p></div>}>
+    <Suspense fallback={<PageLoader text="Loading salary slip..." />}>
       <PrintableSalarySlipContent />
     </Suspense>
   );

@@ -417,9 +417,11 @@ function ResultsContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function ResultsPage() {
   return (
-    <Suspense fallback={<div className="p-10 text-center">Loading filters...</div>}>
+    <Suspense fallback={<PageLoader text="Loading results..." />}>
       <ResultsContent />
     </Suspense>
   );

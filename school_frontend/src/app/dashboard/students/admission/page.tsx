@@ -117,14 +117,14 @@ function StudentAdmissionContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function StudentAdmissionPage() {
   return (
     <Suspense
       fallback={
         <DashboardLayout>
-          <div className="p-8 text-center text-sm font-semibold text-slate-500">
-            Loading Admission Portal...
-          </div>
+          <PageLoader text="Loading admission portal..." />
         </DashboardLayout>
       }
     >

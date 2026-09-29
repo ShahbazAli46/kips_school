@@ -249,17 +249,11 @@ function PrintContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function PrintPageWrapper() {
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
-      <PrintPage />
-    </React.Suspense>
-  );
-}
-
-function PrintPage() {
-  return (
-    <Suspense fallback={<div className="p-10 text-center">Loading printing tools...</div>}>
+    <Suspense fallback={<PageLoader text="Loading print tools..." />}>
       <PrintContent />
     </Suspense>
   );

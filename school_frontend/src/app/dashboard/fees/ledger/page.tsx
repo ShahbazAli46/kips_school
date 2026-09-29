@@ -622,11 +622,13 @@ function LedgerContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function LedgerPage() {
   return (
     <Suspense fallback={
       <DashboardLayout>
-        <div className="p-8 text-center text-gray-500 font-medium">Loading ledger statement...</div>
+        <PageLoader text="Loading ledger statement..." />
       </DashboardLayout>
     }>
       <LedgerContent />

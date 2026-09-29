@@ -237,9 +237,11 @@ function EditAnnouncementForm() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function EditAnnouncementPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<PageLoader text="Loading announcement..." />}>
       <EditAnnouncementForm />
     </Suspense>
   );

@@ -726,15 +726,11 @@ function PrintVouchersContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function PrintVouchersPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-          <div className="w-8 h-8 border-3 border-[#0052cc] border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      }
-    >
+    <Suspense fallback={<PageLoader text="Loading vouchers..." />}>
       <PrintVouchersContent />
     </Suspense>
   );

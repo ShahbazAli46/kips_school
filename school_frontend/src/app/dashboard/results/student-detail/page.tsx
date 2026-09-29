@@ -471,16 +471,11 @@ function StudentResultContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function StudentDetailedResultPage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center">
-          <svg className="animate-spin w-12 h-12 text-[#2563eb] mb-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-          <p className="text-[#2563eb] font-semibold animate-pulse">Loading detailed results...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<PageLoader text="Loading detailed results..." />}>
       <StudentResultContent />
     </Suspense>
   );

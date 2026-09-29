@@ -365,9 +365,11 @@ function ExpensesPageContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function ExpensesPage() {
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
+    <React.Suspense fallback={<PageLoader text="Loading expenses..." />}>
       <ExpensesPageContent />
     </React.Suspense>
   );

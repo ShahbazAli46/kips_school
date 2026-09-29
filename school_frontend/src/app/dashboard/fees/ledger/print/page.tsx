@@ -309,9 +309,11 @@ function PrintLedgerContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function PrintLedgerPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading print statement...</div>}>
+    <Suspense fallback={<PageLoader text="Loading print statement..." />}>
       <PrintLedgerContent />
     </Suspense>
   );

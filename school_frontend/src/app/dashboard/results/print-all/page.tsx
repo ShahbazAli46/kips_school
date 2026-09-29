@@ -234,9 +234,11 @@ function ResultsPrintAllContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function ResultsPrintAllPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+    <Suspense fallback={<PageLoader text="Loading all result cards..." />}>
       <ResultsPrintAllContent />
     </Suspense>
   );

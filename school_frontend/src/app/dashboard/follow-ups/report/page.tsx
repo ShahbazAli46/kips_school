@@ -31,9 +31,11 @@ interface FollowUpReportItem {
   };
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function FollowUpReportPageWrapper() {
   return (
-    <Suspense fallback={<div className="p-10 font-sans text-center text-gray-500">Loading Report Page...</div>}>
+    <Suspense fallback={<PageLoader text="Loading follow-up report..." />}>
       <FollowUpReportContent />
     </Suspense>
   );

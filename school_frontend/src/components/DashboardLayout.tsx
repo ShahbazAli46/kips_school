@@ -63,9 +63,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (!token && !mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#0b1329" }}>
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-semibold text-blue-300 tracking-wider">KIPS School Chunian...</p>
+        <div className="relative flex flex-col items-center">
+          <div className="absolute -inset-4 rounded-3xl bg-blue-500/20 blur-xl animate-pulse" />
+          <div className="relative flex items-center justify-center">
+            <div className="w-20 h-20 rounded-2xl border-2 border-blue-400/30 border-t-blue-400 animate-spin" />
+            <div className="absolute inset-2 bg-white rounded-xl shadow-xl p-2 flex items-center justify-center overflow-hidden">
+              <img
+                src="/logo.png"
+                alt="KIPS School Logo"
+                className="w-full h-full object-contain animate-pulse"
+              />
+            </div>
+          </div>
+          <div className="mt-4 text-center">
+            <h3 className="text-xs font-bold text-white tracking-wider uppercase">
+              KIPS School Chunian
+            </h3>
+          </div>
         </div>
       </div>
     );

@@ -299,10 +299,12 @@ function EditMemoryForm() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function EditMemoryPage() {
   return (
     <DashboardLayout>
-      <Suspense fallback={<div className="p-8 text-center text-xs">Loading Edit Page...</div>}>
+      <Suspense fallback={<PageLoader text="Loading memory..." />}>
         <EditMemoryForm />
       </Suspense>
     </DashboardLayout>

@@ -1049,17 +1049,11 @@ function ManageStudentsPageContent() {
   );
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function ManageStudentsPageWrapper() {
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
-      <ManageStudentsPage />
-    </React.Suspense>
-  );
-}
-
-function ManageStudentsPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<PageLoader text="Loading students..." />}>
       <ManageStudentsPageContent />
     </Suspense>
   );

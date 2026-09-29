@@ -14,9 +14,11 @@ function getAuthHeaders() {
   };
 }
 
+import PageLoader from "@/components/PageLoader";
+
 export default function PrintFollowUpHistoryWrapper() {
   return (
-    <React.Suspense fallback={<div>Loading...</div>}>
+    <React.Suspense fallback={<PageLoader text="Loading follow-up history..." />}>
       <PrintFollowUpHistory />
     </React.Suspense>
   );
