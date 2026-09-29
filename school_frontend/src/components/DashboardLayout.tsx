@@ -9,27 +9,47 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return decodeURIComponent(parts.pop()?.split(";").shift() || "");
+  return null;
+}
+
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("token") || getCookie("token");
+    }
+    return null;
+  });
+  const [role, setRole] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userRole") || getCookie("userRole");
+    }
+    return null;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedRole = localStorage.getItem("userRole");
+    setMounted(true);
+    const storedToken = localStorage.getItem("token") || getCookie("token");
+    const storedRole = localStorage.getItem("userRole") || getCookie("userRole");
 
     if (!storedToken) {
       window.location.href = "/";
       return;
     }
     
-    // Sync to cookie for middleware
-    document.cookie = `token=${storedToken}; path=/; max-age=86400;`;
-    if (storedRole) document.cookie = `userRole=${storedRole}; path=/; max-age=86400;`;
+    // Sync to cookie for SSR & middleware
+    document.cookie = `token=${storedToken}; path=/; max-age=86400; SameSite=Lax;`;
+    if (storedRole) document.cookie = `userRole=${storedRole}; path=/; max-age=86400; SameSite=Lax;`;
 
-    setToken(storedToken);
-    setRole(storedRole);
+    if (storedToken !== token) setToken(storedToken);
+    if (storedRole !== role) setRole(storedRole);
   }, []);
 
   const handleLogout = () => {
@@ -39,6 +59,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
     window.location.href = "/";
   };
+
+  if (!token && !mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#0b1329" }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs font-semibold text-blue-300 tracking-wider">KIPS School Chunian...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!token) return null;
 

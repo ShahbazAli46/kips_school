@@ -7,16 +7,21 @@ import AdminDashboard from "./admin-dashboard/AdminDashboard";
 import ParentDashboard from "./parent/ParentDashboard";
 
 export default function DashboardPage() {
-  const [role, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userRole");
+    }
+    return null;
+  });
   const router = useRouter();
 
   useEffect(() => {
     const userRole = localStorage.getItem("userRole");
-    setRole(userRole);
+    if (userRole !== role) setRole(userRole);
     if (userRole === "6") {
       router.replace("/dashboard/attendance");
     }
-  }, [router]);
+  }, [router, role]);
 
   const renderContent = () => {
     switch (role) {
