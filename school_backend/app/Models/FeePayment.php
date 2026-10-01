@@ -28,16 +28,7 @@ class FeePayment extends Model
         'installment_number'  => 'integer',
     ];
 
-    protected static function booted()
-    {
-        static::saved(function () {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
-        });
 
-        static::deleted(function () {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
-        });
-    }
 
     public function student()
     {
@@ -71,11 +62,13 @@ class FeePayment extends Model
         });
 
         static::saved(function ($feePayment) {
+            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
             $feePayment->updateStudentTotalPaid();
             $feePayment->markSalarySlipsStale();
         });
 
         static::deleted(function ($feePayment) {
+            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
             $feePayment->updateStudentTotalPaid();
             $feePayment->markSalarySlipsStale();
         });

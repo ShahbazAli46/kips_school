@@ -10,10 +10,31 @@ export default function ImportStudentsPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ imported: number; failed: number; errors: string[] } | null>(null);
   const [error, setError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
+      setResult(null);
+      setError("");
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0]);
       setResult(null);
       setError("");
     }
@@ -125,8 +146,14 @@ export default function ImportStudentsPage() {
           </div>
         )}
 
-        <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10" style={{ borderColor: file ? "#2563eb" : "#bfdbfe", background: file ? "rgba(138,50,24,0.02)" : "#fafafa" }}>
-          <svg className="w-12 h-12 mb-4" style={{ color: file ? "#2563eb" : "#cbb3a6" }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+        <div 
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10 transition-colors" 
+          style={{ borderColor: file || isDragging ? "#2563eb" : "#bfdbfe", background: file || isDragging ? "rgba(138,50,24,0.02)" : "#fafafa" }}
+        >
+          <svg className="w-12 h-12 mb-4" style={{ color: file || isDragging ? "#2563eb" : "#cbb3a6" }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
           {file ? (
             <div className="text-center">
               <p className="font-bold text-[#0f224a] mb-1">{file.name}</p>

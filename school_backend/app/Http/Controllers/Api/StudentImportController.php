@@ -474,7 +474,7 @@ class StudentImportController extends Controller
             'r_and_t_charges' => ['name' => 'R & T Charges', 'type' => 'annual', 'keys' => ['R & T Charges', 'r_and_t_charges', 'R&T Charges']],
             'brd_reg_charges' => ['name' => 'Board Reg Charges', 'type' => 'one_time', 'keys' => ['Brd Reg Charges', 'brd_reg_charges', 'Board Reg Charges']],
             'service_charges' => ['name' => 'Service Charges', 'type' => 'monthly', 'keys' => ['Service Charges', 'service_charges']],
-            'exam_charges' => ['name' => 'Exam Charges', 'type' => 'annual', 'keys' => ['Exam Charges', 'exam_charges']],
+            'exam_charges' => ['name' => 'Exam Charges', 'type' => 'annual', 'keys' => ['Exam Charges', 'Exams Charges', 'exam_charges']],
             'lab_charges' => ['name' => 'Lab Charges', 'type' => 'monthly', 'keys' => ['Lab Chanrges', 'Lab Charges', 'lab_charges', 'lab_chanrges']],
             'security_fee' => ['name' => 'Security Fee', 'type' => 'one_time', 'keys' => ['Security fee', 'security_fee', 'Security Fee']],
             'library_charges' => ['name' => 'Library Charges', 'type' => 'annual', 'keys' => ['Lib. Charges', 'lib_charges', 'library_charges', 'Library Charges']],
