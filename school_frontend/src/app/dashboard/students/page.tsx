@@ -875,8 +875,8 @@ function ManageStudentsPageContent() {
                   <th className="text-left px-1 py-3.5 font-semibold text-xs uppercase tracking-wide" style={{ color: "#2563eb" }}>Student</th>
                   <th className="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide hidden sm:table-cell" style={{ color: "#2563eb" }}>Father's Name</th>
                   <th className="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide" style={{ color: "#2563eb" }}>Class</th>
-                  <th className="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide" style={{ color: "#2563eb" }}>Major</th>
-                  <th className="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide hidden md:table-cell" style={{ color: "#2563eb" }}>Subjects</th>
+                  <th className="hidden text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide" style={{ color: "#2563eb" }}>Major</th>
+                  <th className="hidden text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide" style={{ color: "#2563eb" }}>Subjects</th>
                   <th className="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide hidden md:table-cell" style={{ color: "#2563eb" }}>Section</th>
                   <th className="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide hidden lg:table-cell" style={{ color: "#2563eb" }}>Contact</th>
                   <th className="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide" style={{ color: "#2563eb" }}>Status</th>
@@ -948,14 +948,14 @@ function ManageStudentsPageContent() {
                         </span>
                       ) : <span className="text-xs text-[#38bdf8] italic">No Class</span>}
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="hidden px-5 py-3.5">
                       {student.major ? (
                         <span className="inline-block px-2.5 py-1 rounded text-[11px] font-semibold border border-[#bfdbfe] bg-white text-[#1e3a8a]">
                           {student.major.name}
                         </span>
                       ) : <span className="text-xs text-[#38bdf8] italic">—</span>}
                     </td>
-                    <td className="px-5 py-3.5 hidden md:table-cell">
+                    <td className="hidden px-5 py-3.5">
                       {(student.academy_class?.name?.toLowerCase().includes('11th') || student.academy_class?.name?.toLowerCase().includes('12th')) ? (
                         <span className="inline-block px-2.5 py-1 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                           {Number(student.active_subjects_count) || 0} Active

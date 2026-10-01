@@ -364,6 +364,8 @@ class StudentImportController extends Controller
             $imported++; // Treat existing user updates as 'imported'
         }
 
+        \Illuminate\Support\Facades\Cache::increment('students_cache_version');
+
         return response()->json([
             'message' => 'Import completed',
             'imported' => $imported,
@@ -529,6 +531,18 @@ class StudentImportController extends Controller
                 $sectionName = $getVal(['Section', 'section']);
                 $arrear = $getVal(['Arrear', 'arrears', 'arrear', 'pending amount', 'pending']);
                 $tuitionFee = $getVal(['Tuition fee', 'Tuition Fee', 'fee', 'monthly fee', 'tuition']);
+                $mobileRaw = $getVal(['Mobile No.', 'mobile no', 'mobile', 'Mobile No', 'contact_number', 'phone', 'Phone']);
+                
+                $mobile = null;
+                if ($mobileRaw) {
+                    $mobile = trim((string)$mobileRaw);
+                    $mobile = str_replace(['-', ' '], '', $mobile);
+                    if (str_starts_with($mobile, '0')) {
+                        $mobile = '+92' . substr($mobile, 1);
+                    } elseif (!str_starts_with($mobile, '+92')) {
+                        $mobile = '+92' . ltrim($mobile, '+');
+                    }
+                }
 
                 if (empty($name) || strtolower($name) === 'total' || strtolower($name) === 'grand total') {
                     continue;
@@ -579,6 +593,7 @@ class StudentImportController extends Controller
                     $usersToUpdate[$studentId] = [
                         'id' => $studentId,
                         'father_name' => $fatherName,
+                        'contact_number' => $mobile,
                         'class_id' => $classId,
                         'section_id' => $sectionId,
                         'academic_session_id' => $sessionId,
@@ -598,6 +613,7 @@ class StudentImportController extends Controller
                         'name' => $name,
                         'father_name' => $fatherName,
                         'gender' => $gender,
+                        'contact_number' => $mobile,
                         'role_id' => 3,
                         'class_id' => $classId,
                         'section_id' => $sectionId,
@@ -634,6 +650,7 @@ class StudentImportController extends Controller
             foreach ($usersToUpdate as $uid => $uData) {
                 User::where('id', $uid)->update([
                     'father_name' => $uData['father_name'],
+                    'contact_number' => $uData['contact_number'],
                     'class_id' => $uData['class_id'],
                     'section_id' => $uData['section_id'],
                     'academic_session_id' => $uData['academic_session_id'],
@@ -786,6 +803,7 @@ class StudentImportController extends Controller
                 }
             }
 
+            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();

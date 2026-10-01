@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     window.location.href = "/";
   };
 
-  if (!token && !mounted) {
+  if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#0b1329" }}>
         <div className="relative flex flex-col items-center">
