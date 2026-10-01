@@ -55,6 +55,7 @@ class StudentController extends Controller
                       ->orWhere('father_name', 'like', "%{$search}%")
                       ->orWhere('student_cnic', 'like', "%{$search}%")
                       ->orWhere('roll_number', 'like', "%{$search}%")
+                      ->orWhere('erp_reg', 'like', "%{$search}%")
                       ->orWhere('remarks', 'like', "%{$search}%")
                       ->orWhere('contact_number', 'like', "%{$search}%");
                 });
@@ -130,6 +131,7 @@ class StudentController extends Controller
             'name' => 'required|string|max:100',
             'email' => ['nullable', 'email', 'max:100'],
             'student_cnic' => 'nullable|string|max:30',
+            'erp_reg' => 'nullable|string|max:100',
             'dob' => 'required|date',
             'father_name' => 'required|string|max:100',
             'father_cnic' => 'nullable|string|max:30',
@@ -337,6 +339,7 @@ class StudentController extends Controller
             'name' => 'required|string|max:100',
             'email' => ['nullable', 'email', 'max:100'],
             'student_cnic' => 'nullable|string|max:30',
+            'erp_reg' => 'nullable|string|max:100',
             'dob' => 'nullable|date',
             'father_name' => 'required|string|max:100',
             'father_cnic' => 'nullable|string|max:30',

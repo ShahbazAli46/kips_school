@@ -524,7 +524,8 @@ class StudentImportController extends Controller
 
                 $name = $getVal(['Student Name', 'name', 'student_name', 'Student']);
                 $fatherName = $getVal(['Father Name', 'father_name', 'Father']);
-                $erpReg = $getVal(['ERP Reg#', 'erp_reg', 'erp reg#', 'ERP Reg', 'ERP#', 'Reg#']);
+                $erpReg = $getVal(['ERP Reg#', 'erp_reg', 'erp reg#', 'ERP Reg', 'ERP#']);
+                $bForm = $getVal(['B-Form No', 'b-form', 'b form', 'b_form', 'student_cnic', 'cnic', 'CNIC', 'Reg#']);
                 $invoiceNo = $getVal(['Invoice No', 'Invoice No ', 'invoice_no', 'Invoice']);
                 $campus = $getVal(['Campus', 'campus']);
                 $gradeName = $getVal(['Grade', 'grade', 'Class', 'class']);
@@ -599,7 +600,8 @@ class StudentImportController extends Controller
                         'academic_session_id' => $sessionId,
                         'monthly_fee' => $monthlyFeeNum,
                         'pending_amount' => $pendingAmountNum,
-                        'student_cnic' => $erpReg,
+                        'student_cnic' => $bForm,
+                        'erp_reg' => $erpReg,
                         'remarks' => $remarksStr,
                         'fee_items' => $rowFeeItems,
                     ];
@@ -620,7 +622,8 @@ class StudentImportController extends Controller
                         'academic_session_id' => $sessionId,
                         'monthly_fee' => $monthlyFeeNum,
                         'pending_amount' => $pendingAmountNum,
-                        'student_cnic' => $erpReg,
+                        'student_cnic' => $bForm,
+                        'erp_reg' => $erpReg,
                         'email' => $email,
                         'password' => $defaultHash,
                         'remarks' => $remarksStr,
@@ -657,6 +660,7 @@ class StudentImportController extends Controller
                     'monthly_fee' => $uData['monthly_fee'],
                     'pending_amount' => $uData['pending_amount'],
                     'student_cnic' => $uData['student_cnic'],
+                    'erp_reg' => $uData['erp_reg'],
                     'remarks' => $uData['remarks'],
                 ]);
             }

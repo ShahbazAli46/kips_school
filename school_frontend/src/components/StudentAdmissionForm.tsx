@@ -152,6 +152,7 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
   // Section 1: Personal Data
   const [personalData, setPersonalData] = useState({
     student_cnic: "",
+    erp_reg: "",
     name: "",
     dob: "",
     father_cnic: "",
@@ -254,7 +255,8 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
   useEffect(() => {
     if (initialData) {
       setPersonalData({
-        student_cnic: initialData.student_cnic ? formatCNIC(initialData.student_cnic) : "",
+        student_cnic: initialData.student_cnic || "",
+        erp_reg: initialData.erp_reg || "",
         name: initialData.name || "",
         dob: initialData.dob ? String(initialData.dob).slice(0, 10) : "",
         father_cnic: initialData.father_cnic ? formatCNIC(initialData.father_cnic) : "",
@@ -425,6 +427,7 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
     if (confirm("Clear all entered data and start a new admission entry?")) {
       setPersonalData({
         student_cnic: "",
+        erp_reg: "",
         name: "",
         dob: "",
         father_cnic: "",
@@ -680,17 +683,29 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Student CNIC/B-Form
+                  Student CNIC / B-Form
                 </label>
                 <input
                   type="text"
-                  inputMode="numeric"
-                  maxLength={15}
                   placeholder="00000-0000000-0"
                   value={personalData.student_cnic}
-                  onKeyDown={handleNumericOnlyKeyDown}
                   onChange={(e) =>
-                    setPersonalData({ ...personalData, student_cnic: formatCNIC(e.target.value) })
+                    setPersonalData({ ...personalData, student_cnic: e.target.value })
+                  }
+                  className={inputClass()}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  ERP Reg#
+                </label>
+                <input
+                  type="text"
+                  placeholder="24-3-539-67-000..."
+                  value={personalData.erp_reg}
+                  onChange={(e) =>
+                    setPersonalData({ ...personalData, erp_reg: e.target.value })
                   }
                   className={inputClass()}
                 />

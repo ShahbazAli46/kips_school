@@ -34,6 +34,7 @@ interface Student {
   name: string;
   email: string;
   student_cnic?: string | null;
+  erp_reg?: string | null;
   father_name: string | null;
   gender: string | null;
   contact_number: string | null;
@@ -902,7 +903,7 @@ function ManageStudentsPageContent() {
                       />
                     </td>
                     <td className="px-3 py-3.5 text-xs font-mono font-semibold" style={{ color: "#0f224a" }}>
-                      {student.student_cnic || (student.email?.startsWith('erp_') ? student.email.replace('@kips.edu.pk', '').replace('erp_', '') : (student.roll_number ? String(student.roll_number) : String(student.id)))}
+                      {student.erp_reg || student.student_cnic || (student.email?.startsWith('erp_') ? student.email.replace('@kips.edu.pk', '').replace('erp_', '') : (student.roll_number ? String(student.roll_number) : String(student.id)))}
                     </td>
                     <td className="px-1 py-3.5">
                       <div className="flex items-center gap-3">

@@ -48,6 +48,7 @@ class User extends Authenticatable
 
         // School Admission Fields
         'student_cnic',
+        'erp_reg',
         'dob',
         'father_cnic',
         'father_cell',
