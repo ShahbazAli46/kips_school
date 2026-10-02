@@ -17,7 +17,7 @@ class TestCategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|string|in:academy_series,class_test',
+            'type' => 'required|string|in:academy_series,class_test,school_test,rnt',
         ]);
         
         $validated['short_name'] = $validated['name'];
@@ -35,7 +35,7 @@ class TestCategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
-            'type' => 'sometimes|string|in:academy_series,class_test',
+            'type' => 'sometimes|string|in:academy_series,class_test,school_test,rnt',
         ]);
 
         if (isset($validated['name'])) {

@@ -51,10 +51,73 @@ class TestController extends Controller
             ->where('academic_session_id', $validated['academic_session_id'])
             ->count();
             
-        $validated['title'] = $category->name . ' ' . ($count + 1);
+        $validated['title'] = $request->input('title', $category->name . ' ' . ($count + 1));
 
         $test = Test::create($validated);
         return response()->json($test, 201);
+    }
+
+    public function batchStore(Request $request)
+    {
+        $validated = $request->validate([
+            'test_category_id' => 'required|exists:test_categories,id',
+            'academic_session_id' => 'required|exists:academic_sessions,id',
+            'academy_class_id' => 'required|exists:classes,id',
+            'section_id' => 'nullable|exists:sections,id',
+            'major_id' => 'nullable|exists:majors,id',
+            'title' => 'nullable|string|max:255',
+            'tests' => 'required|array|min:1',
+            'tests.*.subject_id' => 'required|exists:subjects,id',
+            'tests.*.date' => 'required|date',
+            'tests.*.total_marks' => 'required|numeric|min:1',
+            'tests.*.passing_marks' => 'nullable|numeric|min:0',
+            'tests.*.syllabus' => 'nullable|string',
+            'tests.*.syllabus_english' => 'nullable|string',
+            'tests.*.syllabus_urdu' => 'nullable|string',
+            'tests.*.title' => 'nullable|string|max:255',
+        ]);
+
+        $category = \App\Models\TestCategory::find($validated['test_category_id']);
+        $createdTests = [];
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $category, &$createdTests) {
+            foreach ($validated['tests'] as $testData) {
+                $count = Test::where('test_category_id', $validated['test_category_id'])
+                    ->where('academy_class_id', $validated['academy_class_id'])
+                    ->where('subject_id', $testData['subject_id'])
+                    ->where('academic_session_id', $validated['academic_session_id'])
+                    ->count();
+
+                $title = !empty($testData['title']) 
+                    ? $testData['title'] 
+                    : (!empty($validated['title']) 
+                        ? $validated['title'] 
+                        : $category->name . ' ' . ($count + 1));
+
+                $test = Test::create([
+                    'test_category_id' => $validated['test_category_id'],
+                    'academic_session_id' => $validated['academic_session_id'],
+                    'academy_class_id' => $validated['academy_class_id'],
+                    'section_id' => $validated['section_id'] ?? null,
+                    'major_id' => $validated['major_id'] ?? null,
+                    'subject_id' => $testData['subject_id'],
+                    'title' => $title,
+                    'date' => $testData['date'],
+                    'total_marks' => $testData['total_marks'],
+                    'passing_marks' => $testData['passing_marks'] ?? 0,
+                    'syllabus' => $testData['syllabus'] ?? null,
+                    'syllabus_english' => $testData['syllabus_english'] ?? null,
+                    'syllabus_urdu' => $testData['syllabus_urdu'] ?? null,
+                ]);
+
+                $createdTests[] = $test;
+            }
+        });
+
+        return response()->json([
+            'message' => 'Successfully created ' . count($createdTests) . ' tests.',
+            'tests' => $createdTests,
+        ], 201);
     }
 
     public function show(Test $test)
@@ -108,10 +171,15 @@ class TestController extends Controller
             ->pluck('major_id')
             ->toArray();
 
-        // If the subject is associated with any majors, only return students of those majors.
-        // Otherwise, it is a common subject, so return all students of the class.
-        if (!empty($associatedMajorIds)) {
-            $query->whereIn('major_id', $associatedMajorIds);
+        // If the test has a specific major, filter by it.
+        // Otherwise, include students with matching majors OR students with no major (general school classes).
+        if ($test->major_id) {
+            $query->where('major_id', $test->major_id);
+        } elseif (!empty($associatedMajorIds)) {
+            $query->where(function($q) use ($associatedMajorIds) {
+                $q->whereNull('major_id')
+                  ->orWhereIn('major_id', $associatedMajorIds);
+            });
         }
         
         $students = $query->with(['section', 'major'])

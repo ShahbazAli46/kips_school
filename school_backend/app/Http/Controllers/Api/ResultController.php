@@ -40,13 +40,17 @@ class ResultController extends Controller
         $results = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')
             ->join('users as students', 'test_marks.student_id', '=', 'students.id')
-            ->join('major_subject', function($join) {
+            ->leftJoin('major_subject', function($join) {
                 $join->on('students.major_id', '=', 'major_subject.major_id')
                      ->on('tests.subject_id', '=', 'major_subject.subject_id');
             })
             ->leftJoin('classes', 'students.class_id', '=', 'classes.id')
             ->leftJoin('sections', 'students.section_id', '=', 'sections.id')
             ->leftJoin('majors', 'students.major_id', '=', 'majors.id')
+            ->where(function($q) {
+                $q->whereNull('students.major_id')
+                  ->orWhereNotNull('major_subject.major_id');
+            })
             ->whereNull('students.deleted_at')
             ->where('students.is_active', 1)
             ->whereIn('tests.id', $testIds);
@@ -190,13 +194,17 @@ class ResultController extends Controller
         $summaryQuery = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')
             ->join('users as students', 'test_marks.student_id', '=', 'students.id')
-            ->join('major_subject', function($join) {
+            ->leftJoin('major_subject', function($join) {
                 $join->on('students.major_id', '=', 'major_subject.major_id')
                      ->on('tests.subject_id', '=', 'major_subject.subject_id');
             })
             ->leftJoin('classes', 'students.class_id', '=', 'classes.id')
             ->leftJoin('sections', 'students.section_id', '=', 'sections.id')
             ->leftJoin('majors', 'students.major_id', '=', 'majors.id')
+            ->where(function($q) {
+                $q->whereNull('students.major_id')
+                  ->orWhereNotNull('major_subject.major_id');
+            })
             ->whereNull('students.deleted_at')
             ->where('students.is_active', 1)
             ->where('students.id', $studentId)
@@ -244,9 +252,13 @@ class ResultController extends Controller
         $allScoresQuery = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')
             ->join('users as students', 'test_marks.student_id', '=', 'students.id')
-            ->join('major_subject', function($join) {
+            ->leftJoin('major_subject', function($join) {
                 $join->on('students.major_id', '=', 'major_subject.major_id')
                      ->on('tests.subject_id', '=', 'major_subject.subject_id');
+            })
+            ->where(function($q) {
+                $q->whereNull('students.major_id')
+                  ->orWhereNotNull('major_subject.major_id');
             })
             ->whereNull('students.deleted_at')
             ->where('students.is_active', 1)
@@ -361,9 +373,13 @@ class ResultController extends Controller
         $allScoresQuery = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')
             ->join('users as students', 'test_marks.student_id', '=', 'students.id')
-            ->join('major_subject', function($join) {
+            ->leftJoin('major_subject', function($join) {
                 $join->on('students.major_id', '=', 'major_subject.major_id')
                      ->on('tests.subject_id', '=', 'major_subject.subject_id');
+            })
+            ->where(function($q) {
+                $q->whereNull('students.major_id')
+                  ->orWhereNotNull('major_subject.major_id');
             })
             ->whereNull('students.deleted_at')
             ->where('students.is_active', 1)

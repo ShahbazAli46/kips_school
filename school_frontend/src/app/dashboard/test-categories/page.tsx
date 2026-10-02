@@ -25,6 +25,19 @@ function getAuthHeaders() {
 }
 
 // ─── Modal Component ──────────────────────────────────────────────────────────
+const CATEGORY_TYPE_OPTIONS = [
+  { label: "Class test", value: "class_test" },
+  { label: "School test", value: "school_test" },
+  { label: "RnT", value: "rnt" },
+];
+
+const getTypeLabel = (type: string) => {
+  const match = CATEGORY_TYPE_OPTIONS.find((opt) => opt.value === type);
+  if (match) return match.label;
+  if (type === "academy_series") return "Academy Series";
+  return type || "N/A";
+};
+
 interface ModalProps {
   title: string;
   onClose: () => void;
@@ -36,7 +49,7 @@ interface ModalProps {
 
 function CategoryModal({ title, onClose, onSubmit, initialData, loading, error }: ModalProps) {
   const [name, setName] = useState(initialData?.name || "");
-  const [type, setType] = useState(initialData?.type || "academy_series");
+  const [type, setType] = useState(initialData?.type || "class_test");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -51,10 +64,7 @@ function CategoryModal({ title, onClose, onSubmit, initialData, loading, error }
               name="type"
               value={type}
               onChange={(name, value) => setType(value as string)}
-              options={[
-                { label: "Academy Series", value: "academy_series" },
-                { label: "Class Test", value: "class_test" }
-              ]}
+              options={CATEGORY_TYPE_OPTIONS}
             />
           </div>
           <div>
@@ -134,7 +144,7 @@ export default function ManageTestCategoriesPage() {
                 <tr key={c.id} className="hover:bg-blue-50">
                   <td className="px-5 py-3 text-gray-500">{c.id}</td>
                   <td className="px-5 py-3 font-semibold text-[#2563eb]">
-                    {c.type === 'class_test' ? 'Class Test' : 'Academy Series'}
+                    {getTypeLabel(c.type)}
                   </td>
                   <td className="px-5 py-3 font-bold text-[#1e3a8a]">{c.name}</td>
                   <td className="px-5 py-3 text-right">

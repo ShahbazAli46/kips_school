@@ -212,4 +212,25 @@ class User extends Authenticatable
             'last_seen_at' => 'datetime',
         ];
     }
+
+    /**
+     * Get the effective admission/enrollment start date (Carbon start of month).
+     */
+    public function getEffectiveEnrollmentStart(?\Carbon\Carbon $sessionStart = null): \Carbon\Carbon
+    {
+        if (!empty($this->admission_month)) {
+            try {
+                $monthStr = strlen($this->admission_month) === 7 ? $this->admission_month . '-01' : $this->admission_month;
+                return \Carbon\Carbon::parse($monthStr)->startOfMonth();
+            } catch (\Throwable $e) {
+                // fallback
+            }
+        }
+
+        $created = $this->created_at ? \Carbon\Carbon::parse($this->created_at)->startOfMonth() : now()->startOfMonth();
+        if ($sessionStart && $sessionStart->gt($created)) {
+            return $sessionStart->copy()->startOfMonth();
+        }
+        return $created;
+    }
 }

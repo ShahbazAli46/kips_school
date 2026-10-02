@@ -229,6 +229,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Fee Vouchers (Individual & Family)
         Route::get('/fees/vouchers', [\App\Http\Controllers\Api\FeeVoucherController::class, 'index']);
+        Route::get('/fees/vouchers/settings', [\App\Http\Controllers\Api\FeeVoucherController::class, 'getSettings']);
+        Route::post('/fees/vouchers/settings', [\App\Http\Controllers\Api\FeeVoucherController::class, 'updateSettings']);
         Route::post('/fees/vouchers/send-whatsapp', [\App\Http\Controllers\Api\FeeVoucherController::class, 'sendWhatsApp']);
 
         // Extra Charges POS, Sales & Payments (Accountant & Super Admin can sell and collect)
@@ -319,6 +321,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Allow fetching classes and sections for dropdowns
         Route::get('/classes', [ClassController::class, 'index']);
+        Route::get('/classes/{class}/subjects', [ClassController::class, 'subjects']);
         Route::get('/sections', [SectionController::class, 'index']);
         Route::get('/academic-sessions', [\App\Http\Controllers\Api\AcademicSessionController::class, 'index']);
         Route::get('/majors', [\App\Http\Controllers\Api\MajorController::class, 'index']);
@@ -329,6 +332,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('academic-sessions', \App\Http\Controllers\Api\AcademicSessionController::class);
         Route::apiResource('test-categories', \App\Http\Controllers\Api\TestCategoryController::class);
         Route::apiResource('test-series', \App\Http\Controllers\Api\TestSeriesController::class);
+        Route::post('/tests/batch', [\App\Http\Controllers\Api\TestController::class, 'batchStore']);
         Route::apiResource('tests', \App\Http\Controllers\Api\TestController::class);
         Route::get('/tests/{test}/students', [\App\Http\Controllers\Api\TestController::class, 'students']);
         Route::apiResource('test-marks', \App\Http\Controllers\Api\TestMarkController::class);

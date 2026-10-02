@@ -35,9 +35,7 @@ class FeeVoucherController extends Controller
      */
     private function calculateStudentVoucher(User $student, string $targetMonthStr, Carbon $sessionStart, Carbon $targetCarbon, string $monthFormatted): array
     {
-        $studentCreated = Carbon::parse($student->created_at)->startOfMonth();
-        $start = $studentCreated->gt($sessionStart) ? $studentCreated : $sessionStart;
-
+        $start = $student->getEffectiveEnrollmentStart($sessionStart);
         $monthlyFee = (float)($student->monthly_fee ?: 0);
 
         // Helper to extract tuition-only amount paid and discount from a collection of FeePayments
@@ -70,21 +68,44 @@ class FeeVoucherController extends Controller
             return [$paid, $discount];
         };
 
-        // Current Month Payments & Discounts for Tuition Fee
-        $currentMonthPayments = $student->feePayments->where('month', $targetMonthStr);
-        [$currentMonthPaid, $currentMonthDiscount] = $getTuitionPaidAndDiscount($currentMonthPayments);
-        $currentMonthNetDue = max(0, $monthlyFee - ($currentMonthPaid + $currentMonthDiscount));
-
-        // Prior Months Tuition Arrears (Months prior to targetMonthStr)
+        $priorMonthItems = [];
         $previousTuitionArrears = 0;
-        if ($start->lt($targetCarbon)) {
-            $priorMonthsCount = $start->diffInMonths($targetCarbon);
-            $priorFeesDue = ($priorMonthsCount * $monthlyFee);
+        $priorMonthsCount = 0;
 
-            $priorPayments = $student->feePayments->filter(fn($p) => $p->month < $targetMonthStr);
-            [$priorPaid, $priorDiscount] = $getTuitionPaidAndDiscount($priorPayments);
+        // If target month is before admission month, no tuition fees apply for that pre-admission period
+        if ($targetCarbon->lt($start)) {
+            $monthlyFee = 0;
+            $currentMonthNetDue = 0;
+            $previousTuitionArrears = 0;
+            $currentMonthPaid = 0;
+            $currentMonthDiscount = 0;
+        } else {
+            // Current Month Payments & Discounts for Tuition Fee
+            $currentMonthPayments = $student->feePayments->where('month', $targetMonthStr);
+            [$currentMonthPaid, $currentMonthDiscount] = $getTuitionPaidAndDiscount($currentMonthPayments);
+            $currentMonthNetDue = max(0, $monthlyFee - ($currentMonthPaid + $currentMonthDiscount));
 
-            $previousTuitionArrears = max(0, $priorFeesDue - ($priorPaid + $priorDiscount));
+            // Prior Months (from admission month up to month before targetMonthStr)
+            if ($start->lt($targetCarbon)) {
+                $curr = $start->copy();
+                while ($curr->lt($targetCarbon)) {
+                    $mStr = $curr->format('Y-m');
+                    $mPayments = $student->feePayments->where('month', $mStr);
+                    [$mPaid, $mDiscount] = $getTuitionPaidAndDiscount($mPayments);
+                    $mNetDue = max(0, $monthlyFee - ($mPaid + $mDiscount));
+
+                    if ($mNetDue > 0) {
+                        $priorMonthItems[] = [
+                            'label' => "Tuition Fee (" . $curr->format('M Y') . ")",
+                            'amount' => $mNetDue,
+                            'head_key' => 'tuition_fee',
+                        ];
+                        $previousTuitionArrears += $mNetDue;
+                    }
+                    $priorMonthsCount++;
+                    $curr->addMonth();
+                }
+            }
         }
 
         // Unpaid non-monthly Fee Heads (Admission Fee, Security Fee, ID Card, Board Reg, Exam Charges, etc.)
@@ -118,7 +139,23 @@ class FeeVoucherController extends Controller
         $feeItems = [];
 
         if ($totalPayable > 0) {
-            // 1. Current Month Tuition Fee (only if there is net due to collect)
+            // 1. Prior Months Tuition Fees (in chronological order)
+            if (!empty($priorMonthItems)) {
+                if (count($priorMonthItems) <= 4) {
+                    foreach ($priorMonthItems as $pItem) {
+                        $feeItems[] = $pItem;
+                    }
+                } else {
+                    $priorEnd = (clone $targetCarbon)->subMonth();
+                    $feeItems[] = [
+                        'label' => "Tuition Arrears (" . $start->format('M Y') . " – " . $priorEnd->format('M Y') . ")",
+                        'amount' => $previousTuitionArrears,
+                        'head_key' => 'tuition_fee',
+                    ];
+                }
+            }
+
+            // 2. Current Month Tuition Fee (only if there is net due to collect)
             if ($currentMonthNetDue > 0) {
                 $feeItems[] = [
                     'label' => "Tuition Fee ({$monthFormatted})",
@@ -127,21 +164,12 @@ class FeeVoucherController extends Controller
                 ];
             }
 
-            // 2. Unpaid non-monthly heads & extra charges
+            // 3. Unpaid non-monthly heads & extra charges
             foreach ($unpaidHeads as $uh) {
                 $feeItems[] = [
                     'label' => $uh['label'],
                     'amount' => $uh['amount'],
                     'head_key' => $uh['head_key'] ?? 'unknown',
-                ];
-            }
-
-            // 3. Previous Tuition Arrears
-            if ($previousTuitionArrears > 0) {
-                $feeItems[] = [
-                    'label' => 'Previous Tuition Arrears',
-                    'amount' => $previousTuitionArrears,
-                    'head_key' => 'tuition_fee',
                 ];
             }
         } else {
@@ -199,7 +227,10 @@ class FeeVoucherController extends Controller
      */
     private function getVouchersData(Request $request): array
     {
-        $targetMonthStr = $request->input('month', Carbon::now()->format('Y-m'));
+        $currentMonthStr = Carbon::now()->format('Y-m');
+        $rawMonth = $request->input('month', $currentMonthStr);
+        // Ensure voucher calculates at least up to the current billing month so vouchers printed today collect all dues up to date
+        $targetMonthStr = ($rawMonth < $currentMonthStr) ? $currentMonthStr : $rawMonth;
         $voucherType = $request->input('type', 'family'); // 'individual' or 'family'
         $dueDate = $request->input('due_date', Carbon::parse($targetMonthStr . '-10')->format('Y-m-d'));
 
@@ -218,9 +249,8 @@ class FeeVoucherController extends Controller
             'section:id,name',
             'major:id,name',
             'feeItems',
-            'feePayments' => function ($q) use ($startMonthStr) {
-                $q->where('month', '>=', $startMonthStr)
-                  ->with(['items', 'studentExtraCharge'])
+            'feePayments' => function ($q) {
+                $q->with(['items', 'studentExtraCharge'])
                   ->select('id', 'student_id', 'month', 'amount_paid', 'discount_amount', 'payment_date');
             }
         ])
@@ -259,8 +289,10 @@ class FeeVoucherController extends Controller
             $calculatedStudents = $calculatedStudents->filter(fn($s) => $s['total_payable'] > 0);
         }
 
+        $footerInstructions = \App\Models\AppSetting::get('voucher_footer_instructions', $this->getDefaultFooterInstructions());
+
         // Individual Student Vouchers (1 voucher per student)
-        $individualVouchers = $calculatedStudents->values()->map(function ($item) use ($targetMonthStr, $monthName, $monthKey, $dueDate) {
+        $individualVouchers = $calculatedStudents->values()->map(function ($item) use ($targetMonthStr, $monthName, $monthKey, $dueDate, $footerInstructions) {
             $voucherNumber = "KIPS-VCH-{$monthKey}-" . str_pad($item['student_id'], 4, '0', STR_PAD_LEFT);
             return array_merge($item, [
                 'voucher_number' => $voucherNumber,
@@ -268,6 +300,7 @@ class FeeVoucherController extends Controller
                 'target_month' => $targetMonthStr,
                 'month_name' => $monthName,
                 'due_date' => $dueDate,
+                'footer_instructions' => $footerInstructions,
             ]);
         });
 
@@ -286,9 +319,61 @@ class FeeVoucherController extends Controller
             'target_month' => $targetMonthStr,
             'month_name' => $monthName,
             'due_date' => $dueDate,
+            'footer_instructions' => $footerInstructions,
             'summary' => $summary,
             'vouchers' => $individualVouchers->values()->all(),
         ];
+    }
+
+    /**
+     * Get default standard voucher footer instructions HTML.
+     */
+    public function getDefaultFooterInstructions(): string
+    {
+        return '<p><strong>PAYMENT INSTRUCTIONS:</strong></p>'
+            . '<ul>'
+            . '<li><strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong>{consumer_no}</strong> across all Pakistani Banking &amp; Wallet Apps (EasyPaisa, JazzCash, Nayapay, SadaPay).</li>'
+            . '<li><strong>BANK COUNTER:</strong> Payable at any United Bank Limited (UBL) Branch nationwide. (A/C: Quality Brands (Pvt) Ltd).</li>'
+            . '<li><strong>LATE SURCHARGE:</strong> Late fee surcharge of Rs. 50/day applicable strictly after due date.</li>'
+            . '<li><strong>HELPLINE:</strong> 0300 39 39 581 | Email: info@kips.edu.pk</li>'
+            . '</ul>';
+    }
+
+    /**
+     * Get voucher settings.
+     * GET /api/fees/vouchers/settings
+     */
+    public function getSettings()
+    {
+        $instructions = \App\Models\AppSetting::get('voucher_footer_instructions', $this->getDefaultFooterInstructions());
+        return response()->json([
+            'voucher_footer_instructions' => $instructions,
+            'default_instructions' => $this->getDefaultFooterInstructions(),
+        ]);
+    }
+
+    /**
+     * Update voucher footer instructions setting.
+     * POST /api/fees/vouchers/settings
+     */
+    public function updateSettings(Request $request)
+    {
+        $request->validate([
+            'voucher_footer_instructions' => 'nullable|string',
+        ]);
+
+        $content = $request->input('voucher_footer_instructions');
+        if ($content === null || trim($content) === '') {
+            $content = $this->getDefaultFooterInstructions();
+        }
+
+        \App\Models\AppSetting::set('voucher_footer_instructions', $content);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Voucher footer instructions updated successfully.',
+            'voucher_footer_instructions' => $content,
+        ]);
     }
 
     /**

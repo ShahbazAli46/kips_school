@@ -83,7 +83,13 @@ class ParentPortalController extends Controller
         foreach ($marksByType as $type => $categoryMarks) {
             if (!$type) continue;
             
-            $name = $type === 'academy_series' ? 'Academy Series' : 'Class Test';
+            $typeNames = [
+                'class_test' => 'Class test',
+                'school_test' => 'School test',
+                'rnt' => 'RnT',
+                'academy_series' => 'Academy Series',
+            ];
+            $name = $typeNames[$type] ?? ucwords(str_replace('_', ' ', $type));
             if (!$categories->contains('id', $type)) {
                 $categories->push((object)[
                     'id' => $type,

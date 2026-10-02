@@ -85,4 +85,23 @@ class ClassController extends Controller
 
         return response()->json(['message' => 'Class deleted successfully']);
     }
+
+    /**
+     * Get subjects for a class.
+     */
+    public function subjects(AcademyClass $class)
+    {
+        $subjectIds = \App\Models\TeacherAssignment::where('class_id', $class->id)
+            ->pluck('subject_id')
+            ->unique()
+            ->values();
+
+        if ($subjectIds->isEmpty()) {
+            $subjects = \App\Models\Subject::orderBy('name')->get();
+        } else {
+            $subjects = \App\Models\Subject::whereIn('id', $subjectIds)->orderBy('name')->get();
+        }
+
+        return response()->json($subjects);
+    }
 }

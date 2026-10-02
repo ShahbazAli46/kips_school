@@ -33,6 +33,7 @@ interface StudentVoucher {
   board_reg_fee?: number;
   admin_charges?: number;
   transport_fee?: number;
+  footer_instructions?: string;
   fee_items?: { label: string; amount: number }[];
 }
 
@@ -305,6 +306,7 @@ function ExecutiveLandscapeSlip({
   targetMonthStr,
   monthNameStr,
   issueDateStr,
+  footerInstructions,
 }: {
   copyTitle: "ACCOUNTS COPY" | "STUDENT COPY" | string;
   student: StudentVoucher;
@@ -312,6 +314,7 @@ function ExecutiveLandscapeSlip({
   targetMonthStr: string;
   monthNameStr: string;
   issueDateStr: string;
+  footerInstructions?: string;
 }) {
   const studentId = student.student_id || 1;
   const voucherNumber = student.voucher_number || `KIPS-VCH-${studentId}`;
@@ -325,6 +328,15 @@ function ExecutiveLandscapeSlip({
 
   const { feeItems, totalPayable } = getFeeItems(student);
   const amountInWords = numberToWordsPKR(totalPayable);
+
+  const rawInstructions = footerInstructions || student.footer_instructions;
+  const customFooterHtml = rawInstructions
+    ? rawInstructions
+        .replace(/\{consumer_no\}/g, consumerNo)
+        .replace(/\{challan_no\}/g, challanNo)
+        .replace(/\{due_date\}/g, dueDateStr)
+        .replace(/\{month_name\}/g, monthNameStr || targetMonthStr)
+    : null;
 
   return (
     <div className="voucher-slip flex flex-col justify-between h-full bg-white text-gray-900 text-[9.5px] leading-[1.3] px-3.5 py-2.5 box-border border-2 border-gray-900 rounded-md shadow-xs relative">
@@ -462,11 +474,20 @@ function ExecutiveLandscapeSlip({
           <div className="flex items-center justify-between gap-2.5 text-[8px] text-gray-800 leading-[1.3]">
             {/* Payment instructions */}
             <div className="flex-1 space-y-0.5">
-              <div className="font-extrabold text-[8.5px] text-gray-900 uppercase">PAYMENT INSTRUCTIONS:</div>
-              <div>• <strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong className="font-mono text-black font-black text-[8.5px]">{consumerNo}</strong> across all Pakistani Banking &amp; Wallet Apps (EasyPaisa, JazzCash, Nayapay, SadaPay).</div>
-              <div>• <strong>BANK COUNTER:</strong> Payable at any United Bank Limited (UBL) Branch nationwide. (A/C: Quality Brands (Pvt) Ltd).</div>
-              <div>• <strong>LATE SURCHARGE:</strong> Late fee surcharge of Rs. 50/day applicable strictly after due date.</div>
-              <div>• <strong>HELPLINE:</strong> 0300 39 39 581 | Email: info@kips.edu.pk</div>
+              {customFooterHtml ? (
+                <div
+                  className="voucher-footer-html"
+                  dangerouslySetInnerHTML={{ __html: customFooterHtml }}
+                />
+              ) : (
+                <>
+                  <div className="font-extrabold text-[8.5px] text-gray-900 uppercase">PAYMENT INSTRUCTIONS:</div>
+                  <div>• <strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong className="font-mono text-black font-black text-[8.5px]">{consumerNo}</strong> across all Pakistani Banking &amp; Wallet Apps (EasyPaisa, JazzCash, Nayapay, SadaPay).</div>
+                  <div>• <strong>BANK COUNTER:</strong> Payable at any United Bank Limited (UBL) Branch nationwide. (A/C: Quality Brands (Pvt) Ltd).</div>
+                  <div>• <strong>LATE SURCHARGE:</strong> Late fee surcharge of Rs. 50/day applicable strictly after due date.</div>
+                  <div>• <strong>HELPLINE:</strong> 0300 39 39 581 | Email: info@kips.edu.pk</div>
+                </>
+              )}
             </div>
 
             {/* Verification Barcode & QR Code */}
@@ -511,6 +532,7 @@ function LandscapeVoucherPage({
   monthName,
   issueDate,
   pageNumber,
+  footerInstructions,
 }: {
   student: StudentVoucher;
   dueDate: string;
@@ -518,6 +540,7 @@ function LandscapeVoucherPage({
   monthName: string;
   issueDate: string;
   pageNumber: number;
+  footerInstructions?: string;
 }) {
   return (
     <div className="voucher-page landscape-a4-page relative bg-white box-border w-full min-h-[210mm] flex flex-col justify-between p-3 box-border">
@@ -531,6 +554,7 @@ function LandscapeVoucherPage({
             targetMonthStr={targetMonth}
             monthNameStr={monthName}
             issueDateStr={issueDate}
+            footerInstructions={footerInstructions}
           />
         </div>
 
@@ -543,6 +567,7 @@ function LandscapeVoucherPage({
             targetMonthStr={targetMonth}
             monthNameStr={monthName}
             issueDateStr={issueDate}
+            footerInstructions={footerInstructions}
           />
         </div>
       </div>
@@ -648,6 +673,28 @@ function PrintVouchersContent() {
             size: A4 landscape;
             margin: 3mm 4mm;
           }
+          .voucher-footer-html p {
+            margin: 0 0 2px 0;
+          }
+          .voucher-footer-html ul,
+          .voucher-footer-html ol {
+            margin: 0 0 2px 0;
+            padding-left: 12px;
+          }
+          .voucher-footer-html li {
+            margin-bottom: 1px;
+          }
+        }
+        .voucher-footer-html p {
+          margin: 0 0 2px 0;
+        }
+        .voucher-footer-html ul,
+        .voucher-footer-html ol {
+          margin: 0 0 2px 0;
+          padding-left: 12px;
+        }
+        .voucher-footer-html li {
+          margin-bottom: 1px;
         }
       `}</style>
 
@@ -716,6 +763,7 @@ function PrintVouchersContent() {
                   monthName={monthName}
                   issueDate={issueDate}
                   pageNumber={idx + 1}
+                  footerInstructions={student.footer_instructions || summaryData?.footer_instructions}
                 />
               </div>
             ))}

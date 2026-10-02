@@ -207,6 +207,17 @@
             color: #1f2937;
             line-height: 1.35;
         }
+        .guide-text p {
+            margin: 0 0 2px 0;
+            padding: 0;
+        }
+        .guide-text ul, .guide-text ol {
+            margin: 0 0 2px 0;
+            padding-left: 10px;
+        }
+        .guide-text li {
+            margin-bottom: 1px;
+        }
 
         /* Barcode simulation */
         .barcode-box {
@@ -498,11 +509,22 @@
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
                                 <td class="guide-text" style="width: 72%; vertical-align: top;">
-                                    <strong>PAYMENT INSTRUCTIONS:</strong><br>
-                                    &bull; <strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong class="font-mono">{{ $consumerNo }}</strong> (EasyPaisa, JazzCash, Nayapay, SadaPay, Banking Apps).<br>
-                                    &bull; <strong>BANK COUNTER:</strong> Payable at any UBL Branch nationwide (A/C: Quality Brands (Pvt) Ltd).<br>
-                                    &bull; <strong>LATE SURCHARGE:</strong> Rs. 50/day applicable after due date.<br>
-                                    &bull; <strong>HELPLINE:</strong> 0300 39 39 581 | info@kips.edu.pk
+                                    @php
+                                        $customFooter = $voucher['footer_instructions'] ?? null;
+                                        if ($customFooter) {
+                                            $customFooter = str_replace('{consumer_no}', $consumerNo, $customFooter);
+                                            $customFooter = str_replace('{challan_no}', $challanNo, $customFooter);
+                                        }
+                                    @endphp
+                                    @if(!empty($customFooter))
+                                        {!! $customFooter !!}
+                                    @else
+                                        <strong>PAYMENT INSTRUCTIONS:</strong><br>
+                                        &bull; <strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong class="font-mono">{{ $consumerNo }}</strong> (EasyPaisa, JazzCash, Nayapay, SadaPay, Banking Apps).<br>
+                                        &bull; <strong>BANK COUNTER:</strong> Payable at any UBL Branch nationwide (A/C: Quality Brands (Pvt) Ltd).<br>
+                                        &bull; <strong>LATE SURCHARGE:</strong> Rs. 50/day applicable after due date.<br>
+                                        &bull; <strong>HELPLINE:</strong> 0300 39 39 581 | info@kips.edu.pk
+                                    @endif
                                 </td>
                                 <td class="barcode-box" style="width: 28%;">
                                     <div style="font-size: 5.5px; font-family: monospace; font-weight: bold; color: #111827; letter-spacing: 1px; border: 1px solid #111827; padding: 3px 2px; background: #ffffff;">

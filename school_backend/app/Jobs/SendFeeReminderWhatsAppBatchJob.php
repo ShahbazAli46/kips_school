@@ -63,7 +63,7 @@ class SendFeeReminderWhatsAppBatchJob implements ShouldQueue
                 }], "discount_amount")
                 ->selectRaw("
                     users.*,
-                    (TIMESTAMPDIFF(MONTH, DATE_FORMAT(GREATEST(created_at, ?), \"%Y-%m-01\"), DATE_FORMAT(CURDATE(), \"%Y-%m-01\")) + 1) as total_months
+                    (TIMESTAMPDIFF(MONTH, DATE_FORMAT(GREATEST(COALESCE(STR_TO_DATE(CONCAT(admission_month, '-01'), '%Y-%m-%d'), created_at), ?), \"%Y-%m-01\"), DATE_FORMAT(CURDATE(), \"%Y-%m-01\")) + 1) as total_months
                 ", [$startDate])
                 ->find($studentId);
 

@@ -281,11 +281,14 @@ class FeePaymentController extends Controller
             $currentMonthNetDue = max(0, $monthlyFee - ($currentMonthTuitionPaid + $currentMonthTuitionDiscount));
 
             // Prior months tuition arrears
-            $studentCreated = \Carbon\Carbon::parse($student->created_at);
-            $start = ($studentCreated->gt($sessionStart) ? $studentCreated : $sessionStart)->copy()->startOfMonth();
+            $start = $student->getEffectiveEnrollmentStart($sessionStart);
             $previousTuitionArrears = 0;
 
-            if ($start->lt($targetCarbon)) {
+            if ($targetCarbon->lt($start)) {
+                $monthlyFee = 0;
+                $currentMonthNetDue = 0;
+                $previousTuitionArrears = 0;
+            } elseif ($start->lt($targetCarbon)) {
                 $priorMonthsCount = $start->diffInMonths($targetCarbon);
                 $priorFeesDue = ($priorMonthsCount * $monthlyFee);
 
@@ -391,11 +394,10 @@ class FeePaymentController extends Controller
         $ledger = [];
         $monthlyFee = (float)($student->monthly_fee ?: 0);
         
-        $studentCreated = \Carbon\Carbon::parse($student->created_at);
         $sessionStart = \Carbon\Carbon::parse($sessionStartDate);
-        $start = ($studentCreated->gt($sessionStart) ? $studentCreated : $sessionStart)->copy()->startOfMonth();
+        $start = $student->getEffectiveEnrollmentStart($sessionStart);
         $end = now()->startOfMonth();
-        $monthsEnrolled = $start->diffInMonths($end) + 1;
+        $monthsEnrolled = max(1, $start->diffInMonths($end) + 1);
         $totalPaid = (float)$payments->sum('amount_paid');
         $totalDiscount = (float)$payments->sum('discount_amount');
 
@@ -721,7 +723,7 @@ class FeePaymentController extends Controller
             }], "discount_amount")
             ->selectRaw("
                 users.*,
-                (TIMESTAMPDIFF(MONTH, DATE_FORMAT(GREATEST(created_at, ?), \"%Y-%m-01\"), DATE_FORMAT(CURDATE(), \"%Y-%m-01\")) + 1) as total_months
+                (TIMESTAMPDIFF(MONTH, DATE_FORMAT(GREATEST(COALESCE(STR_TO_DATE(CONCAT(admission_month, '-01'), '%Y-%m-%d'), created_at), ?), \"%Y-%m-01\"), DATE_FORMAT(CURDATE(), \"%Y-%m-01\")) + 1) as total_months
             ", [$startDate])
             ->findOrFail($studentId);
 

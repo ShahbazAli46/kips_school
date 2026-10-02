@@ -148,6 +148,8 @@ function ErrorModal({ message, onClose }: { message: string, onClose: () => void
 
 export default function MarksEntryPage() {
   const [tests, setTests] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
   const [selectedTestId, setSelectedTestId] = useState<string>("");
   const [selectedTest, setSelectedTest] = useState<any>(null);
   
@@ -168,8 +170,18 @@ export default function MarksEntryPage() {
   const fetchTests = useCallback(async () => {
     setLoadingTests(true);
     try {
-      const res = await fetch(`${API}/tests`, { headers: getAuthHeaders() });
-      setTests(await res.json());
+      const [resTests, resCls, resSubj] = await Promise.all([
+        fetch(`${API}/tests`, { headers: getAuthHeaders() }),
+        fetch(`${API}/classes`, { headers: getAuthHeaders() }),
+        fetch(`${API}/subjects`, { headers: getAuthHeaders() }),
+      ]);
+      const dataTests = await resTests.json();
+      const dataCls = await resCls.json();
+      const dataSubj = await resSubj.json();
+
+      setTests(Array.isArray(dataTests) ? dataTests : []);
+      setClasses(Array.isArray(dataCls) ? dataCls : []);
+      setSubjects(Array.isArray(dataSubj) ? dataSubj : []);
     } catch { } finally { setLoadingTests(false); }
   }, []);
 
@@ -413,12 +425,10 @@ export default function MarksEntryPage() {
                 }}
                 searchable={true}
                 placeholder="All Classes"
-                options={Array.from(new Set(tests.map(t => t.academy_class?.id)))
-                  .filter(Boolean)
-                  .map(id => {
-                    const cls = tests.find(t => t.academy_class?.id === id)?.academy_class;
-                    return { label: cls.name, value: cls.id };
-                  })}
+                options={[
+                  { label: "All Classes", value: "" },
+                  ...classes.map(cls => ({ label: cls.name, value: cls.id }))
+                ]}
               />
             </div>
             <div>
@@ -432,12 +442,10 @@ export default function MarksEntryPage() {
                 }}
                 searchable={true}
                 placeholder="All Subjects"
-                options={Array.from(new Set(tests.map(t => t.subject?.id)))
-                  .filter(Boolean)
-                  .map(id => {
-                    const sub = tests.find(t => t.subject?.id === id)?.subject;
-                    return { label: sub.name, value: sub.id };
-                  })}
+                options={[
+                  { label: "All Subjects", value: "" },
+                  ...subjects.map(sub => ({ label: sub.name, value: sub.id }))
+                ]}
               />
             </div>
             <div>

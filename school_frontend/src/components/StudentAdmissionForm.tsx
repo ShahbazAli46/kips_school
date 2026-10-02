@@ -255,7 +255,7 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
   useEffect(() => {
     if (initialData) {
       setPersonalData({
-        student_cnic: initialData.student_cnic || "",
+        student_cnic: initialData.student_cnic ? formatCNIC(initialData.student_cnic) : "",
         erp_reg: initialData.erp_reg || "",
         name: initialData.name || "",
         dob: initialData.dob ? String(initialData.dob).slice(0, 10) : "",
@@ -687,10 +687,13 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={15}
                   placeholder="00000-0000000-0"
                   value={personalData.student_cnic}
+                  onKeyDown={handleNumericOnlyKeyDown}
                   onChange={(e) =>
-                    setPersonalData({ ...personalData, student_cnic: e.target.value })
+                    setPersonalData({ ...personalData, student_cnic: formatCNIC(e.target.value) })
                   }
                   className={inputClass()}
                 />
@@ -1617,12 +1620,10 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
               <button
                 type="button"
                 onClick={() => {
-                  const month =
-                    createdStudent.admission_month ||
-                    streamData.admission_month ||
-                    new Date().toISOString().slice(0, 7);
+                  const now = new Date();
+                  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
                   const voucherPrintUrl = `/dashboard/fees/vouchers/print?month=${encodeURIComponent(
-                    month
+                    currentMonth
                   )}&selected_keys=${createdStudent.id}`;
                   window.open(voucherPrintUrl, "_blank");
                   setShowSuccessModal(false);

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Printer } from "lucide-react";
+import { Calendar as CalendarIcon, Printer, Plus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -378,7 +379,12 @@ export default function ManageTestsPage() {
           >
             <Printer size={18} /> Print Schedule / PDF
           </button>
-          <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-[#2563eb] hover:bg-[#1e3a8a] text-white rounded-lg font-medium shadow-md active:scale-95 transition-all">+ Add Test</button>
+          <Link
+            href="/dashboard/tests/create"
+            className="px-4 py-2 bg-[#2563eb] hover:bg-[#1e3a8a] text-white rounded-lg font-medium shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+          >
+            <Plus size={18} /> Add Test
+          </Link>
         </div>
       </div>
 
