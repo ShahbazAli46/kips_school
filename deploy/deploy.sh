@@ -7,6 +7,8 @@
 
 set -e
 
+export PATH="$PATH:/root/.bun/bin:$HOME/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+
 PROJECT_ROOT="/var/www/kips"
 BACKEND_DIR="$PROJECT_ROOT/school_backend"
 FRONTEND_DIR="$PROJECT_ROOT/school_frontend"
