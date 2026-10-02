@@ -16,7 +16,7 @@ function getAuthHeaders() {
   };
 }
 
-interface AcademyClass { id: number; name: string; }
+interface AcademyClass { id: number; name: string; sections?: Section[]; }
 interface Major { id: number; name: string; }
 interface Section { id: number; name: string; }
 interface Student {
@@ -790,18 +790,29 @@ export default function FeesPage() {
           <CustomDropdown 
             name="class_id"
             value={filterClassId} 
-            onChange={(_, val) => setFilterClassId(val ? Number(val) : "")}
+            onChange={(_, val) => {
+              setFilterClassId(val ? Number(val) : "");
+              setFilterSectionId("");
+            }}
             className="min-w-[140px]"
             options={[{label: "All Classes", value: ""}, ...classes.map(c => ({label: c.name, value: c.id}))]}
           />
           
-          <CustomDropdown 
-            name="section_id"
-            value={filterSectionId} 
-            onChange={(_, val) => setFilterSectionId(val ? Number(val) : "")}
-            className="min-w-[140px]"
-            options={[{label: "All Sections", value: ""}, ...sections.map(s => ({label: s.name, value: s.id}))]}
-          />
+          {(() => {
+            const availableSections = filterClassId 
+              ? classes.find(c => c.id === filterClassId)?.sections || [] 
+              : sections;
+            
+            return (
+              <CustomDropdown 
+                name="section_id"
+                value={filterSectionId} 
+                onChange={(_, val) => setFilterSectionId(val ? Number(val) : "")}
+                className="min-w-[140px]"
+                options={[{label: "All Sections", value: ""}, ...availableSections.map(s => ({label: s.name, value: s.id}))]}
+              />
+            );
+          })()}
 
           <CustomDropdown 
             name="status"

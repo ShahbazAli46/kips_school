@@ -816,7 +816,10 @@ function ManageStudentsPageContent() {
           <CustomDropdown
             name="filterClassId"
             value={filterClassId}
-            onChange={(n, v) => setFilterClassId(v ? Number(v) : "")}
+            onChange={(n, v) => {
+              setFilterClassId(v ? Number(v) : "");
+              setFilterSectionId("");
+            }}
             placeholder="All Classes"
             className="min-w-[160px]"
             options={[{ label: "All Classes", value: "" }, ...classes.map(c => ({ label: c.name, value: c.id }))]}
@@ -831,14 +834,21 @@ function ManageStudentsPageContent() {
             options={[{ label: "All Majors", value: "" }, ...majors.map(m => ({ label: m.name, value: m.id }))]}
           />
           
-          <CustomDropdown
-            name="filterSectionId"
-            value={filterSectionId}
-            onChange={(n, v) => setFilterSectionId(v ? Number(v) : "")}
-            placeholder="All Sections"
-            className="min-w-[160px]"
-            options={[{ label: "All Sections", value: "" }, ...sections.map(s => ({ label: s.name, value: s.id }))]}
-          />
+          {(() => {
+            const availableSections = filterClassId 
+              ? classes.find(c => c.id === filterClassId)?.sections || [] 
+              : sections;
+            return (
+              <CustomDropdown
+                name="filterSectionId"
+                value={filterSectionId}
+                onChange={(n, v) => setFilterSectionId(v ? Number(v) : "")}
+                placeholder="All Sections"
+                className="min-w-[160px]"
+                options={[{ label: "All Sections", value: "" }, ...availableSections.map(s => ({ label: s.name, value: s.id }))]}
+              />
+            );
+          })()}
         </div>
       </div>
 
