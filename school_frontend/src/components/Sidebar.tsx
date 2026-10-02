@@ -511,12 +511,17 @@ export default function Sidebar({ role, isOpen, onClose, currentPath }: SidebarP
 
         {/* Footer */}
         <div
-          className="px-5 py-4 shrink-0"
+          className="px-5 py-4 shrink-0 flex flex-col items-center gap-1"
           style={{ borderTop: "1px solid rgba(107,37,20,0.4)" }}
         >
           <p className="text-xs text-center" style={{ color: "#1e40af" }}>
             Topper&apos;s First Choice
           </p>
+          {process.env.NEXT_PUBLIC_BUILD_TIME && (
+            <p className="text-[10px] text-center opacity-50" style={{ color: "#1e40af" }}>
+              Build: {process.env.NEXT_PUBLIC_BUILD_TIME}
+            </p>
+          )}
         </div>
       </aside>
     </>

@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  env: {
+    NEXT_PUBLIC_BUILD_TIME: new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" }),
+  }
 };
 
 export default nextConfig;
