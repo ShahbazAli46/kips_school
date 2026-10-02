@@ -835,7 +835,7 @@ function ManageStudentsPageContent() {
           />
           
           {(() => {
-            const availableSections = filterClassId 
+            const availableSections: Section[] = filterClassId 
               ? classes.find(c => c.id === filterClassId)?.sections || [] 
               : sections;
             return (
