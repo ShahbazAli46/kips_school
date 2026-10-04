@@ -16,16 +16,7 @@ class StudentSessionEnrollment extends Model
         'monthly_fee',
     ];
 
-    protected static function booted()
-    {
-        static::saved(function () {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
-        });
 
-        static::deleted(function () {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
-        });
-    }
 
     public function student()
     {

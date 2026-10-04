@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import ExcelResultCard from "@/components/ExcelResultCard";
 import {
   BarChart,
   Bar,
@@ -389,8 +390,56 @@ function StudentResultContent() {
           </div>
         )}
 
-        {/* Graph Section */}
-        {!loadingCategory && details.length > 0 && (
+        {/* View Switcher: Official Result Card vs Analytics */}
+        <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-[#bfdbfe] shadow-xs">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedTestTitle("result_card")}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                selectedTestTitle === "result_card" || selectedTestTitle === "all"
+                  ? "bg-blue-700 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              📄 Official Result Card (Excel Design)
+            </button>
+            <button
+              onClick={() => setSelectedTestTitle("analytics")}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                selectedTestTitle === "analytics"
+                  ? "bg-blue-700 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+              }`}
+            >
+              📊 Performance Analytics
+            </button>
+          </div>
+
+          <Link
+            href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}`}
+            target="_blank"
+            className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
+          >
+            Open Standalone Print View &rarr;
+          </Link>
+        </div>
+
+        {/* 1. Official Excel Result Card View */}
+        {(selectedTestTitle === "result_card" || selectedTestTitle === "all") && !loadingCategory && (
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#bfdbfe]">
+            <ExcelResultCard
+              student={student}
+              subjects={details}
+              tests={individualTests}
+              categoryTitle={categories.find((c) => c.id.toString() === category)?.name || "First Term"}
+              sessionTitle={fallbackProfile?.academic_session?.name || "Session 2026-27"}
+              showChart={false}
+            />
+          </div>
+        )}
+
+        {/* 2. Custom Graph Section */}
+        {selectedTestTitle === "analytics" && !loadingCategory && details.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-[#bfdbfe] p-6">
             <h3 className="text-lg font-black text-[#1e3a8a] mb-6 flex items-center gap-2">
               <svg className="w-5 h-5 text-[#2563eb]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
@@ -399,16 +448,6 @@ function StudentResultContent() {
             
             {testTitles.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                <button
-                  onClick={() => setSelectedTestTitle("all")}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                    selectedTestTitle === "all"
-                      ? "bg-[#2563eb] text-white shadow-md"
-                      : "bg-[#f0f4f8] text-[#2563eb] border border-[#bfdbfe] hover:bg-blue-100"
-                  }`}
-                >
-                  Overall (Aggregate)
-                </button>
                 {testTitles.map((title: any) => (
                   <button
                     key={title}

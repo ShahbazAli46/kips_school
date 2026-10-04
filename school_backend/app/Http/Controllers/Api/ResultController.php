@@ -116,7 +116,24 @@ class ResultController extends Controller
             'test_category_id' => 'required',
         ]);
 
-        $student = DB::table('users')->find($studentId);
+        $student = DB::table('users as students')
+            ->leftJoin('classes', 'students.class_id', '=', 'classes.id')
+            ->leftJoin('sections', 'students.section_id', '=', 'sections.id')
+            ->leftJoin('academic_sessions', 'students.academic_session_id', '=', 'academic_sessions.id')
+            ->leftJoin('majors', 'students.major_id', '=', 'majors.id')
+            ->where('students.id', $studentId)
+            ->select(
+                'students.id',
+                'students.name',
+                'students.father_name',
+                'students.roll_number',
+                'students.image',
+                'classes.name as class_name',
+                'sections.name as section_name',
+                'academic_sessions.name as session_name',
+                'majors.name as major_name'
+            )
+            ->first();
 
         $query = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')
@@ -125,12 +142,15 @@ class ResultController extends Controller
             ->where('tests.academic_session_id', $validated['academic_session_id'])
             ->where('tests.academy_class_id', $validated['academy_class_id']);
 
-        if ($student && $student->major_id) {
-            $query->whereIn('tests.subject_id', function ($q) use ($student) {
-                $q->select('subject_id')
-                  ->from('major_subject')
-                  ->where('major_id', $student->major_id);
-            });
+        if ($student && !empty($student->major_name)) {
+            $majorId = DB::table('users')->where('id', $studentId)->value('major_id');
+            if ($majorId) {
+                $query->whereIn('tests.subject_id', function ($q) use ($majorId) {
+                    $q->select('subject_id')
+                      ->from('major_subject')
+                      ->where('major_id', $majorId);
+                });
+            }
         }
 
         if ($validated['test_category_id'] !== 'all') {
@@ -159,26 +179,86 @@ class ResultController extends Controller
         $details->transform(function ($item) {
             $item->total_obtained = (float) $item->total_obtained;
             $item->total_max = (float) $item->total_max;
+            $item->absents = (int) $item->absents;
             $item->percentage = $item->total_max > 0 ? round(($item->total_obtained / $item->total_max) * 100, 2) : 0;
+            
+            // Standard KIPS grading scale from Excel
+            if ($item->percentage > 85) $item->grade = 'A+';
+            elseif ($item->percentage > 75) $item->grade = 'A';
+            elseif ($item->percentage > 65) $item->grade = 'B';
+            elseif ($item->percentage > 50) $item->grade = 'C';
+            elseif ($item->percentage > 40) $item->grade = 'D';
+            elseif ($item->percentage > 32) $item->grade = 'E';
+            else $item->grade = 'Fail';
+            
             return $item;
         });
 
-        // Fetch individual tests
+        // Fetch individual tests in chronological order
         $individualTests = $individualTestsQuery->select(
             'tests.id as test_id',
             'tests.title as test_title',
             'tests.date as test_date',
+            'subjects.id as subject_id',
             'subjects.name as subject_name',
             'test_marks.obtained_marks',
             'tests.total_marks',
             'test_marks.is_absent'
         )
-        ->orderBy('tests.date', 'desc')
+        ->orderBy('tests.date', 'asc')
         ->get();
 
+        // Extract distinct test rounds / dates
+        $distinctRounds = [];
+        foreach ($individualTests as $t) {
+            $key = $t->test_title ?: ('Test ' . $t->test_id);
+            if (!isset($distinctRounds[$key])) {
+                $distinctRounds[$key] = [
+                    'title' => $key,
+                    'date' => $t->test_date,
+                    'total_marks' => (float)$t->total_marks
+                ];
+            }
+        }
+        $rounds = array_values($distinctRounds);
+
+        // Compute overall summary
+        $totalMax = (float) $details->sum('total_max');
+        $totalObtained = (float) $details->sum('total_obtained');
+        $overallPercentage = $totalMax > 0 ? round(($totalObtained / $totalMax) * 100, 2) : 0;
+        $totalAbsents = (int) $details->sum('absents');
+
+        // Overall Grade
+        if ($overallPercentage > 85) $overallGrade = 'A+';
+        elseif ($overallPercentage > 75) $overallGrade = 'A';
+        elseif ($overallPercentage > 65) $overallGrade = 'B';
+        elseif ($overallPercentage > 50) $overallGrade = 'C';
+        elseif ($overallPercentage > 40) $overallGrade = 'D';
+        elseif ($overallPercentage > 32) $overallGrade = 'E';
+        else $overallGrade = 'Fail';
+
+        // Attendance remark from Excel formula
+        if ($totalAbsents < 1) $attendanceRemark = 'Excellent';
+        elseif ($totalAbsents == 1) $attendanceRemark = 'V. Good';
+        elseif ($totalAbsents == 2) $attendanceRemark = 'Good';
+        elseif ($totalAbsents == 3) $attendanceRemark = 'Satisfactory';
+        else $attendanceRemark = 'Poor';
+
+        $overallSummary = [
+            'total_max' => $totalMax,
+            'total_obtained' => $totalObtained,
+            'percentage' => $overallPercentage,
+            'grade' => $overallGrade,
+            'total_absents' => $totalAbsents,
+            'attendance_remark' => $attendanceRemark,
+        ];
+
         return response()->json([
+            'student' => $student,
             'subjects' => $details,
-            'tests' => $individualTests
+            'tests' => $individualTests,
+            'rounds' => $rounds,
+            'overall_summary' => $overallSummary,
         ]);
     }
 

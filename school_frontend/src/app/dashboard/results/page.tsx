@@ -397,12 +397,27 @@ function ResultsContent() {
                       <td className="px-5 py-3 text-right text-[#1e40af] font-semibold">{r.total_obtained} <span className="text-gray-400 font-normal">/ {r.total_max}</span></td>
                       <td className="px-5 py-3 text-right font-bold text-[#2563eb]">{r.percentage}%</td>
                       <td className="px-5 py-3 text-center">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`); }} 
-                          className="bg-white border border-[#bfdbfe] text-[#2563eb] hover:bg-[#f0f4f8] transition px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold whitespace-nowrap"
-                        >
-                          View Details
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`); }} 
+                            className="bg-white border border-[#bfdbfe] text-[#2563eb] hover:bg-[#f0f4f8] transition px-2.5 py-1 rounded-lg shadow-xs text-xs font-bold whitespace-nowrap"
+                          >
+                            Details
+                          </button>
+                          <a
+                            href={`/dashboard/results/print?student_id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-blue-600 text-white hover:bg-blue-700 transition px-2.5 py-1 rounded-lg shadow-xs text-xs font-bold whitespace-nowrap flex items-center gap-1"
+                            title="Print Official Excel Result Card"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            Card
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   ))}

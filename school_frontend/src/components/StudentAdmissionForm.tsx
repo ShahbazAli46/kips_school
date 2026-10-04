@@ -21,6 +21,7 @@ function getAuthHeaders(isFormData = false) {
 
 export const STANDARD_FEE_HEADS = [
   // Row 1 (8 heads)
+  { key: "registration_fee", label: "Reg Fee", defaultActual: 0 },
   { key: "adm_fee", label: "Adm Fee", defaultActual: 0 },
   { key: "security_fee", label: "Security Fee", defaultActual: 0 },
   { key: "tuition_fee", label: "Tuition Fee", defaultActual: 0 },
@@ -28,8 +29,8 @@ export const STANDARD_FEE_HEADS = [
   { key: "ac_charges", label: "AC Charges", defaultActual: 0 },
   { key: "library_charges", label: "Library Charges", defaultActual: 0 },
   { key: "lim_charges", label: "LIM Charges", defaultActual: 0 },
+  // Row 2 (8 heads)
   { key: "fine", label: "Fine", defaultActual: 0 },
-  // Row 2 (7 heads)
   { key: "lab_charges", label: "Lab Charges", defaultActual: 0 },
   { key: "exam_charges", label: "Exam Charges", defaultActual: 0 },
   { key: "id_card_charges", label: "ID Card Charges", defaultActual: 0 },
@@ -566,9 +567,9 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
 
   const progressPercentage = (currentStep / 4) * 100;
 
-  // Split heads into 2 balanced rows (8 and 7) for step 3
+  // Split heads into 2 balanced rows (8 and 8) for step 3
   const group1Heads = STANDARD_FEE_HEADS.slice(0, 8);
-  const group2Heads = STANDARD_FEE_HEADS.slice(8, 15);
+  const group2Heads = STANDARD_FEE_HEADS.slice(8, 16);
 
   const group1ActualTotal = group1Heads.reduce((acc, h) => acc + (feeMatrix[h.key]?.actual || 0), 0);
   const group1DiscountTotal = group1Heads.reduce((acc, h) => acc + (feeMatrix[h.key]?.discount || 0), 0);
@@ -1033,7 +1034,7 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
           <div className="bg-slate-50 px-4 sm:px-6 py-2.5 border-b border-slate-200 flex items-center justify-between">
             <div>
               <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800">
-                Step 3: Fee Structure (15 Heads Matrix)
+                Step 3: Fee Structure (16 Heads Matrix)
               </h3>
             </div>
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
@@ -1126,15 +1127,15 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
               </table>
             </div>
 
-            {/* Box 2: Heads 9 - 15 (7 Columns + 1 Summary Column = 8 Columns matching Box 1) */}
+            {/* Box 2: Heads 9 - 16 (8 Columns + 1 Summary Column = 9 Columns) */}
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50 shadow-2xs">
               <table className="w-full border-collapse table-fixed text-xs">
                 <colgroup>
                   <col style={{ width: "68px" }} />
                   {group2Heads.map((h) => (
-                    <col key={h.key} style={{ width: "calc((100% - 68px) / 8)" }} />
+                    <col key={h.key} style={{ width: "calc((100% - 68px) / 9)" }} />
                   ))}
-                  <col style={{ width: "calc((100% - 68px) / 8)" }} />
+                  <col style={{ width: "calc((100% - 68px) / 9)" }} />
                 </colgroup>
                 <thead>
                   <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">

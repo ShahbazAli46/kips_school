@@ -36,5 +36,14 @@ If you ever need to manually restart services:
 - **Restart Frontend:** `pm2 restart kips-frontend`
 - **View Frontend Logs:** `pm2 logs kips-frontend`
 
-## 🕒 Build Time Tracking
-The sidebar in the frontend automatically displays the **date and time of the last successful build** at the very bottom. This allows you to visually confirm that your latest deployment actually finished and the new code is running.
+## 🕒 Build Date & Time Tracking (Sidebar Verification)
+The sidebar in the frontend automatically displays the **date and time of the last successful deployment** at the very bottom (below *"Topper's First Choice"*).
+
+### How it Works:
+1. When `deploy/deploy.sh` runs `bun run build`, Next.js reads `next.config.ts` which evaluates:
+   ```ts
+   NEXT_PUBLIC_BUILD_TIME: new Date().toLocaleString("en-PK", { timeZone: "Asia/Karachi" })
+   ```
+2. The current Pakistan Standard Time timestamp is automatically baked into the client production bundle at build time.
+3. Once the deployment finishes and PM2 restarts the frontend, anyone loading the application will see the new timestamp (e.g., `Build: 10/4/2026, 10:45:00 PM`) at the bottom of the sidebar.
+4. **Verification Step:** After deploying, refresh the browser (or do a Hard Refresh `Ctrl+Shift+R` / `Cmd+Shift+R`) to confirm the timestamp matches the time you ran the deployment.

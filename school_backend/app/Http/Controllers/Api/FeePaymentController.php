@@ -104,10 +104,10 @@ class FeePaymentController extends Controller
             // Priority: one-time admission heads first, then recurring
             $sortedItems = $studentFeeItems->sortBy(function ($item) {
                 $order = [
-                    'adm_fee' => 1, 'security_fee' => 2, 'id_card_charges' => 3, 'brd_reg_charges' => 4,
-                    'brd_adm_charges' => 5, 'tuition_fee' => 6, 'lms_charges' => 7, 'ac_charges' => 8,
-                    'lab_charges' => 9, 'library_charges' => 10, 'exam_charges' => 11, 'service_charges' => 12,
-                    'lim_charges' => 13, 'r_and_t_charges' => 14, 'fine' => 15
+                    'arrears' => 0, 'registration_fee' => 1, 'adm_fee' => 2, 'security_fee' => 3, 'id_card_charges' => 4, 'brd_reg_charges' => 5,
+                    'brd_adm_charges' => 6, 'tuition_fee' => 7, 'lms_charges' => 8, 'ac_charges' => 9,
+                    'lab_charges' => 10, 'library_charges' => 11, 'exam_charges' => 12, 'service_charges' => 13,
+                    'lim_charges' => 14, 'r_and_t_charges' => 15, 'fine' => 16
                 ];
                 return $order[$item->head_key] ?? 99;
             });

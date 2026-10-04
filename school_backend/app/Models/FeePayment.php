@@ -62,13 +62,11 @@ class FeePayment extends Model
         });
 
         static::saved(function ($feePayment) {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
             $feePayment->updateStudentTotalPaid();
             $feePayment->markSalarySlipsStale();
         });
 
         static::deleted(function ($feePayment) {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
             $feePayment->updateStudentTotalPaid();
             $feePayment->markSalarySlipsStale();
         });

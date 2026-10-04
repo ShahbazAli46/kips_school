@@ -30,16 +30,7 @@ class StudentFeeItem extends Model
         'balance_amount' => 'decimal:2',
     ];
 
-    protected static function booted()
-    {
-        static::saved(function () {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
-        });
 
-        static::deleted(function () {
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
-        });
-    }
 
     public function student()
     {
@@ -62,6 +53,7 @@ class StudentFeeItem extends Model
     public static function getStandardFeeHeads(): array
     {
         return [
+            'registration_fee' => ['name' => 'Registration Fee', 'type' => 'one_time'],
             'adm_fee' => ['name' => 'Admission Fee', 'type' => 'one_time'],
             'security_fee' => ['name' => 'Security Fee', 'type' => 'one_time'],
             'tuition_fee' => ['name' => 'Tuition Fee', 'type' => 'monthly'],
@@ -77,6 +69,7 @@ class StudentFeeItem extends Model
             'brd_reg_charges' => ['name' => 'Board Reg Charges', 'type' => 'one_time'],
             'brd_adm_charges' => ['name' => 'Board Adm Charges', 'type' => 'one_time'],
             'r_and_t_charges' => ['name' => 'R & T Charges', 'type' => 'annual'],
+            'arrears' => ['name' => 'Previous Arrears', 'type' => 'one_time'],
         ];
     }
 }

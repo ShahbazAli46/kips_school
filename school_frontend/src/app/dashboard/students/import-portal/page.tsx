@@ -104,7 +104,7 @@ export default function ImportPortalStudentsPage() {
             {['Student Name', 'ERP Reg#'].map(h => (
               <span key={h} className="px-2 py-1 bg-blue-100 text-blue-800 font-mono text-xs rounded border border-blue-200">{h} (Required)</span>
             ))}
-            {['Father Name', 'Grade', 'Section', 'Tuition fee'].map(h => (
+            {['Father Name', 'Grade', 'Section', 'Tuition fee', 'Arrears'].map(h => (
               <span key={h} className="px-2 py-1 bg-gray-100 text-gray-700 font-mono text-xs rounded border border-gray-200">{h} (Mapped)</span>
             ))}
           </div>

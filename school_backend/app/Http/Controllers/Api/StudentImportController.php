@@ -364,7 +364,6 @@ class StudentImportController extends Controller
             $imported++; // Treat existing user updates as 'imported'
         }
 
-        \Illuminate\Support\Facades\Cache::increment('students_cache_version');
 
         return response()->json([
             'message' => 'Import completed',
@@ -482,11 +481,13 @@ class StudentImportController extends Controller
             'library_charges' => ['name' => 'Library Charges', 'type' => 'annual', 'keys' => ['Lib. Charges', 'lib_charges', 'library_charges', 'Library Charges']],
             'lms_charges' => ['name' => 'LMS Charges', 'type' => 'monthly', 'keys' => ['LMS', 'lms_charges', 'lms']],
             'fine' => ['name' => 'Fine', 'type' => 'fine', 'keys' => ['Fine', 'fine']],
-            'adm_fee' => ['name' => 'Admission Fee', 'type' => 'one_time', 'keys' => ['Registration Fee', 'registration_fee', 'adm_fee', 'Registration fee']],
+            'registration_fee' => ['name' => 'Registration Fee', 'type' => 'one_time', 'keys' => ['Registration Fee', 'registration_fee', 'Reg Fee', 'reg_fee', 'Registration fee', 'Registration', 'reg fee']],
+            'adm_fee' => ['name' => 'Admission Fee', 'type' => 'one_time', 'keys' => ['Admission Fee', 'admission_fee', 'adm_fee', 'Adm Fee', 'Adm. Fee', 'Admission fee', 'Adm']],
             'adm_test' => ['name' => 'Admission Test', 'type' => 'one_time', 'keys' => ['Admission Test', 'admission_test', 'adm_test', 'Admission test']],
             'kdp' => ['name' => 'KDP Charges', 'type' => 'one_time', 'keys' => ['KDP', 'kdp']],
             'books' => ['name' => 'Books Charges', 'type' => 'one_time', 'keys' => ['Books', 'books']],
             'slj' => ['name' => 'SLJ Charges', 'type' => 'one_time', 'keys' => ['SLJ', 'slj']],
+            'arrears' => ['name' => 'Previous Arrears', 'type' => 'one_time', 'keys' => ['Arrears', 'Arrear', 'arrears', 'arrear', 'Previous Arrears', 'Prev Arrears', 'Prev. Arrears', 'Old Arrears', 'Arrears Amount', 'Total Arrears', 'Outstanding', 'pending amount', 'pending', 'Pending Amount', 'Pending Fee', 'Balance', 'Arrears / Advance', 'Arrears/Advance']],
         ];
 
         $usersToInsert = [];
@@ -530,7 +531,7 @@ class StudentImportController extends Controller
                 $campus = $getVal(['Campus', 'campus']);
                 $gradeName = $getVal(['Grade', 'grade', 'Class', 'class']);
                 $sectionName = $getVal(['Section', 'section']);
-                $arrear = $getVal(['Arrear', 'arrears', 'arrear', 'pending amount', 'pending']);
+                $arrear = $getVal(['Arrears', 'Arrear', 'arrears', 'arrear', 'Previous Arrears', 'Prev Arrears', 'Prev. Arrears', 'Old Arrears', 'Arrears Amount', 'Total Arrears', 'Outstanding', 'pending amount', 'pending', 'Pending Amount', 'Pending Fee', 'Balance', 'Arrears / Advance', 'Arrears/Advance']);
                 $tuitionFee = $getVal(['Tuition fee', 'Tuition Fee', 'fee', 'monthly fee', 'tuition']);
                 $mobileRaw = $getVal(['Mobile No.', 'mobile no', 'mobile', 'Mobile No', 'contact_number', 'phone', 'Phone']);
                 
@@ -581,6 +582,9 @@ class StudentImportController extends Controller
                     if ($headKey === 'tuition_fee' && $amount == 0 && $monthlyFeeNum > 0) {
                         $amount = $monthlyFeeNum;
                     }
+                    if ($headKey === 'arrears' && $amount == 0 && $pendingAmountNum > 0) {
+                        $amount = $pendingAmountNum;
+                    }
                     if ($amount > 0 || $headKey === 'tuition_fee') {
                         $rowFeeItems[$headKey] = [
                             'name' => $def['name'],
@@ -588,6 +592,24 @@ class StudentImportController extends Controller
                             'amount' => $amount
                         ];
                     }
+                }
+
+                if ($pendingAmountNum > 0 && !isset($rowFeeItems['arrears'])) {
+                    $rowFeeItems['arrears'] = [
+                        'name' => 'Previous Arrears',
+                        'type' => 'one_time',
+                        'amount' => $pendingAmountNum
+                    ];
+                }
+
+                $totalNonTuitionPending = 0;
+                foreach ($rowFeeItems as $hKey => $hInfo) {
+                    if ($hKey !== 'tuition_fee') {
+                        $totalNonTuitionPending += (float)$hInfo['amount'];
+                    }
+                }
+                if ($totalNonTuitionPending == 0 && $pendingAmountNum > 0) {
+                    $totalNonTuitionPending = $pendingAmountNum;
                 }
 
                 if ($studentId) {
@@ -599,7 +621,7 @@ class StudentImportController extends Controller
                         'section_id' => $sectionId,
                         'academic_session_id' => $sessionId,
                         'monthly_fee' => $monthlyFeeNum,
-                        'pending_amount' => $pendingAmountNum,
+                        'pending_amount' => $totalNonTuitionPending,
                         'student_cnic' => $bForm,
                         'erp_reg' => $erpReg,
                         'remarks' => $remarksStr,
@@ -621,7 +643,7 @@ class StudentImportController extends Controller
                         'section_id' => $sectionId,
                         'academic_session_id' => $sessionId,
                         'monthly_fee' => $monthlyFeeNum,
-                        'pending_amount' => $pendingAmountNum,
+                        'pending_amount' => $totalNonTuitionPending,
                         'student_cnic' => $bForm,
                         'erp_reg' => $erpReg,
                         'email' => $email,
@@ -807,7 +829,6 @@ class StudentImportController extends Controller
                 }
             }
 
-            \Illuminate\Support\Facades\Cache::increment('students_cache_version');
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();

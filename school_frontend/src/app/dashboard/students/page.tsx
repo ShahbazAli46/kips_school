@@ -633,13 +633,19 @@ function ManageStudentsPageContent() {
     if (!deleteTarget) return;
     setModalLoading(true);
     try {
-      await fetch(`${API}/students/${deleteTarget.id}`, {
+      const res = await fetch(`${API}/students/${deleteTarget.id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || "Failed to delete student");
+      }
       refetchStudents();
       setSelectedStudentIds((prev) => prev.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
     } finally {
       setModalLoading(false);
     }
@@ -648,14 +654,20 @@ function ManageStudentsPageContent() {
   const handleBulkDelete = async () => {
     setModalLoading(true);
     try {
-      await fetch(`${API}/students/bulk-delete`, {
+      const res = await fetch(`${API}/students/bulk-delete`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({ student_ids: selectedStudentIds }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || "Failed to bulk delete students");
+      }
       refetchStudents();
       setSelectedStudentIds([]);
       setShowBulkDelete(false);
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
     } finally {
       setModalLoading(false);
     }
