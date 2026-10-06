@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Jobs\SendFeeVoucherWhatsAppBatchJob;
 use App\Models\AcademicSession;
+use App\Models\AppSetting;
 use App\Models\User;
 use App\Services\WhatsAppGatewayService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class FeeVoucherController extends Controller
 {
@@ -290,10 +293,14 @@ class FeeVoucherController extends Controller
         }
 
         $footerInstructions = \App\Models\AppSetting::get('voucher_footer_instructions', $this->getDefaultFooterInstructions());
+        $signatureImage = \App\Models\AppSetting::get('voucher_signature_image', null);
+
+        $frontendUrl = rtrim(config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000')), '/');
 
         // Individual Student Vouchers (1 voucher per student)
-        $individualVouchers = $calculatedStudents->values()->map(function ($item) use ($targetMonthStr, $monthName, $monthKey, $dueDate, $footerInstructions) {
+        $individualVouchers = $calculatedStudents->values()->map(function ($item) use ($targetMonthStr, $monthName, $monthKey, $dueDate, $footerInstructions, $signatureImage) {
             $voucherNumber = "KIPS-VCH-{$monthKey}-" . str_pad($item['student_id'], 4, '0', STR_PAD_LEFT);
+            $pdfUrl = url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucherNumber));
             return array_merge($item, [
                 'voucher_number' => $voucherNumber,
                 'voucher_type' => 'individual',
@@ -301,6 +308,10 @@ class FeeVoucherController extends Controller
                 'month_name' => $monthName,
                 'due_date' => $dueDate,
                 'footer_instructions' => $footerInstructions,
+                'signature_image' => $signatureImage,
+                'verification_url' => $pdfUrl,
+                'pdf_url' => $pdfUrl,
+                'is_paid' => ($item['total_payable'] <= 0),
             ]);
         });
 
@@ -320,9 +331,240 @@ class FeeVoucherController extends Controller
             'month_name' => $monthName,
             'due_date' => $dueDate,
             'footer_instructions' => $footerInstructions,
+            'signature_image' => $signatureImage,
             'summary' => $summary,
             'vouchers' => $individualVouchers->values()->all(),
         ];
+    }
+
+    /**
+     * Generate QR code Data URI for a given payload string.
+     */
+    public function generateQrCodeDataUri(string $content): string
+    {
+        try {
+            $options = new \chillerlan\QRCode\QROptions([
+                'scale' => 6,
+                'imageBase64' => true,
+            ]);
+
+            return (new \chillerlan\QRCode\QRCode($options))->render($content);
+        } catch (\Throwable $e) {
+            Log::warning("[QR Code Generation Warning] " . $e->getMessage());
+            try {
+                return (new \chillerlan\QRCode\QRCode)->render($content);
+            } catch (\Throwable $ex) {
+                return '';
+            }
+        }
+    }
+
+    /**
+     * Resolve single voucher data from request for public verification & PDF generation.
+     */
+    public function resolveVoucherFromRequest(Request $request): ?array
+    {
+        $rawVoucherNo = trim((string)$request->input('voucher_no', ''));
+        $studentId = $request->input('student_id');
+        $rawMonth = $request->input('month');
+        $uuid = $request->input('uuid');
+        $rollNumber = $request->input('roll_number');
+
+        $parsedMonth = null;
+        $parsedStudentId = null;
+
+        // Try extracting month & student ID from voucher number formats
+        // Format 1: KIPS-VCH-202610-1606 or KIPS-VCH-202610-0001
+        if (preg_match('/KIPS-VCH-(\d{4})(\d{2})-(\d+)/i', $rawVoucherNo, $matches)) {
+            $parsedMonth = "{$matches[1]}-{$matches[2]}";
+            $parsedStudentId = (int)$matches[3];
+        } elseif (preg_match('/KIPS-VCH-(\d+)/i', $rawVoucherNo, $matches)) {
+            $parsedStudentId = (int)$matches[1];
+        } elseif (preg_match('/^(\d{4})(\d{2})-(\d+)$/', $rawVoucherNo, $matches)) {
+            $parsedMonth = "{$matches[1]}-{$matches[2]}";
+            $parsedStudentId = (int)$matches[3];
+        }
+
+        $finalStudentId = $studentId ?: $parsedStudentId;
+        $currentMonthStr = Carbon::now()->format('Y-m');
+        $targetMonthStr = $rawMonth ?: ($parsedMonth ?: $currentMonthStr);
+
+        // Find student
+        $student = null;
+        $query = User::with([
+            'academyClass:id,name',
+            'section:id,name',
+            'major:id,name',
+            'feeItems',
+            'feePayments' => function ($q) {
+                $q->with(['items', 'studentExtraCharge', 'receiver:id,name'])
+                  ->orderBy('payment_date', 'desc');
+            }
+        ])->where('role_id', 3);
+
+        if ($finalStudentId) {
+            $student = (clone $query)->find($finalStudentId);
+        }
+
+        if (!$student && !empty($uuid)) {
+            $student = (clone $query)->where('uuid', $uuid)->first();
+        }
+
+        if (!$student && !empty($rollNumber)) {
+            $student = (clone $query)->where('roll_number', $rollNumber)->first();
+        }
+
+        if (!$student && !empty($rawVoucherNo)) {
+            // Also attempt to check if rawVoucherNo is just student roll or ID
+            $student = (clone $query)->where('roll_number', $rawVoucherNo)
+                ->orWhere('id', is_numeric($rawVoucherNo) ? (int)$rawVoucherNo : 0)
+                ->first();
+        }
+
+        if (!$student) {
+            return null;
+        }
+
+        $activeSession = AcademicSession::getActiveSession();
+        $sessionStartDate = $activeSession ? $activeSession->start_date : '2020-01-01';
+        $sessionStart = Carbon::parse($sessionStartDate)->startOfMonth();
+
+        $targetCarbon = Carbon::createFromFormat('Y-m', $targetMonthStr)->startOfMonth();
+        $monthFormatted = $targetCarbon->format('M Y');
+        $monthName = $targetCarbon->format('F Y');
+        $monthKey = str_replace('-', '', $targetMonthStr);
+
+        $calculated = $this->calculateStudentVoucher($student, $targetMonthStr, $sessionStart, $targetCarbon, $monthFormatted);
+
+        $voucherNumber = $rawVoucherNo ?: "KIPS-VCH-{$monthKey}-" . str_pad($student->id, 4, '0', STR_PAD_LEFT);
+        $dueDate = $request->input('due_date', Carbon::parse($targetMonthStr . '-10')->format('Y-m-d'));
+        $footerInstructions = AppSetting::get('voucher_footer_instructions', $this->getDefaultFooterInstructions());
+        $signatureImage = AppSetting::get('voucher_signature_image', null);
+
+        // Get student's payment history for this target month and recent payments
+        $targetMonthPayments = $student->feePayments->where('month', $targetMonthStr)->values()->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'amount_paid' => (float)$p->amount_paid,
+                'discount_amount' => (float)$p->discount_amount,
+                'payment_date' => $p->payment_date ? Carbon::parse($p->payment_date)->format('Y-m-d') : null,
+                'received_by' => $p->receiver ? $p->receiver->name : 'Accounts Desk',
+                'payer_name' => $p->payer_name,
+                'installment_number' => $p->installment_number,
+            ];
+        });
+
+        // Direct PDF URL for QR code and instant download
+        $pdfUrl = url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucherNumber));
+
+        // Generate QR code Data URI with direct PDF URL
+        $qrCodeDataUri = $this->generateQrCodeDataUri($pdfUrl);
+
+        $isPaid = ($calculated['total_payable'] <= 0);
+
+        return array_merge($calculated, [
+            'voucher_number' => $voucherNumber,
+            'voucher_type' => 'individual',
+            'target_month' => $targetMonthStr,
+            'month_name' => $monthName,
+            'due_date' => $dueDate,
+            'footer_instructions' => $footerInstructions,
+            'signature_image' => $signatureImage,
+            'verification_url' => $pdfUrl,
+            'pdf_url' => $pdfUrl,
+            'qr_code_data_uri' => $qrCodeDataUri,
+            'is_paid' => $isPaid,
+            'payment_records' => $targetMonthPayments,
+            'all_payments_count' => $student->feePayments->count(),
+            'total_lifetime_paid' => (float)$student->total_paid,
+        ]);
+    }
+
+    /**
+     * Public Unauthenticated Voucher Verification endpoint.
+     * GET /api/public/vouchers/verify
+     */
+    public function publicVerify(Request $request)
+    {
+        $voucher = $this->resolveVoucherFromRequest($request);
+
+        if (!$voucher) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Voucher not found or student record does not exist.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'voucher' => $voucher,
+            'status' => $voucher['status'],
+            'is_paid' => $voucher['is_paid'],
+            'total_payable' => $voucher['total_payable'],
+            'verification_url' => $voucher['verification_url'],
+            'pdf_url' => url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucher['voucher_number'])),
+        ]);
+    }
+
+    /**
+     * Public Unauthenticated Voucher PDF Streaming endpoint.
+     * GET /api/public/vouchers/pdf
+     */
+    public function publicPdf(Request $request)
+    {
+        $voucher = $this->resolveVoucherFromRequest($request);
+
+        if (!$voucher) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Voucher not found or student record does not exist.',
+            ], 404);
+        }
+
+        try {
+            $pdf = Pdf::loadView('pdf.fee-voucher', ['voucher' => $voucher])
+                ->setPaper('a4', 'landscape');
+
+            $fileName = "Fee_Voucher_{$voucher['voucher_number']}.pdf";
+
+            if ($request->boolean('download')) {
+                return $pdf->download($fileName);
+            }
+
+            return $pdf->stream($fileName);
+        } catch (\Throwable $e) {
+            Log::error("[Public Voucher PDF Error] " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate PDF: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Public Unauthenticated Voucher QR Code direct image.
+     * GET /api/public/vouchers/qr
+     */
+    public function publicQrCode(Request $request)
+    {
+        $voucher = $this->resolveVoucherFromRequest($request);
+        $content = $voucher['verification_url'] ?? $request->input('url', config('app.url'));
+
+        try {
+            $options = new \chillerlan\QRCode\QROptions([
+                'scale' => 5,
+                'imageBase64' => false,
+            ]);
+
+            $rawSvg = (new \chillerlan\QRCode\QRCode($options))->render($content);
+
+            return response($rawSvg, 200, [
+                'Content-Type' => 'image/svg+xml',
+                'Cache-Control' => 'public, max-age=86400',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -335,7 +577,7 @@ class FeeVoucherController extends Controller
             . '<li><strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong>{consumer_no}</strong> across all Pakistani Banking &amp; Wallet Apps (EasyPaisa, JazzCash, Nayapay, SadaPay).</li>'
             . '<li><strong>BANK COUNTER:</strong> Payable at any United Bank Limited (UBL) Branch nationwide. (A/C: Quality Brands (Pvt) Ltd).</li>'
             . '<li><strong>LATE SURCHARGE:</strong> Late fee surcharge of Rs. 50/day applicable strictly after due date.</li>'
-            . '<li><strong>HELPLINE:</strong> 0300 39 39 581 | Email: info@kips.edu.pk</li>'
+            . '<li><strong>HELPLINE:</strong> 0300 39 39 581</li>'
             . '</ul>';
     }
 
@@ -345,34 +587,74 @@ class FeeVoucherController extends Controller
      */
     public function getSettings()
     {
-        $instructions = \App\Models\AppSetting::get('voucher_footer_instructions', $this->getDefaultFooterInstructions());
+        $instructions = AppSetting::get('voucher_footer_instructions', $this->getDefaultFooterInstructions());
+        $signatureImage = AppSetting::get('voucher_signature_image', null);
+
         return response()->json([
             'voucher_footer_instructions' => $instructions,
             'default_instructions' => $this->getDefaultFooterInstructions(),
+            'voucher_signature_image' => $signatureImage,
         ]);
     }
 
     /**
-     * Update voucher footer instructions setting.
+     * Update voucher settings (footer instructions and/or signature image).
      * POST /api/fees/vouchers/settings
      */
     public function updateSettings(Request $request)
     {
         $request->validate([
             'voucher_footer_instructions' => 'nullable|string',
+            'voucher_signature_image' => 'nullable',
+            'signature' => 'nullable|file|image|mimes:png,jpg,jpeg,webp,svg|max:5120',
+            'remove_signature' => 'nullable',
         ]);
 
-        $content = $request->input('voucher_footer_instructions');
-        if ($content === null || trim($content) === '') {
-            $content = $this->getDefaultFooterInstructions();
+        $footerUpdated = false;
+        $signatureUpdated = false;
+        $content = null;
+        $signatureUrl = AppSetting::get('voucher_signature_image', null);
+
+        // 1. Update instructions if sent
+        if ($request->has('voucher_footer_instructions')) {
+            $content = $request->input('voucher_footer_instructions');
+            if ($content === null || trim($content) === '') {
+                $content = $this->getDefaultFooterInstructions();
+            }
+            AppSetting::set('voucher_footer_instructions', $content);
+            $footerUpdated = true;
         }
 
-        \App\Models\AppSetting::set('voucher_footer_instructions', $content);
+        // 2. Remove signature if requested
+        if ($request->boolean('remove_signature') || $request->input('voucher_signature_image') === '__remove__') {
+            AppSetting::set('voucher_signature_image', null);
+            $signatureUrl = null;
+            $signatureUpdated = true;
+        }
+        // 3. Upload signature file (multipart/form-data)
+        elseif ($request->hasFile('signature') || $request->hasFile('voucher_signature_image')) {
+            $file = $request->file('signature') ?: $request->file('voucher_signature_image');
+            $filename = 'signature_' . time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('signatures', $filename, 'public');
+            $signatureUrl = asset('storage/' . $path);
+            AppSetting::set('voucher_signature_image', $signatureUrl);
+            $signatureUpdated = true;
+        }
+        // 4. Raw base64 Data URI or string URL
+        elseif ($request->filled('voucher_signature_image')) {
+            $rawSig = $request->input('voucher_signature_image');
+            if (is_string($rawSig) && (str_starts_with($rawSig, 'data:image/') || str_starts_with($rawSig, 'http') || str_starts_with($rawSig, '/storage/'))) {
+                AppSetting::set('voucher_signature_image', $rawSig);
+                $signatureUrl = $rawSig;
+                $signatureUpdated = true;
+            }
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Voucher footer instructions updated successfully.',
-            'voucher_footer_instructions' => $content,
+            'message' => 'Voucher settings updated successfully.',
+            'voucher_footer_instructions' => $content ?? AppSetting::get('voucher_footer_instructions', $this->getDefaultFooterInstructions()),
+            'voucher_signature_image' => $signatureUrl,
         ]);
     }
 

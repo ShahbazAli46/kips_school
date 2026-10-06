@@ -123,6 +123,11 @@ function CustomDropdown({
     syllabus: initialData?.syllabus || initialData?.syllabus_english || initialData?.syllabus_urdu || "",
   });
 
+  const selectedClassObj = classes.find((c: any) => String(c.id) === String(data.academy_class_id));
+  const availableSections: any[] = selectedClassObj?.sections && Array.isArray(selectedClassObj.sections)
+    ? selectedClassObj.sections
+    : [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -160,7 +165,7 @@ function CustomDropdown({
               <CustomDropdown
                 name="academy_class_id"
                 value={data.academy_class_id}
-                onChange={(name, val) => setData({...data, [name]: val})}
+                onChange={(name, val) => setData({...data, [name]: val, section_id: ""})}
                 placeholder="Select Class"
                 options={classes.map((c:any) => ({ label: c.name, value: c.id }))}
               />
@@ -171,8 +176,23 @@ function CustomDropdown({
                 name="section_id"
                 value={data.section_id}
                 onChange={(name, val) => setData({...data, [name]: val})}
-                placeholder="All Sections"
-                options={sections.map((s:any) => ({ label: s.name, value: s.id }))}
+                placeholder={
+                  !data.academy_class_id
+                    ? "Select class first"
+                    : availableSections.length === 0
+                    ? "No sections for this class"
+                    : "All Sections"
+                }
+                options={
+                  !data.academy_class_id
+                    ? [{ label: "Select class first", value: "" }]
+                    : availableSections.length === 0
+                    ? [{ label: "No sections for this class", value: "" }]
+                    : [
+                        { label: "All Sections", value: "" },
+                        ...availableSections.map((s: any) => ({ label: `Section ${s.name}`, value: s.id }))
+                      ]
+                }
               />
             </div>
           </div>

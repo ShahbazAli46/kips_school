@@ -12,7 +12,8 @@ interface CustomDatePickerProps {
   endYear?: number;
   disabled?: boolean;
   size?: "sm" | "md" | "default";
-  placement?: "top" | "bottom";
+  placement?: "auto" | "top" | "bottom";
+  align?: "auto" | "left" | "right";
 }
 
 const MONTH_NAMES = [
@@ -32,11 +33,14 @@ export default function CustomDatePicker({
   endYear = new Date().getFullYear() + 5,
   disabled = false,
   size = "md",
-  placement = "top",
+  placement = "auto",
+  align = "auto",
 }: CustomDatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMonthOpen, setIsMonthOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
+  const [resolvedPlacement, setResolvedPlacement] = useState<"top" | "bottom">("bottom");
+  const [resolvedAlign, setResolvedAlign] = useState<"left" | "right">("left");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const monthDropdownRef = useRef<HTMLDivElement>(null);
@@ -104,6 +108,58 @@ export default function CustomDatePicker({
       document.removeEventListener("mousedown", handleMenuClickOutside);
     };
   }, [isMonthOpen, isYearOpen]);
+
+  // Dynamic placement & alignment calculation to prevent overflowing viewport
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updatePosition = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+
+      // Vertical placement
+      if (placement === "top") {
+        setResolvedPlacement("top");
+      } else if (placement === "bottom") {
+        setResolvedPlacement("bottom");
+      } else {
+        // "auto" calculation
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        const estimatedHeight = 360;
+
+        if (spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove) {
+          setResolvedPlacement("bottom");
+        } else {
+          setResolvedPlacement("top");
+        }
+      }
+
+      // Horizontal alignment
+      if (align === "left") {
+        setResolvedAlign("left");
+      } else if (align === "right") {
+        setResolvedAlign("right");
+      } else {
+        // "auto" calculation
+        const estimatedWidth = 330;
+        const spaceRight = window.innerWidth - rect.left;
+        if (spaceRight < estimatedWidth && rect.right >= estimatedWidth) {
+          setResolvedAlign("right");
+        } else {
+          setResolvedAlign("left");
+        }
+      }
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, placement, align]);
 
   // Year options list
   const yearOptions = useMemo(() => {
@@ -294,8 +350,10 @@ export default function CustomDatePicker({
       {isOpen && (
         <div
           className={`absolute z-[9999] ${
-            placement === "top" ? "bottom-full mb-2" : "top-full mt-2"
-          } left-0 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-[310px] sm:w-[330px] animate-fadeIn select-none`}
+            resolvedPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
+          } ${
+            resolvedAlign === "right" ? "right-0 left-auto" : "left-0 right-auto"
+          } bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-[310px] sm:w-[330px] select-none`}
           style={{ boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.16), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
         >
           {/* Header Controls: Prev Button, Custom Month Dropdown, Custom Year Dropdown, Next Button */}

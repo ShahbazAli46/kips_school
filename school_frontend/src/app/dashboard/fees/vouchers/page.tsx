@@ -46,6 +46,8 @@ interface StudentVoucher {
   target_month?: string;
   month_name?: string;
   due_date?: string;
+  footer_instructions?: string;
+  signature_image?: string | null;
   fee_items?: { label: string; amount: number }[];
 }
 
@@ -110,6 +112,13 @@ export default function FeeVouchersPage() {
   const [editorContent, setEditorContent] = useState<string>("");
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // Signature Upload State
+  const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [selectedSignatureFile, setSelectedSignatureFile] = useState<File | null>(null);
+  const [signaturePreviewUrl, setSignaturePreviewUrl] = useState<string | null>(null);
+  const [savingSignature, setSavingSignature] = useState(false);
+
   // Fetch settings & metadata
   useEffect(() => {
     async function loadMeta() {
@@ -129,6 +138,9 @@ export default function FeeVouchersPage() {
         }
         if (dataS.default_instructions) {
           setDefaultInstructions(dataS.default_instructions);
+        }
+        if (dataS.voucher_signature_image) {
+          setSignatureImage(dataS.voucher_signature_image);
         }
       } catch {
         // ignore
@@ -159,6 +171,9 @@ export default function FeeVouchersPage() {
       setSummary(data.summary || null);
       if (data.footer_instructions) {
         setFooterInstructions(data.footer_instructions);
+      }
+      if (data.signature_image) {
+        setSignatureImage(data.signature_image);
       }
     } catch {
       // ignore
@@ -304,6 +319,97 @@ export default function FeeVouchersPage() {
     }
   };
 
+  // Save or Upload Signature Image
+  const handleSaveSignature = async () => {
+    if (!selectedSignatureFile && !signaturePreviewUrl) {
+      return;
+    }
+    setSavingSignature(true);
+    setActionMessage(null);
+    try {
+      const formData = new FormData();
+      if (selectedSignatureFile) {
+        formData.append("signature", selectedSignatureFile);
+      } else if (signaturePreviewUrl) {
+        formData.append("voucher_signature_image", signaturePreviewUrl);
+      }
+
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(`${API}/fees/vouchers/settings`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSignatureImage(data.voucher_signature_image || null);
+        setSelectedSignatureFile(null);
+        setIsSignatureModalOpen(false);
+        setActionMessage({
+          type: "success",
+          text: "Authorized signature saved successfully! All printed vouchers, WhatsApp PDFs, and public verification documents now display the official signature.",
+        });
+        fetchVouchers();
+      } else {
+        setActionMessage({
+          type: "error",
+          text: data.message || "Failed to update authorized signature.",
+        });
+      }
+    } catch (err: any) {
+      setActionMessage({
+        type: "error",
+        text: err.message || "Network error while uploading signature.",
+      });
+    } finally {
+      setSavingSignature(false);
+    }
+  };
+
+  // Remove Signature Image
+  const handleRemoveSignature = async () => {
+    setSavingSignature(true);
+    setActionMessage(null);
+    try {
+      const res = await fetch(`${API}/fees/vouchers/settings`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          remove_signature: true,
+          voucher_signature_image: "__remove__",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSignatureImage(null);
+        setSelectedSignatureFile(null);
+        setSignaturePreviewUrl(null);
+        setIsSignatureModalOpen(false);
+        setActionMessage({
+          type: "success",
+          text: "Authorized signature removed successfully. Vouchers will now display the blank stamp box.",
+        });
+        fetchVouchers();
+      } else {
+        setActionMessage({
+          type: "error",
+          text: data.message || "Failed to remove signature.",
+        });
+      }
+    } catch (err: any) {
+      setActionMessage({
+        type: "error",
+        text: err.message || "Network error while removing signature.",
+      });
+    } finally {
+      setSavingSignature(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       {/* Page Header */}
@@ -317,6 +423,21 @@ export default function FeeVouchersPage() {
 
         {/* Print & WhatsApp Actions */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {/* Upload Authorized Signature Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setSignaturePreviewUrl(signatureImage);
+              setSelectedSignatureFile(null);
+              setIsSignatureModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-all active:scale-95 cursor-pointer"
+            title="Upload or change official authorized signature on all vouchers"
+          >
+            <span className="text-sm">🖋️</span>
+            <span>Authorized Signature {signatureImage ? "✓" : ""}</span>
+          </button>
+
           {/* Edit Footer / Instructions Button */}
           <button
             type="button"
@@ -801,7 +922,7 @@ export default function FeeVouchersPage() {
                     dangerouslySetInnerHTML={{
                       __html: footerInstructions
                         .replace(/\{consumer_no\}/g, `26720027503263${String(previewVoucher.student_id).padStart(6, "0")}`)
-                        .replace(/\{challan_no\}/g, `0326${String(previewVoucher.student_id).padStart(8, "0")}`)
+                        .replace(/\{challan_no\}/g, previewVoucher.voucher_number || `KIPS-VCH-${previewVoucher.student_id}`)
                         .replace(/\{due_date\}/g, dueDate)
                         .replace(/\{month_name\}/g, previewVoucher.month_name || targetMonth),
                     }}
@@ -812,7 +933,29 @@ export default function FeeVouchersPage() {
                     <div>• <strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong className="font-mono">{`26720027503263${String(previewVoucher.student_id).padStart(6, "0")}`}</strong> across all Banking &amp; Wallet Apps.</div>
                     <div>• <strong>BANK COUNTER:</strong> Payable at any UBL Branch nationwide (A/C: Quality Brands (Pvt) Ltd).</div>
                     <div>• <strong>LATE SURCHARGE:</strong> Late fee surcharge of Rs. 50/day applicable strictly after due date.</div>
-                    <div>• <strong>HELPLINE:</strong> 0300 39 39 581 | Email: info@kips.edu.pk</div>
+                    <div>• <strong>HELPLINE:</strong> 0300 39 39 581</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Signatures & Preparation Line */}
+              <div className="flex items-end justify-between text-[8px] text-gray-700 px-1 py-0.5">
+                <div>Prepared By: <strong>Accounts System Portal</strong></div>
+                {signatureImage || previewVoucher.signature_image ? (
+                  <div className="flex flex-col items-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={signatureImage || previewVoucher.signature_image || ""}
+                      alt="Authorized Signature"
+                      className="max-h-7 max-w-[100px] object-contain mb-0.5"
+                    />
+                    <div className="border-t border-gray-600 pt-0.5 text-center text-[7px] text-gray-800 font-bold">
+                      Authorized Stamp &amp; Sign
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-gray-600 rounded px-2.5 py-0.5 text-center text-[7.5px] text-gray-600 font-bold">
+                    Authorized Stamp &amp; Sign
                   </div>
                 )}
               </div>
@@ -823,7 +966,24 @@ export default function FeeVouchersPage() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Link
+                href={`/vouchers/verify?voucher_no=${encodeURIComponent(previewVoucher.voucher_number || `KIPS-VCH-${targetMonth.replace('-', '')}-${previewVoucher.student_id}`)}`}
+                target="_blank"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-2xs border border-slate-300 dark:border-slate-700"
+              >
+                <span>🔍</span>
+                <span>Public Portal</span>
+              </Link>
+              <a
+                href={`${API}/public/vouchers/pdf?voucher_no=${encodeURIComponent(previewVoucher.voucher_number || `KIPS-VCH-${targetMonth.replace('-', '')}-${previewVoucher.student_id}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-2xs border border-slate-300 dark:border-slate-700"
+              >
+                <span>📄</span>
+                <span>Open PDF</span>
+              </a>
               <button
                 onClick={() => {
                   handleSendWhatsApp(
@@ -833,19 +993,18 @@ export default function FeeVouchersPage() {
                   setPreviewVoucher(null);
                 }}
                 disabled={whatsAppSending}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm disabled:opacity-50 cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-2xs disabled:opacity-50 cursor-pointer"
               >
                 <span>📱</span>
-                <span>Send via WhatsApp</span>
+                <span>WhatsApp</span>
               </button>
               <Link
                 href={`/dashboard/fees/vouchers/print?month=${targetMonth}&due_date=${dueDate}&selected_keys=${previewVoucher.voucher_number || previewVoucher.student_id}`}
                 target="_blank"
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white transition shadow-sm hover:opacity-90"
-                style={{ background: "#2563eb" }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white transition shadow-2xs hover:opacity-90 bg-blue-600"
               >
                 <span>🖨️</span>
-                <span>Print This Voucher</span>
+                <span>Print Slip</span>
               </Link>
             </div>
           </div>
@@ -915,7 +1074,7 @@ export default function FeeVouchersPage() {
                       dangerouslySetInnerHTML={{
                         __html: editorContent
                           .replace(/\{consumer_no\}/g, "267200275032630001")
-                          .replace(/\{challan_no\}/g, "032600000001")
+                          .replace(/\{challan_no\}/g, "KIPS-VCH-202610-0001")
                           .replace(/\{due_date\}/g, dueDate)
                           .replace(/\{month_name\}/g, summary?.month_name || targetMonth),
                       }}
@@ -964,6 +1123,168 @@ export default function FeeVouchersPage() {
                     <>
                       <span>💾</span>
                       <span>Save &amp; Apply Instructions</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Authorized Signature Upload Modal ─── */}
+      {isSignatureModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/70">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-lg font-bold">
+                  🖋️
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Official Authorized Signature
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Upload an official signature image to display on all vouchers &amp; PDFs.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSignatureModalOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              <div className="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-xl p-3 text-xs text-blue-900 dark:text-blue-200">
+                <p className="font-semibold mb-1 flex items-center gap-1.5">
+                  <span>💡</span> Signature Stamp Guidelines
+                </p>
+                <p className="text-[11.5px] leading-relaxed">
+                  Upload a clean <strong>PNG with a transparent background</strong> (or JPG) of the Principal&apos;s or Accounts Officer&apos;s signature / official stamp. It will automatically appear in the bottom-right corner of all voucher slips (Accounts &amp; Student copies), print sheets, and backend PDFs.
+                </p>
+              </div>
+
+              {/* Upload Dropzone */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                  Select Signature File
+                </label>
+                <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 rounded-2xl p-6 text-center transition-colors bg-slate-50/50 dark:bg-slate-800/50 cursor-pointer relative group">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedSignatureFile(file);
+                        const objectUrl = URL.createObjectURL(file);
+                        setSignaturePreviewUrl(objectUrl);
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                  />
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                      📤
+                    </div>
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {selectedSignatureFile ? (
+                        <span className="text-blue-600 dark:text-blue-400 font-bold">{selectedSignatureFile.name} ({(selectedSignatureFile.size / 1024).toFixed(1)} KB)</span>
+                      ) : (
+                        <span>Click to browse or drag &amp; drop signature image</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Supports PNG, JPG, WebP, SVG (Max 5MB). Transparent PNG recommended.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Preview Card */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><span>👁️</span> Realtime Voucher Slip Preview</span>
+                  {signaturePreviewUrl && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">● Active Preview</span>
+                  )}
+                </label>
+
+                <div className="border border-gray-900 rounded-xl p-4 bg-white text-gray-800 shadow-sm flex items-center justify-between">
+                  <div className="text-[10px] text-gray-500">
+                    <div>Prepared By: <strong>Accounts Desk</strong></div>
+                    <div className="text-[9px] text-gray-400 mt-0.5">KIPS School Official Slip</div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center min-w-[130px] p-2 bg-gray-50 border border-dashed border-gray-300 rounded-lg">
+                    {signaturePreviewUrl ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={signaturePreviewUrl}
+                          alt="Signature Preview"
+                          className="max-h-10 max-w-[120px] object-contain mb-1"
+                        />
+                        <div className="border-t border-gray-600 pt-0.5 text-center text-[7.5px] text-gray-800 font-bold">
+                          Authorized Stamp &amp; Sign
+                        </div>
+                      </>
+                    ) : (
+                      <div className="border border-dashed border-gray-600 rounded px-3 py-1.5 text-center text-[8px] text-gray-500 font-bold">
+                        [ No Signature Uploaded ]
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80">
+              {signatureImage ? (
+                <button
+                  type="button"
+                  onClick={handleRemoveSignature}
+                  disabled={savingSignature}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-200 dark:border-red-900/40 transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>🗑️</span>
+                  <span>Remove Signature</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsSignatureModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveSignature}
+                  disabled={savingSignature || (!selectedSignatureFile && !signaturePreviewUrl)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {savingSignature ? (
+                    <>
+                      <svg className="animate-spin w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span>
+                      <span>Save &amp; Apply Signature</span>
                     </>
                   )}
                 </button>

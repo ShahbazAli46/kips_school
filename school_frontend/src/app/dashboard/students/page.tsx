@@ -605,6 +605,13 @@ function ManageStudentsPageContent() {
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [isSendingBulkLedger, setIsSendingBulkLedger] = useState(false);
 
+  // Direct Inline Edit State
+  const [editingContactStudentId, setEditingContactStudentId] = useState<number | null>(null);
+  const [editingContactValue, setEditingContactValue] = useState<string>("");
+  const [savingContactStudentId, setSavingContactStudentId] = useState<number | null>(null);
+  const [savingSectionStudentId, setSavingSectionStudentId] = useState<number | null>(null);
+  const [savedSuccessStudentId, setSavedSuccessStudentId] = useState<{ id: number; field: "section" | "contact" } | null>(null);
+
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -625,6 +632,51 @@ function ManageStudentsPageContent() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Direct Section Update Handler
+  const handleUpdateSection = async (studentId: number, sectionId: string | number) => {
+    setSavingSectionStudentId(studentId);
+    try {
+      const res = await fetch(`${API}/students/${studentId}/section`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ section_id: sectionId ? Number(sectionId) : null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update section");
+      
+      setSavedSuccessStudentId({ id: studentId, field: "section" });
+      setTimeout(() => setSavedSuccessStudentId(null), 2000);
+      refetchStudents();
+    } catch (err: any) {
+      alert(`Error updating section: ${err.message}`);
+    } finally {
+      setSavingSectionStudentId(null);
+    }
+  };
+
+  // Direct Contact Number Update Handler
+  const handleSaveContact = async (studentId: number) => {
+    setSavingContactStudentId(studentId);
+    try {
+      const res = await fetch(`${API}/students/${studentId}/contact`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ contact_number: editingContactValue.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update contact number");
+
+      setSavedSuccessStudentId({ id: studentId, field: "contact" });
+      setTimeout(() => setSavedSuccessStudentId(null), 2000);
+      setEditingContactStudentId(null);
+      refetchStudents();
+    } catch (err: any) {
+      alert(`Error updating contact: ${err.message}`);
+    } finally {
+      setSavingContactStudentId(null);
     }
   };
 
@@ -986,14 +1038,88 @@ function ManageStudentsPageContent() {
                       ) : <span className="text-xs text-[#38bdf8] italic">—</span>}
                     </td>
                     <td className="px-5 py-3.5 hidden md:table-cell">
-                      {student.section ? (
-                        <span className="inline-block px-2.5 py-1 rounded text-[11px] font-semibold bg-[#f0f4f8] text-[#1e40af] border" style={{ borderColor: "#bfdbfe" }}>
-                          {student.section.name}
-                        </span>
-                      ) : <span className="text-xs text-[#38bdf8] italic">—</span>}
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={student.section_id ?? ""}
+                          onChange={(e) => handleUpdateSection(student.id, e.target.value)}
+                          disabled={savingSectionStudentId === student.id}
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border bg-white text-slate-800 outline-none cursor-pointer transition shadow-2xs hover:border-blue-500 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
+                          style={{
+                            borderColor: savedSuccessStudentId?.id === student.id && savedSuccessStudentId.field === 'section' ? '#22c55e' : '#bfdbfe'
+                          }}
+                        >
+                          <option value="">No Section</option>
+                          {sections.map((sec) => (
+                            <option key={sec.id} value={sec.id}>
+                              {sec.name}
+                            </option>
+                          ))}
+                        </select>
+                        {savingSectionStudentId === student.id ? (
+                          <svg className="animate-spin w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        ) : savedSuccessStudentId?.id === student.id && savedSuccessStudentId.field === 'section' ? (
+                          <span className="text-xs font-bold text-green-600 shrink-0">✓</span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 hidden lg:table-cell text-[#1e40af]">
-                      {student.contact_number || "—"}
+                      {editingContactStudentId === student.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={editingContactValue}
+                            onChange={(e) => setEditingContactValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveContact(student.id);
+                              if (e.key === "Escape") setEditingContactStudentId(null);
+                            }}
+                            autoFocus
+                            placeholder="03001234567"
+                            className="w-32 px-2 py-1 text-xs font-semibold rounded-lg border bg-white text-slate-900 outline-none border-blue-500 ring-2 ring-blue-100 shadow-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveContact(student.id)}
+                            disabled={savingContactStudentId === student.id}
+                            className="p-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm cursor-pointer"
+                            title="Save Contact (Enter)"
+                          >
+                            {savingContactStudentId === student.id ? (
+                              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingContactStudentId(null)}
+                            disabled={savingContactStudentId === student.id}
+                            className="p-1 rounded-md bg-slate-200 hover:bg-slate-300 text-slate-700 transition cursor-pointer"
+                            title="Cancel (Esc)"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <div 
+                          className="group/contact inline-flex items-center gap-2 cursor-pointer py-1 px-2 rounded-lg hover:bg-blue-50/80 transition"
+                          onClick={() => {
+                            setEditingContactStudentId(student.id);
+                            setEditingContactValue(student.contact_number || "");
+                          }}
+                          title="Click to edit contact number"
+                        >
+                          <span className={`text-xs font-semibold ${student.contact_number ? "text-slate-800" : "text-blue-500 italic"}`}>
+                            {student.contact_number || "+ Add Phone"}
+                          </span>
+                          <span className="opacity-0 group-hover/contact:opacity-100 text-slate-400 hover:text-blue-600 transition">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          </span>
+                          {savedSuccessStudentId?.id === student.id && savedSuccessStudentId.field === 'contact' && (
+                            <span className="text-xs font-bold text-green-600">✓</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-3.5">
                       <button 
@@ -1005,6 +1131,13 @@ function ManageStudentsPageContent() {
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => window.open(`/dashboard/students/admission/print?student_id=${student.id}`, '_blank')} 
+                          className="p-1.5 rounded-md border text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white transition-colors border-emerald-200" 
+                          title="Print Admission Form"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        </button>
                         <button onClick={() => setEnrollTarget(student)} className="p-1.5 rounded-md border text-blue-600 hover:bg-blue-600 hover:text-white transition-colors border-blue-200" title="Subject Enrollment">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
                         </button>

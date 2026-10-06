@@ -18,6 +18,11 @@ Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/migrate-email', [AuthController::class, 'migrateEmail']);
 Route::get('/app-config', [\App\Http\Controllers\Api\AppSettingController::class, 'getPublicConfig']);
 
+// Public Unauthenticated Fee Voucher Verification & PDF APIs
+Route::get('/public/vouchers/verify', [\App\Http\Controllers\Api\FeeVoucherController::class, 'publicVerify']);
+Route::get('/public/vouchers/pdf', [\App\Http\Controllers\Api\FeeVoucherController::class, 'publicPdf']);
+Route::get('/public/vouchers/qr', [\App\Http\Controllers\Api\FeeVoucherController::class, 'publicQrCode']);
+
 // Masjid & Madrasa Treasury Routes
 Route::post('/masjid-madrasa/sync', [\App\Http\Controllers\Api\MasjidMadrasaController::class, 'sync']);
 Route::get('/masjid-madrasa/records', [\App\Http\Controllers\Api\MasjidMadrasaController::class, 'index']);
@@ -219,6 +224,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Fee Payments & Collection
         Route::get('/fees', [\App\Http\Controllers\Api\FeePaymentController::class, 'index']);
         Route::get('/fees/balances', [\App\Http\Controllers\Api\FeePaymentController::class, 'balances']);
+        Route::get('/fees/defaulters', [\App\Http\Controllers\Api\FeePaymentController::class, 'defaulters']);
+        Route::get('/fees/defaulters/pdf', [\App\Http\Controllers\Api\FeePaymentController::class, 'defaultersPdf']);
         Route::post('/fees/ledger/bulk-email', [\App\Http\Controllers\Api\FeePaymentController::class, 'bulkEmailLedger']);
         Route::post('/fees/ledger/{student:uuid}/email', [\App\Http\Controllers\Api\FeePaymentController::class, 'emailLedger']);
         Route::post('/fees/whatsapp-reminder/{studentId}', [\App\Http\Controllers\Api\FeePaymentController::class, 'sendWhatsAppReminder']);
@@ -298,14 +305,47 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json($query->orderByRaw('CASE WHEN roll_number IS NULL THEN 1 ELSE 0 END')->orderByRaw('CAST(roll_number AS UNSIGNED) ASC')->orderBy('name', 'asc')->get(['id', 'name', 'father_name', 'roll_number', 'class_id', 'section_id', 'contact_number', 'email']));
         });
 
-        // Allow attendance managers (and others in this group) to update a student's contact number
+        // Allow updating a student's contact number, section, or quick details
         Route::put('/students/{id}/contact', function (Request $request, $id) {
-            $request->validate(['contact_number' => 'required|string|max:20']);
+            $request->validate(['contact_number' => 'nullable|string|max:25']);
             $student = \App\Models\User::where('role_id', 3)->findOrFail($id);
             $student->update(['contact_number' => $request->contact_number]);
             return response()->json([
                 'message' => 'Contact updated successfully.',
                 'contact_number' => $student->contact_number
+            ]);
+        });
+
+        Route::put('/students/{id}/section', function (Request $request, $id) {
+            $request->validate(['section_id' => 'nullable|integer']);
+            $student = \App\Models\User::where('role_id', 3)->findOrFail($id);
+            $student->update(['section_id' => $request->section_id ? (int)$request->section_id : null]);
+            $student->load('section:id,name');
+            return response()->json([
+                'message' => 'Section updated successfully.',
+                'section_id' => $student->section_id,
+                'section' => $student->section
+            ]);
+        });
+
+        Route::put('/students/{id}/quick-update', function (Request $request, $id) {
+            $request->validate([
+                'section_id' => 'nullable',
+                'contact_number' => 'nullable|string|max:25',
+            ]);
+            $student = \App\Models\User::where('role_id', 3)->findOrFail($id);
+            $updateData = [];
+            if ($request->has('section_id')) {
+                $updateData['section_id'] = $request->section_id ? (int)$request->section_id : null;
+            }
+            if ($request->has('contact_number')) {
+                $updateData['contact_number'] = $request->contact_number;
+            }
+            $student->update($updateData);
+            $student->load(['academyClass:id,name', 'section:id,name', 'major:id,name']);
+            return response()->json([
+                'message' => 'Student updated successfully.',
+                'student' => $student
             ]);
         });
 

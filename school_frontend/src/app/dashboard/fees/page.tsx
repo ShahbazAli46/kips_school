@@ -723,7 +723,11 @@ export default function FeesPage() {
         <div>
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "#0f224a" }}>Fee Collection</h1>
-            <button onClick={() => router.push('/dashboard/fee-follow-ups')} className="px-4 py-2 rounded-lg text-sm font-bold border transition shadow-sm hover:bg-[#f0f4f8]" style={{ borderColor: '#bfdbfe', color: '#2563eb' }}>
+            <button onClick={() => router.push('/dashboard/fees/defaulters')} className="px-3.5 py-2 rounded-lg text-xs font-bold border transition shadow-sm bg-red-50 text-red-700 hover:bg-red-100 flex items-center gap-1.5" style={{ borderColor: '#fecaca' }}>
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              Class-Wise Defaulters
+            </button>
+            <button onClick={() => router.push('/dashboard/fee-follow-ups')} className="px-3.5 py-2 rounded-lg text-xs font-bold border transition shadow-sm hover:bg-[#f0f4f8]" style={{ borderColor: '#bfdbfe', color: '#2563eb' }}>
               View Follow Ups
             </button>
           </div>

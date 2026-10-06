@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Jobs\SendFeeLedgerEmailJob;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class FeePaymentController extends Controller
 {
@@ -369,6 +370,305 @@ class FeePaymentController extends Controller
                 'remaining' => $totalRemainingOverall,
             ]
         ]);
+    }
+
+    public function defaulters(Request $request)
+    {
+        $data = $this->getDefaultersData($request);
+        return response()->json($data);
+    }
+
+    public function defaultersPdf(Request $request)
+    {
+        $data = $this->getDefaultersData($request);
+
+        $classFilterName = '';
+        if ($request->filled('class_id')) {
+            $cls = \App\Models\AcademyClass::find($request->input('class_id'));
+            if ($cls) {
+                $classFilterName = $cls->name;
+            }
+        }
+
+        $pdf = Pdf::loadView('pdf.class-wise-defaulters-pdf', [
+            'data' => $data,
+            'classFilterName' => $classFilterName,
+            'hideZeroDefaultersClasses' => $request->boolean('hide_zero', false),
+        ])->setPaper('a4', 'landscape');
+
+        $cleanMonth = str_replace('-', '_', $data['month']);
+        $prefix = $classFilterName ? 'Fee_Defaulters_' . preg_replace('/[^A-Za-z0-9_]/', '_', $classFilterName) : 'Class_Wise_Fee_Defaulters';
+        $filename = "{$prefix}_{$cleanMonth}.pdf";
+
+        if ($request->query('preview') == '1' || $request->query('stream') == '1') {
+            return $pdf->stream($filename);
+        }
+
+        return $pdf->download($filename);
+    }
+
+    private function getDefaultersData(Request $request): array
+    {
+        $activeSession = \App\Models\AcademicSession::getActiveSession();
+        $startDate = $activeSession ? $activeSession->start_date : '2020-01-01';
+        $sessionStart = \Carbon\Carbon::parse($startDate)->startOfMonth();
+        $startMonthStr = $sessionStart->format('Y-m');
+
+        $monthStr = $request->input('month', now()->format('Y-m'));
+        $targetCarbon = \Carbon\Carbon::createFromFormat('Y-m', $monthStr)->startOfMonth();
+        $monthLabel = $targetCarbon->format('F Y');
+
+        $query = User::with([
+                'academyClass:id,name', 
+                'major:id,name', 
+                'section:id,name',
+                'feeItems',
+                'latestFeeFollowUp',
+                'feePayments' => function($q) use ($startMonthStr) {
+                    $q->where('month', '>=', $startMonthStr)
+                      ->with(['items'])
+                      ->orderBy('payment_date', 'desc')
+                      ->select('id', 'student_id', 'month', 'amount_paid', 'discount_amount', 'payment_date');
+                }
+            ])
+            ->where('role_id', 3)
+            ->where('is_active', true);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('contact_number', 'like', "%{$search}%")
+                  ->orWhere('father_name', 'like', "%{$search}%")
+                  ->orWhere('roll_number', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('class_id')) {
+            $query->where('class_id', $request->input('class_id'));
+        }
+
+        if ($request->filled('section_id')) {
+            $query->where('section_id', $request->input('section_id'));
+        }
+
+        $query->orderBy('name', 'asc');
+        $allStudents = $query->get();
+
+        $getTuitionPaidAndDiscount = function ($paymentsCollection) {
+            $tuitionPaid = 0;
+            $tuitionDiscount = 0;
+            foreach ($paymentsCollection as $p) {
+                $pItems = $p->relationLoaded('items') ? $p->items : $p->items()->get();
+                $nonTuitionPaid = (float)$pItems->whereNotNull('student_fee_item_id')->sum('amount_paid');
+                $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
+                $tuitionDiscount += (float)$p->discount_amount;
+            }
+            return [$tuitionPaid, $tuitionDiscount];
+        };
+
+        $defaulterType = $request->input('defaulter_type', 'all_defaulters'); // all_defaulters, this_month_unpaid, this_month_partial, arrears_only, critical
+
+        $calculatedStudents = $allStudents->map(function ($student) use ($monthStr, $sessionStart, $targetCarbon, $getTuitionPaidAndDiscount) {
+            $monthlyFee = (float)($student->monthly_fee ?: 0);
+
+            // Payments in the target month
+            $monthPayments = $student->feePayments->filter(fn($p) => $p->month === $monthStr);
+            $totalMonthPaid = (float)$monthPayments->sum('amount_paid');
+            $totalMonthDiscount = (float)$monthPayments->sum('discount_amount');
+
+            [$currentMonthTuitionPaid, $currentMonthTuitionDiscount] = $getTuitionPaidAndDiscount($monthPayments);
+            $currentMonthNetDue = max(0, $monthlyFee - ($currentMonthTuitionPaid + $currentMonthTuitionDiscount));
+
+            // Prior months tuition arrears
+            $start = $student->getEffectiveEnrollmentStart($sessionStart);
+            $previousTuitionArrears = 0;
+
+            if ($targetCarbon->lt($start)) {
+                $monthlyFee = 0;
+                $currentMonthNetDue = 0;
+                $previousTuitionArrears = 0;
+            } elseif ($start->lt($targetCarbon)) {
+                $priorMonthsCount = $start->diffInMonths($targetCarbon);
+                $priorFeesDue = ($priorMonthsCount * $monthlyFee);
+
+                $priorPayments = $student->feePayments->filter(fn($p) => $p->month < $monthStr);
+                [$priorPaid, $priorDiscount] = $getTuitionPaidAndDiscount($priorPayments);
+
+                $previousTuitionArrears = max(0, $priorFeesDue - ($priorPaid + $priorDiscount));
+            }
+
+            // Unpaid non-monthly Fee Heads
+            $unpaidOneTimeBalance = 0;
+            if ($student->relationLoaded('feeItems') || $student->feeItems) {
+                foreach ($student->feeItems as $fi) {
+                    if ($fi->head_key !== 'tuition_fee' && (float)$fi->balance_amount > 0) {
+                        $unpaidOneTimeBalance += (float)$fi->balance_amount;
+                    }
+                }
+            } elseif ($student->pending_amount > 0) {
+                $unpaidOneTimeBalance = (float)$student->pending_amount;
+            }
+
+            $previousArrears = $previousTuitionArrears + $unpaidOneTimeBalance;
+            $totalPayable = $currentMonthNetDue + $previousArrears;
+
+            $status = 'unpaid';
+            if ($totalPayable <= 0) {
+                $status = 'paid';
+            } elseif ($totalMonthPaid > 0 || $totalMonthDiscount > 0) {
+                $status = 'partial';
+            }
+
+            $isThisMonthUnpaid = ($currentMonthNetDue > 0 && $totalMonthPaid <= 0 && $totalMonthDiscount <= 0);
+            $isThisMonthPartial = ($currentMonthNetDue > 0 && ($totalMonthPaid > 0 || $totalMonthDiscount > 0));
+            $isPastArrearsOnly = ($currentMonthNetDue <= 0 && $previousArrears > 0);
+            
+            $monthsOverdue = 0;
+            if ($totalPayable > 0 && $monthlyFee > 0) {
+                $monthsOverdue = max(1, (int)ceil($totalPayable / $monthlyFee));
+            } elseif ($totalPayable > 0) {
+                $monthsOverdue = 1;
+            }
+
+            $latestPayment = $student->feePayments->first();
+
+            return [
+                'id' => $student->id,
+                'uuid' => $student->uuid,
+                'name' => $student->name,
+                'father_name' => $student->father_name ?? '',
+                'roll_number' => $student->roll_number ? $student->roll_number : ('KIPS-' . str_pad($student->id, 4, '0', STR_PAD_LEFT)),
+                'contact_number' => $student->contact_number ?? '',
+                'emergency_contact' => $student->emergency_contact ?? '',
+                'father_cell' => $student->father_cell ?? '',
+                'image' => $student->image ?? null,
+                'class_id' => $student->class_id,
+                'class_name' => $student->academyClass->name ?? 'Unassigned Class',
+                'section_id' => $student->section_id,
+                'section_name' => $student->section->name ?? '',
+                'major_id' => $student->major_id,
+                'major_name' => $student->major->name ?? '',
+                'monthly_fee' => $monthlyFee,
+                'current_month_paid' => $totalMonthPaid,
+                'current_month_discount' => $totalMonthDiscount,
+                'current_month_net_due' => $currentMonthNetDue,
+                'previous_tuition_arrears' => $previousTuitionArrears,
+                'unpaid_extra_charges' => $unpaidOneTimeBalance,
+                'previous_arrears' => $previousArrears,
+                'total_payable' => $totalPayable,
+                'computed_status' => $status,
+                'is_this_month_unpaid' => $isThisMonthUnpaid,
+                'is_this_month_partial' => $isThisMonthPartial,
+                'is_past_arrears_only' => $isPastArrearsOnly,
+                'is_defaulter' => ($totalPayable > 0),
+                'months_overdue' => $monthsOverdue,
+                'is_critical' => ($monthsOverdue >= 2 || $totalPayable >= ($monthlyFee * 2 && $monthlyFee > 0)),
+                'last_payment_date' => $latestPayment ? $latestPayment->payment_date : null,
+                'last_payment_amount' => $latestPayment ? (float)$latestPayment->amount_paid : 0,
+                'latest_follow_up' => $student->latestFeeFollowUp ? [
+                    'id' => $student->latestFeeFollowUp->id,
+                    'promise_date' => $student->latestFeeFollowUp->promise_date,
+                    'next_promise_date' => $student->latestFeeFollowUp->next_promise_date,
+                    'comments' => $student->latestFeeFollowUp->comments,
+                    'created_at' => $student->latestFeeFollowUp->created_at ? $student->latestFeeFollowUp->created_at->format('Y-m-d') : null,
+                ] : null,
+            ];
+        });
+
+        // Overall stats before filtering
+        $totalEnrolledSchool = $calculatedStudents->count();
+        $totalExpectedSchool = (float)$calculatedStudents->sum('monthly_fee');
+        $totalCollectedSchool = (float)$calculatedStudents->sum('current_month_paid');
+
+        // Apply Defaulter Criteria Filter
+        $filteredDefaulters = $calculatedStudents->filter(function ($s) use ($defaulterType) {
+            if ($defaulterType === 'this_month_unpaid') {
+                return $s['is_this_month_unpaid'];
+            } elseif ($defaulterType === 'this_month_partial') {
+                return $s['is_this_month_partial'];
+            } elseif ($defaulterType === 'this_month_all') {
+                return $s['current_month_net_due'] > 0;
+            } elseif ($defaulterType === 'arrears_only') {
+                return $s['is_past_arrears_only'];
+            } elseif ($defaulterType === 'critical') {
+                return $s['is_critical'] && $s['is_defaulter'];
+            } else {
+                // all_defaulters (default)
+                return $s['is_defaulter'];
+            }
+        })->values();
+
+        // Fetch all classes to ensure all classes show in summary even with 0 defaulters
+        $classesQuery = \App\Models\AcademyClass::orderBy('name', 'asc');
+        if ($request->filled('class_id')) {
+            $classesQuery->where('id', $request->input('class_id'));
+        }
+        $allClasses = $classesQuery->get();
+
+        $classesSummary = [];
+        foreach ($allClasses as $cls) {
+            $classEnrolledStudents = $calculatedStudents->filter(fn($s) => $s['class_id'] == $cls->id);
+            $classDefaulters = $filteredDefaulters->filter(fn($s) => $s['class_id'] == $cls->id)->values();
+
+            $enrolledCount = $classEnrolledStudents->count();
+            $defaultersCount = $classDefaulters->count();
+            $paidCount = max(0, $enrolledCount - $classEnrolledStudents->filter(fn($s) => $s['is_defaulter'])->count());
+            
+            $expectedMonthly = (float)$classEnrolledStudents->sum('monthly_fee');
+            $collectedMonth = (float)$classEnrolledStudents->sum('current_month_paid');
+            $pendingTotal = (float)$classDefaulters->sum('total_payable');
+            $currentPending = (float)$classDefaulters->sum('current_month_net_due');
+            $previousPending = (float)$classDefaulters->sum('previous_arrears');
+
+            $recoveryRate = $expectedMonthly > 0 ? round(($collectedMonth / $expectedMonthly) * 100, 1) : ($enrolledCount > 0 ? 100 : 0);
+            $defaulterRate = $enrolledCount > 0 ? round(($defaultersCount / $enrolledCount) * 100, 1) : 0;
+
+            $classesSummary[] = [
+                'class_id' => $cls->id,
+                'class_name' => $cls->name,
+                'total_enrolled' => $enrolledCount,
+                'defaulters_count' => $defaultersCount,
+                'paid_count' => $paidCount,
+                'recovery_rate' => $recoveryRate,
+                'defaulter_rate' => $defaulterRate,
+                'total_monthly_expected' => $expectedMonthly,
+                'total_collected_month' => $collectedMonth,
+                'total_pending_amount' => $pendingTotal,
+                'current_month_pending' => $currentPending,
+                'previous_arrears_pending' => $previousPending,
+                'students' => $classDefaulters,
+            ];
+        }
+
+        // Summary KPI
+        $totalDefaultersCount = $filteredDefaulters->count();
+        $totalPaidSchool = max(0, $totalEnrolledSchool - $calculatedStudents->filter(fn($s) => $s['is_defaulter'])->count());
+        $totalPendingSchool = (float)$filteredDefaulters->sum('total_payable');
+        $currentPendingSchool = (float)$filteredDefaulters->sum('current_month_net_due');
+        $prevPendingSchool = (float)$filteredDefaulters->sum('previous_arrears');
+        $overallRecoveryRate = $totalExpectedSchool > 0 ? round(($totalCollectedSchool / $totalExpectedSchool) * 100, 1) : 100;
+        $overallDefaulterRate = $totalEnrolledSchool > 0 ? round(($totalDefaultersCount / $totalEnrolledSchool) * 100, 1) : 0;
+
+        return [
+            'month' => $monthStr,
+            'month_label' => $monthLabel,
+            'defaulter_type' => $defaulterType,
+            'summary' => [
+                'total_enrolled' => $totalEnrolledSchool,
+                'total_defaulters' => $totalDefaultersCount,
+                'total_paid_students' => $totalPaidSchool,
+                'overall_recovery_rate' => $overallRecoveryRate,
+                'overall_defaulter_rate' => $overallDefaulterRate,
+                'total_expected_revenue' => $totalExpectedSchool,
+                'total_collected_month' => $totalCollectedSchool,
+                'total_outstanding_amount' => $totalPendingSchool,
+                'current_month_outstanding' => $currentPendingSchool,
+                'previous_arrears_outstanding' => $prevPendingSchool,
+            ],
+            'classes' => $classesSummary,
+            'defaulters_flat' => $filteredDefaulters,
+        ];
     }
 
     public function ledger(User $student)

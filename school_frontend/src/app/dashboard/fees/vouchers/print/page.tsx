@@ -34,6 +34,7 @@ interface StudentVoucher {
   admin_charges?: number;
   transport_fee?: number;
   footer_instructions?: string;
+  signature_image?: string | null;
   fee_items?: { label: string; amount: number }[];
 }
 
@@ -83,9 +84,7 @@ function formatConsumerNumber(studentId: number | string, voucherNo: string) {
 }
 
 function formatChallanNumber(studentId: number | string, voucherNo: string) {
-  const rawDigits = String(voucherNo || "").replace(/\D/g, "");
-  const suffix = rawDigits ? rawDigits.slice(-8).padStart(8, "0") : String(studentId).padStart(8, "0");
-  return `0326${suffix}`;
+  return String(voucherNo || `KIPS-VCH-${studentId}`);
 }
 
 function formatIssueDate(monthStr: string) {
@@ -251,48 +250,45 @@ function VectorBarcode({ value }: { value: string }) {
   );
 }
 
-// ─── Precision Vector QR Code Matrix ──────────────────────────────────────────
-function VectorQRMatrix() {
+import QRCode from "qrcode";
+
+// ─── Precision Live Scannable QR Code ─────────────────────────────────────────
+function LiveQRCode({ value, size = 56 }: { value: string; size?: number }) {
+  const [dataUrl, setDataUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (!value) return;
+    QRCode.toDataURL(value, {
+      margin: 1,
+      width: size * 4,
+      errorCorrectionLevel: "M",
+      color: {
+        dark: "#111827",
+        light: "#FFFFFF",
+      },
+    })
+      .then((url) => setDataUrl(url))
+      .catch((err) => console.error("QR Code generation error:", err));
+  }, [value, size]);
+
+  if (!dataUrl) {
+    return (
+      <div
+        style={{ width: size, height: size }}
+        className="bg-gray-50 border border-gray-900 rounded-xs flex items-center justify-center text-[7px] font-bold text-gray-400"
+      >
+        QR
+      </div>
+    );
+  }
+
   return (
-    <div className="w-11 h-11 bg-white border border-gray-900 p-0.5 rounded-xs flex items-center justify-center">
-      <svg className="w-full h-full" viewBox="0 0 29 29" fill="none">
-        {/* Top-Left Finder */}
-        <rect x="1" y="1" width="7" height="7" fill="#111827" />
-        <rect x="2" y="2" width="5" height="5" fill="#FFFFFF" />
-        <rect x="3" y="3" width="3" height="3" fill="#111827" />
-
-        {/* Top-Right Finder */}
-        <rect x="21" y="1" width="7" height="7" fill="#111827" />
-        <rect x="22" y="2" width="5" height="5" fill="#FFFFFF" />
-        <rect x="23" y="3" width="3" height="3" fill="#111827" />
-
-        {/* Bottom-Left Finder */}
-        <rect x="1" y="21" width="7" height="7" fill="#111827" />
-        <rect x="2" y="22" width="5" height="5" fill="#FFFFFF" />
-        <rect x="3" y="23" width="3" height="3" fill="#111827" />
-
-        {/* Timing Pattern */}
-        <rect x="9" y="4" width="11" height="1" fill="#111827" strokeDasharray="1,1" />
-        <rect x="4" y="9" width="1" height="11" fill="#111827" strokeDasharray="1,1" />
-
-        {/* Data Cells */}
-        <rect x="10" y="10" width="2" height="2" fill="#111827" />
-        <rect x="14" y="10" width="2" height="2" fill="#111827" />
-        <rect x="17" y="11" width="2" height="1" fill="#111827" />
-        <rect x="11" y="14" width="1" height="3" fill="#111827" />
-        <rect x="14" y="13" width="3" height="2" fill="#111827" />
-        <rect x="18" y="14" width="2" height="2" fill="#111827" />
-        <rect x="10" y="18" width="2" height="2" fill="#111827" />
-        <rect x="13" y="17" width="2" height="3" fill="#111827" />
-        <rect x="17" y="18" width="2" height="2" fill="#111827" />
-        <rect x="22" y="10" width="2" height="3" fill="#111827" />
-        <rect x="25" y="14" width="2" height="2" fill="#111827" />
-        <rect x="22" y="18" width="3" height="2" fill="#111827" />
-        <rect x="10" y="23" width="3" height="2" fill="#111827" />
-        <rect x="15" y="22" width="2" height="3" fill="#111827" />
-        <rect x="19" y="24" width="2" height="2" fill="#111827" />
-      </svg>
-    </div>
+    <img
+      src={dataUrl}
+      alt="Voucher Verification QR Code"
+      style={{ width: size, height: size }}
+      className="border border-gray-900 rounded-xs bg-white object-contain shadow-2xs"
+    />
   );
 }
 
@@ -329,6 +325,11 @@ function ExecutiveLandscapeSlip({
   const { feeItems, totalPayable } = getFeeItems(student);
   const amountInWords = numberToWordsPKR(totalPayable);
 
+  const isPaid = totalPayable <= 0 || student.status === "Paid";
+  const isPartial = !isPaid && (Number(student.current_month_paid || 0) > 0 || student.status === "Partial");
+
+  const verificationUrl = `${API}/public/vouchers/pdf?voucher_no=${encodeURIComponent(voucherNumber)}`;
+
   const rawInstructions = footerInstructions || student.footer_instructions;
   const customFooterHtml = rawInstructions
     ? rawInstructions
@@ -341,7 +342,7 @@ function ExecutiveLandscapeSlip({
   return (
     <div className="voucher-slip flex flex-col justify-between h-full bg-white text-gray-900 text-[9.5px] leading-[1.3] px-3.5 py-2.5 box-border border-2 border-gray-900 rounded-md shadow-xs relative">
       {/* Micro-Security Top Border Accent */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-[#0f224a] print:bg-black" />
+      <div className={`absolute top-0 left-0 right-0 h-1 ${isPaid ? "bg-emerald-600 print:bg-black" : "bg-[#0f224a] print:bg-black"}`} />
 
       <div className="space-y-2">
         {/* ─── 1. Header (Institutional & Branding) ─── */}
@@ -364,8 +365,21 @@ function ExecutiveLandscapeSlip({
             </div>
           </div>
 
-          <div className="text-right flex flex-col items-end justify-center">
-            <span className="inline-block px-3.5 py-1 bg-[#0f224a] print:bg-black text-white font-black text-[9.5px] uppercase tracking-wider rounded shadow-xs">
+          <div className="text-right flex items-center gap-1.5">
+            {isPaid ? (
+              <span className="inline-block px-2 py-0.5 bg-emerald-600 text-white font-black text-[8.5px] uppercase tracking-wider rounded shadow-2xs">
+                ✔ PAID
+              </span>
+            ) : isPartial ? (
+              <span className="inline-block px-2 py-0.5 bg-amber-600 text-white font-black text-[8.5px] uppercase tracking-wider rounded shadow-2xs">
+                PARTIAL
+              </span>
+            ) : (
+              <span className="inline-block px-2 py-0.5 bg-red-600 text-white font-black text-[8.5px] uppercase tracking-wider rounded shadow-2xs">
+                UNPAID
+              </span>
+            )}
+            <span className="inline-block px-3 py-1 bg-[#0f224a] print:bg-black text-white font-black text-[9px] uppercase tracking-wider rounded shadow-xs">
               {copyTitle}
             </span>
           </div>
@@ -485,17 +499,24 @@ function ExecutiveLandscapeSlip({
                   <div>• <strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong className="font-mono text-black font-black text-[8.5px]">{consumerNo}</strong> across all Pakistani Banking &amp; Wallet Apps (EasyPaisa, JazzCash, Nayapay, SadaPay).</div>
                   <div>• <strong>BANK COUNTER:</strong> Payable at any United Bank Limited (UBL) Branch nationwide. (A/C: Quality Brands (Pvt) Ltd).</div>
                   <div>• <strong>LATE SURCHARGE:</strong> Late fee surcharge of Rs. 50/day applicable strictly after due date.</div>
-                  <div>• <strong>HELPLINE:</strong> 0300 39 39 581 | Email: info@kips.edu.pk</div>
+                  <div>• <strong>HELPLINE:</strong> 0300 39 39 581</div>
                 </>
               )}
             </div>
 
-            {/* Verification Barcode & QR Code */}
-            <div className="shrink-0 flex items-center gap-2 pl-2.5 border-l border-gray-300">
-              <VectorBarcode value={challanNo} />
-              <div className="flex flex-col items-center">
-                <VectorQRMatrix />
-                <span className="text-[6px] font-bold text-gray-600 mt-0.5">Verify</span>
+            {/* Verification QR Code & Official Status */}
+            <div className="shrink-0 flex items-center gap-2 pl-3 border-l border-gray-300">
+              <LiveQRCode value={verificationUrl} size={56} />
+              <div className="flex flex-col items-center text-center">
+                <span className={`text-[6.5px] font-black px-1.5 py-0.5 rounded-xs uppercase tracking-wider ${isPaid ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : isPartial ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-red-100 text-red-800 border border-red-300"}`}>
+                  {isPaid ? "✔ Paid" : isPartial ? "⚠ Partial" : "Payable"}
+                </span>
+                <span className="font-mono text-[6px] font-bold text-gray-800 mt-1">
+                  {voucherNumber}
+                </span>
+                <span className="text-[5.5px] font-bold text-gray-500 uppercase tracking-tight">
+                  Scan for PDF
+                </span>
               </div>
             </div>
           </div>
@@ -504,13 +525,27 @@ function ExecutiveLandscapeSlip({
 
       {/* ─── 6. Signatures & Microprint Security Baseline ─── */}
       <div className="mt-2">
-        <div className="flex items-center justify-between pb-1 text-[8px] text-gray-700">
+        <div className="flex items-end justify-between pb-1 text-[8px] text-gray-700">
           <div className="flex items-center gap-1">
             <span>Prepared By: <strong>Accounts System Portal</strong></span>
           </div>
-          <div className="border border-dashed border-gray-600 rounded px-3.5 py-0.5 text-center text-[7.5px] text-gray-600 font-bold">
-            Authorized Signature &amp; Stamp
-          </div>
+          {student.signature_image ? (
+            <div className="flex flex-col items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={student.signature_image}
+                alt="Authorized Signature"
+                className="max-h-7 max-w-[105px] object-contain mb-0.5"
+              />
+              <div className="border-t border-gray-600 pt-0.5 text-center text-[7px] text-gray-800 font-bold">
+                Authorized Signature &amp; Stamp
+              </div>
+            </div>
+          ) : (
+            <div className="border border-dashed border-gray-600 rounded px-3.5 py-0.5 text-center text-[7.5px] text-gray-600 font-bold">
+              Authorized Signature &amp; Stamp
+            </div>
+          )}
         </div>
 
         {/* Security Baseline Strip */}

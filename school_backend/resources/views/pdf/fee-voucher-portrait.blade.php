@@ -160,7 +160,7 @@
 
     $digits = preg_replace('/\D/', '', $voucherNo);
     $consumerNo = '26720027503263' . (!empty($digits) ? str_pad(substr($digits, -6), 6, '0', STR_PAD_LEFT) : str_pad($stId, 6, '0', STR_PAD_LEFT));
-    $challanNo = '0326' . (!empty($digits) ? str_pad(substr($digits, -8), 8, '0', STR_PAD_LEFT) : str_pad($stId, 8, '0', STR_PAD_LEFT));
+    $challanNo = $voucherNo;
 
     $dueDateRaw = $voucher['due_date'] ?? date('Y-m-10');
     $dueDateFormatted = date('jS F Y', strtotime($dueDateRaw));
@@ -425,9 +425,28 @@
         </table>
         <table style="border-top: 0.5px solid #f3f4f6; margin-top: 2px; padding-top: 2px; font-size: 6.5px; color: #6b7280;">
             <tr>
-                <td>Received by Accounts: _____________________</td>
-                <td style="text-align: center;">Date: ____ / ____ / 2026</td>
-                <td style="text-align: right; font-weight: bold;">[ Accounts Stamp Box ]</td>
+                <td style="vertical-align: bottom;">Received by Accounts: _____________________</td>
+                <td style="text-align: center; vertical-align: bottom;">Date: ____ / ____ / 2026</td>
+                <td style="text-align: right; font-weight: bold; vertical-align: bottom;">
+                    @php
+                        $sigImg = $voucher['signature_image'] ?? null;
+                        if (!empty($sigImg) && !str_starts_with($sigImg, 'data:image/') && str_contains($sigImg, '/storage/')) {
+                            $parsedPath = parse_url($sigImg, PHP_URL_PATH);
+                            $abs = public_path(ltrim(strstr($parsedPath, '/storage/'), '/'));
+                            if (file_exists($abs)) {
+                                $sigImg = 'data:' . (mime_content_type($abs) ?: 'image/png') . ';base64,' . base64_encode(file_get_contents($abs));
+                            }
+                        }
+                    @endphp
+                    @if(!empty($sigImg))
+                        <div style="display: inline-block; text-align: center;">
+                            <img src="{{ $sigImg }}" style="max-height: 22px; max-width: 90px; display: block; margin: 0 auto 1px auto;" alt="Signature">
+                            <span style="font-size: 6px; color: #111827; border-top: 0.5px solid #6b7280; padding-top: 1px;">Accounts Stamp &amp; Sign</span>
+                        </div>
+                    @else
+                        [ Accounts Stamp Box ]
+                    @endif
+                </td>
             </tr>
         </table>
     </div>

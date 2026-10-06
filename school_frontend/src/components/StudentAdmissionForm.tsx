@@ -1565,93 +1565,137 @@ export default function StudentAdmissionForm({ initialData, onSuccess, onCancel 
         </div>
       </div>
 
-      {/* ─── CUSTOM SUCCESS ALERT MODAL WITH PRINT VOUCHER ─────────────────── */}
+      {/* ─── CUSTOM SUCCESS ALERT MODAL WITH PRINT ADMISSION FORM & CHALLAN ─── */}
       {showSuccessModal && createdStudent && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 text-center relative overflow-hidden animate-scaleUp">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full p-6 text-center relative overflow-hidden animate-scaleUp">
             {/* Top decorative accent bar */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500" />
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500" />
 
             {/* Success Icon */}
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-600 mx-auto flex items-center justify-center shadow-xs mb-3">
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-100 border-2 border-emerald-200 text-emerald-600 mx-auto flex items-center justify-center shadow-sm mb-3">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             </div>
 
-            <h3 className="text-base font-black text-slate-900 mb-0.5">
+            <h3 className="text-lg font-black text-slate-900 mb-1">
               {initialData ? "Admission Updated Successfully!" : "Student Admitted Successfully!"}
             </h3>
-            <p className="text-[11px] text-slate-500 mb-4">
-              Admission records, stream mapping &amp; fee structure registered.
+            <p className="text-xs text-slate-500 mb-4">
+              All personal records, academic placement &amp; fee heads have been registered.
             </p>
 
-            {/* Student Info Card */}
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 mb-4 text-left space-y-1.5">
+            {/* Student Quick Info Card */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-3.5 mb-5 text-left space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500">Student Name:</span>
-                <span className="text-xs font-bold text-slate-900 truncate max-w-[180px]">
+                <span className="text-xs font-semibold text-slate-500">Student Name:</span>
+                <span className="text-xs font-black text-slate-900 truncate max-w-[200px]">
                   {createdStudent.name}
                 </span>
               </div>
               {createdStudent.roll_number && (
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-500">Roll Number:</span>
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                  <span className="text-xs font-semibold text-slate-500">Roll / Reg No:</span>
+                  <span className="text-xs font-mono font-extrabold px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 border border-blue-200">
                     {createdStudent.roll_number}
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500">Class &amp; Section:</span>
+                <span className="text-xs font-semibold text-slate-500">Class &amp; Section:</span>
                 <span className="text-xs font-bold text-slate-800">
-                  {createdStudent.academy_class?.name || "Class"} — {createdStudent.section?.name || "Section"}
+                  {createdStudent.academy_class?.name || "Class"} — {createdStudent.section?.name ? `Section ${createdStudent.section.name}` : "General"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500">Admission Month:</span>
+                <span className="text-xs font-semibold text-slate-500">Admission Month:</span>
                 <span className="text-xs font-bold text-slate-800">
-                  {createdStudent.admission_month || streamData.admission_month}
+                  {createdStudent.admission_month || streamData.admission_month || "Current Month"}
                 </span>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Print Action Buttons */}
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Print Admission Form */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const admissionPrintUrl = `/dashboard/students/admission/print?student_id=${createdStudent.id}`;
+                    window.open(admissionPrintUrl, "_blank");
+                  }}
+                  className="flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md transition active:scale-95 cursor-pointer"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  <span>Print Admission Form</span>
+                </button>
+
+                {/* Print Fee Challan */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+                    const voucherPrintUrl = `/dashboard/fees/vouchers/print?month=${encodeURIComponent(
+                      currentMonth
+                    )}&selected_keys=${createdStudent.id}`;
+                    window.open(voucherPrintUrl, "_blank");
+                  }}
+                  className="flex flex-col items-center justify-center gap-1 py-3 px-3 rounded-2xl font-black text-xs text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 shadow-sm transition active:scale-95 cursor-pointer"
+                >
+                  <svg className="w-5 h-5 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                    />
+                  </svg>
+                  <span>Print Challan</span>
+                </button>
+              </div>
+
+              {/* Print Both (Form + Challan) in One Click */}
               <button
                 type="button"
                 onClick={() => {
+                  const admissionPrintUrl = `/dashboard/students/admission/print?student_id=${createdStudent.id}`;
                   const now = new Date();
                   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
                   const voucherPrintUrl = `/dashboard/fees/vouchers/print?month=${encodeURIComponent(
                     currentMonth
                   )}&selected_keys=${createdStudent.id}`;
+
+                  window.open(admissionPrintUrl, "_blank");
                   window.open(voucherPrintUrl, "_blank");
-                  setShowSuccessModal(false);
-                  onSuccess(createdStudent);
                 }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-bold text-xs text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xs transition active:scale-98 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-bold text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition active:scale-98 cursor-pointer"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
                 </svg>
-                Print Voucher (OK)
+                <span>Print Both (Admission Form &amp; Fee Challan)</span>
               </button>
 
+              {/* Dismiss / Return to Students */}
               <button
                 type="button"
                 onClick={() => {
                   setShowSuccessModal(false);
                   onSuccess(createdStudent);
                 }}
-                className="py-2 px-3 rounded-lg font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-98 cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-xl font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-98 cursor-pointer mt-1"
               >
-                Done
+                Done / Return to Students
               </button>
             </div>
           </div>

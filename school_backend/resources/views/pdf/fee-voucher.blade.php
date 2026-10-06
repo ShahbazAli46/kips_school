@@ -194,6 +194,66 @@
             vertical-align: middle;
         }
 
+        /* Status Badges & Stamps */
+        .paid-badge {
+            background-color: #059669;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 2.5px 8px;
+            border-radius: 2px;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .partial-badge {
+            background-color: #d97706;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 2.5px 8px;
+            border-radius: 2px;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .unpaid-badge {
+            background-color: #dc2626;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 2.5px 8px;
+            border-radius: 2px;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .status-stamp-box {
+            border: 1.5px solid #059669;
+            color: #059669;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1px 6px;
+            border-radius: 2px;
+            background: #ecfdf5;
+            display: inline-block;
+        }
+        .status-stamp-unpaid {
+            border-color: #dc2626;
+            color: #dc2626;
+            background: #fef2f2;
+        }
+        .status-stamp-partial {
+            border-color: #d97706;
+            color: #d97706;
+            background: #fffbeb;
+        }
+
         /* Payment Guidelines Box */
         .guide-box {
             border: 1px solid #111827;
@@ -219,7 +279,7 @@
             margin-bottom: 1px;
         }
 
-        /* Barcode simulation */
+        /* Verification QR Code & Barcode box */
         .barcode-box {
             text-align: center;
             border-left: 1px solid #d1d5db;
@@ -376,6 +436,20 @@
 
     $amountInWords = numberToWordsPHP2($totalPayable);
     $copies = ["ACCOUNTS COPY", "STUDENT COPY"];
+
+    $isPaid = ($totalPayable <= 0 || ($voucher['status'] ?? '') === 'Paid');
+    $isPartial = (!$isPaid && ((float)($voucher['current_month_paid'] ?? 0) > 0 || ($voucher['status'] ?? '') === 'Partial'));
+
+    $verifyUrl = $voucher['verification_url'] ?? url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucherNo));
+    $qrCodeDataUri = !empty($voucher['qr_code_data_uri']) ? $voucher['qr_code_data_uri'] : '';
+    if (empty($qrCodeDataUri)) {
+        try {
+            $qrOptions = new \chillerlan\QRCode\QROptions(['scale' => 4, 'imageBase64' => true]);
+            $qrCodeDataUri = (new \chillerlan\QRCode\QRCode($qrOptions))->render($verifyUrl);
+        } catch (\Throwable $e) {
+            $qrCodeDataUri = '';
+        }
+    }
 @endphp
 
 <table class="master-table">
@@ -405,7 +479,14 @@
                                     Issue Date: {{ $issueDate }}
                                 </div>
                             </td>
-                            <td style="text-align: right; vertical-align: middle; width: 110px;">
+                            <td style="text-align: right; vertical-align: middle; width: 140px;">
+                                @if($isPaid)
+                                    <span class="paid-badge">✔ PAID</span>
+                                @elseif($isPartial)
+                                    <span class="partial-badge">PARTIAL</span>
+                                @else
+                                    <span class="unpaid-badge">UNPAID</span>
+                                @endif
                                 <span class="copy-pill">{{ $copyTitle }}</span>
                             </td>
                         </tr>
@@ -479,7 +560,13 @@
                                     </tr>
                                 @endforeach
                                 <tr class="fee-total-row">
-                                    <td colspan="2" style="text-align: right; text-transform: uppercase;">Total Payable Within Due Date</td>
+                                    <td colspan="2" style="text-align: right; text-transform: uppercase;">
+                                        @if($isPaid)
+                                            Total Settled / Cleared (Balance: Rs. 0.00)
+                                        @else
+                                            Total Payable Within Due Date
+                                        @endif
+                                    </td>
                                     <td style="text-align: right; font-family: monospace; font-size: 10.5px;">Rs. {{ number_format($totalPayable, 2) }}</td>
                                 </tr>
                             </tbody>
@@ -495,8 +582,10 @@
                                     {{ $amountInWords }}
                                 </div>
                             </td>
-                            <td class="total-cell">
-                                <div style="font-size: 6px; font-weight: bold; text-transform: uppercase; color: #dbeafe;">NET PAYABLE AMOUNT</div>
+                            <td class="total-cell" style="{{ $isPaid ? 'background-color: #065f46;' : '' }}">
+                                <div style="font-size: 6px; font-weight: bold; text-transform: uppercase; color: #dbeafe;">
+                                    {{ $isPaid ? 'STATUS: PAID IN FULL' : 'NET PAYABLE AMOUNT' }}
+                                </div>
                                 <div style="font-size: 11px; font-weight: 900; font-family: monospace; margin-top: 1px;">
                                     Rs. {{ number_format($totalPayable, 2) }}
                                 </div>
@@ -508,7 +597,7 @@
                     <div class="guide-box">
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
-                                <td class="guide-text" style="width: 72%; vertical-align: top;">
+                                <td class="guide-text" style="width: 63%; vertical-align: top;">
                                     @php
                                         $customFooter = $voucher['footer_instructions'] ?? null;
                                         if ($customFooter) {
@@ -523,15 +612,40 @@
                                         &bull; <strong>1BILL ONLINE:</strong> Pay via 1Bill Consumer #: <strong class="font-mono">{{ $consumerNo }}</strong> (EasyPaisa, JazzCash, Nayapay, SadaPay, Banking Apps).<br>
                                         &bull; <strong>BANK COUNTER:</strong> Payable at any UBL Branch nationwide (A/C: Quality Brands (Pvt) Ltd).<br>
                                         &bull; <strong>LATE SURCHARGE:</strong> Rs. 50/day applicable after due date.<br>
-                                        &bull; <strong>HELPLINE:</strong> 0300 39 39 581 | info@kips.edu.pk
+                                        &bull; <strong>HELPLINE:</strong> 0300 39 39 581
                                     @endif
                                 </td>
-                                <td class="barcode-box" style="width: 28%;">
-                                    <div style="font-size: 5.5px; font-family: monospace; font-weight: bold; color: #111827; letter-spacing: 1px; border: 1px solid #111827; padding: 3px 2px; background: #ffffff;">
-                                        ||||| | |||| || ||| |||| |
-                                        <div style="font-size: 6px; margin-top: 1px;">*{{ $challanNo }}*</div>
-                                    </div>
-                                    <div style="font-size: 5px; color: #6b7280; font-weight: bold; margin-top: 2px;">SCAN TO VERIFY</div>
+                                <td class="barcode-box" style="width: 37%;">
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <tr>
+                                            <td style="width: 60px; vertical-align: middle; text-align: center;">
+                                                @if(!empty($qrCodeDataUri))
+                                                    <img src="{{ $qrCodeDataUri }}" style="width: 58px; height: 58px; border: 1.5px solid #111827; border-radius: 2px;" alt="QR Code">
+                                                @endif
+                                            </td>
+                                            <td style="vertical-align: middle; padding-left: 5px; text-align: center;">
+                                                @if($isPaid)
+                                                    <div class="status-stamp-box" style="font-size: 8px; padding: 2.5px 4px; margin-bottom: 3px;">
+                                                        ✔ PAID
+                                                    </div>
+                                                @elseif($isPartial)
+                                                    <div class="status-stamp-box status-stamp-partial" style="font-size: 7.5px; padding: 2.5px 4px; margin-bottom: 3px;">
+                                                        ⚠ PARTIAL
+                                                    </div>
+                                                @else
+                                                    <div class="status-stamp-box status-stamp-unpaid" style="font-size: 7.5px; padding: 2.5px 4px; margin-bottom: 3px;">
+                                                        PAYABLE
+                                                    </div>
+                                                @endif
+                                                <div style="font-size: 6px; font-family: monospace; font-weight: bold; color: #111827; margin-bottom: 2px;">
+                                                    {{ $voucherNo }}
+                                                </div>
+                                                <div style="font-size: 5px; color: #4b5563; font-weight: bold; line-height: 1.15;">
+                                                    SCAN FOR OFFICIAL PDF
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
                                 </td>
                             </tr>
                         </table>
@@ -540,9 +654,32 @@
                     <!-- Signatures & Microprint Baseline -->
                     <table class="footer-tbl">
                         <tr>
-                            <td>Prepared By: <strong>Accounts System Portal</strong></td>
-                            <td style="text-align: right;">
-                                <span class="stamp-box">Authorized Stamp & Sign</span>
+                            <td style="vertical-align: bottom; padding-bottom: 2px;">Prepared By: <strong>Accounts System Portal</strong></td>
+                            <td style="text-align: right; vertical-align: bottom;">
+                                @php
+                                    $sigImg = $voucher['signature_image'] ?? null;
+                                    if (!empty($sigImg)) {
+                                        if (!str_starts_with($sigImg, 'data:image/')) {
+                                            $parsedPath = parse_url($sigImg, PHP_URL_PATH);
+                                            if ($parsedPath && str_contains($parsedPath, '/storage/')) {
+                                                $rel = strstr($parsedPath, '/storage/');
+                                                $abs = public_path(ltrim($rel, '/'));
+                                                if (file_exists($abs)) {
+                                                    $mime = mime_content_type($abs) ?: 'image/png';
+                                                    $sigImg = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($abs));
+                                                }
+                                            }
+                                        }
+                                    }
+                                @endphp
+                                @if(!empty($sigImg))
+                                    <div style="display: inline-block; text-align: center; vertical-align: bottom;">
+                                        <img src="{{ $sigImg }}" style="max-height: 28px; max-width: 100px; display: block; margin: 0 auto 1px auto;" alt="Authorized Signature">
+                                        <div style="font-size: 6.5px; font-weight: bold; color: #111827; border-top: 0.5px solid #4b5563; padding-top: 1px;">Authorized Stamp &amp; Sign</div>
+                                    </div>
+                                @else
+                                    <span class="stamp-box">Authorized Stamp &amp; Sign</span>
+                                @endif
                             </td>
                         </tr>
                     </table>

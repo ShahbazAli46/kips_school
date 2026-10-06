@@ -145,6 +145,16 @@ class User extends Authenticatable
         return $this->hasManyThrough(FeePaymentItem::class, FeePayment::class, 'student_id', 'fee_payment_id');
     }
 
+    public function feeFollowUps()
+    {
+        return $this->hasMany(\App\Models\FeeFollowUp::class, 'student_id');
+    }
+
+    public function latestFeeFollowUp()
+    {
+        return $this->hasOne(\App\Models\FeeFollowUp::class, 'student_id')->latestOfMany();
+    }
+
     public function sentMessages()
     {
         return $this->hasMany(Message::class, 'sender_id');

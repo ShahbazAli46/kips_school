@@ -250,6 +250,12 @@ export default function CreateTestBatchPage() {
 
   const enabledCount = subjectRows.filter((r) => r.enabled).length;
 
+  // Filter sections dynamically based on selected class
+  const selectedClassObj = classes.find((c: any) => String(c.id) === String(classId));
+  const availableSections: any[] = selectedClassObj?.sections && Array.isArray(selectedClassObj.sections)
+    ? selectedClassObj.sections
+    : [];
+
   // Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -436,7 +442,10 @@ export default function CreateTestBatchPage() {
               <CustomDropdown
                 name="classId"
                 value={classId}
-                onChange={(_, val) => setClassId(val)}
+                onChange={(_, val) => {
+                  setClassId(val);
+                  setSectionId(""); // Reset section when class changes
+                }}
                 placeholder="Select Class"
                 options={classes.map((c) => ({
                   label: c.name,
@@ -445,7 +454,7 @@ export default function CreateTestBatchPage() {
               />
             </div>
 
-            {/* Section Selection (Optional) */}
+            {/* Section Selection (Optional - Filtered by Class) */}
             <div className="relative z-10">
               <label className="block text-xs font-bold text-[#1e3a8a] uppercase tracking-wide mb-1.5">
                 Section <span className="text-slate-400 font-normal">(Optional)</span>
@@ -454,11 +463,26 @@ export default function CreateTestBatchPage() {
                 name="sectionId"
                 value={sectionId}
                 onChange={(_, val) => setSectionId(val)}
-                placeholder="All Sections"
-                options={[
-                  { label: "All Sections", value: "" },
-                  ...sections.map((s) => ({ label: s.name, value: s.id })),
-                ]}
+                placeholder={
+                  !classId
+                    ? "Select class first"
+                    : availableSections.length === 0
+                    ? "No sections for this class"
+                    : "All Sections"
+                }
+                options={
+                  !classId
+                    ? [{ label: "Select class first", value: "" }]
+                    : availableSections.length === 0
+                    ? [{ label: "No sections for this class", value: "" }]
+                    : [
+                        { label: "All Sections", value: "" },
+                        ...availableSections.map((s: any) => ({
+                          label: `Section ${s.name}`,
+                          value: s.id,
+                        })),
+                      ]
+                }
               />
             </div>
 
