@@ -49,6 +49,7 @@ echo "⚡ Building Frontend with Bun..."
 cd $FRONTEND_DIR
 
 bun install --frozen-lockfile || bun install
+rm -f .next/lock || true
 bun run build
 
 # Restart Next.js in PM2
