@@ -75,7 +75,7 @@ export default function AttendanceSheetPrintPage() {
         </div>
         <div>
           <h1 className="text-lg font-black uppercase tracking-wide text-black">Kips School Chunian Campus</h1>
-          <p className="text-[10px] font-bold text-gray-700 mt-0.5">Topper's First Choice | Exchange Road, Hadi town, Chunian | 0300 39 39 581</p>
+          <p className="text-[10px] font-bold text-gray-700 mt-0.5">Topper's First Choice | Opposite Shell Pump Changa Manga Road, Chunian | 0300 39 39 581</p>
         </div>
       </div>
 

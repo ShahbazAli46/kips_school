@@ -101,9 +101,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Teacher Leave routes
     Route::get('/teacher/leaves', [\App\Http\Controllers\Api\TeacherLeaveController::class, 'index']);
     Route::post('/teacher/leaves', [\App\Http\Controllers\Api\TeacherLeaveController::class, 'store']);
+
+    // Teacher Profile & Signature routes
+    Route::post('/teacher/signature', [\App\Http\Controllers\Api\TeacherController::class, 'updateMySignature']);
+    Route::delete('/teacher/signature', [\App\Http\Controllers\Api\TeacherController::class, 'deleteMySignature']);
     
-    // Admin routes
-    Route::middleware('role:1,5,6')->group(function () {
+    // Admin routes (Teacher Attendance, Leaves)
+    Route::middleware('role:1,5,6,7')->group(function () {
         Route::get('/admin/teacher-attendance', [\App\Http\Controllers\Api\TeacherAttendanceController::class, 'getAttendanceByDate']);
         Route::post('/admin/teacher-attendance', [\App\Http\Controllers\Api\TeacherAttendanceController::class, 'markAttendance']);
         Route::get('/admin/teacher-attendance/register', [\App\Http\Controllers\Api\TeacherAttendanceController::class, 'getMonthlyRegister']);
@@ -151,8 +155,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/extra-charges/{id}/void', [\App\Http\Controllers\Api\ExtraChargeController::class, 'voidCharge']);
     });
 
-    // Super Admin & Accountant Management & Financial APIs (role: 1, 5)
-    Route::middleware('role:1,5')->group(function () {
+    // Super Admin, Accountant & Coordinator Management APIs (role: 1, 5, 7)
+    Route::middleware('role:1,5,7')->group(function () {
         Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats']);
         Route::get('/dashboard/attention-seekers/thresholds', [\App\Http\Controllers\Api\DashboardAttentionSeekerController::class, 'getThresholds']);
         Route::post('/dashboard/attention-seekers/thresholds', [\App\Http\Controllers\Api\DashboardAttentionSeekerController::class, 'updateThresholds']);
@@ -187,6 +191,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('students/{student}/toggle-status', [StudentController::class, 'toggleStatus']);
         Route::apiResource('students', StudentController::class)->except(['update']);
 
+        Route::post('teachers/{teacher}/signature', [\App\Http\Controllers\Api\TeacherController::class, 'updateSignature']);
+        Route::delete('teachers/{teacher}/signature', [\App\Http\Controllers\Api\TeacherController::class, 'deleteSignature']);
         Route::post('teachers/{teacher}', [\App\Http\Controllers\Api\TeacherController::class, 'update']); // Workaround for multipart/form-data PUT
         Route::apiResource('teachers', \App\Http\Controllers\Api\TeacherController::class)->except(['update']);
 
@@ -272,8 +278,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/ledger/{id}', [\App\Http\Controllers\Api\LedgerController::class, 'destroy']);
     });
 
-    // Attendance and FollowUps (Admin, Office Admin & Attendance-Manager)
-    Route::middleware('role:1,5,6')->group(function () {
+    // Attendance and FollowUps (Admin, Teacher, Office Admin, Attendance-Manager & Coordinator)
+    Route::middleware('role:1,2,5,6,7')->group(function () {
         Route::get('/attendance', [AttendanceController::class, 'index']);
         Route::get('/attendance-leaves', [AttendanceController::class, 'leavesOnDate']);
         Route::post('/attendance/bulk', [AttendanceController::class, 'bulkMark']);
@@ -367,8 +373,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/majors', [\App\Http\Controllers\Api\MajorController::class, 'index']);
     });
 
-    // Test Series & Marks Management (Admin, Office Admin & Teacher)
-    Route::middleware('role:1,2,5')->group(function () {
+    // Test Series & Marks Management (Admin, Office Admin, Teacher & Coordinator)
+    Route::middleware('role:1,2,5,7')->group(function () {
         Route::apiResource('academic-sessions', \App\Http\Controllers\Api\AcademicSessionController::class);
         Route::apiResource('test-categories', \App\Http\Controllers\Api\TestCategoryController::class);
         Route::apiResource('test-series', \App\Http\Controllers\Api\TestSeriesController::class);
@@ -380,8 +386,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/tests/{test}/marks/bulk', [\App\Http\Controllers\Api\TestMarkController::class, 'bulkStore']);
     });
 
-    // Results (Super Admin, Office Admin & Students/Parents)
-    Route::middleware('role:1,3,5')->group(function () {
+    // Results (Super Admin, Teacher, Office Admin, Coordinator & Students/Parents)
+    Route::middleware('role:1,2,3,5,7')->group(function () {
         Route::get('/results/series', [\App\Http\Controllers\Api\ResultController::class, 'getSeriesResults']);
         Route::get('/results/series/student/{studentId}', [\App\Http\Controllers\Api\ResultController::class, 'getStudentDetailedResults']);
         Route::post('/results/email/{studentId}', [\App\Http\Controllers\Api\ResultController::class, 'emailResultCard']);

@@ -104,7 +104,7 @@ export default function TeacherAttendanceRegisterPrintPage() {
           </div>
           <div>
             <h1 className="text-xl font-black uppercase tracking-wider text-black">Kips School Chunian Campus</h1>
-            <p className="text-[10px] font-bold text-gray-700">Topper&apos;s First Choice | Exchange Road, Hadi Town, Chunian | Ph: 0300 39 39 581</p>
+            <p className="text-[10px] font-bold text-gray-700">Topper&apos;s First Choice | Opposite Shell Pump Changa Manga Road, Chunian | Ph: 0300 39 39 581</p>
           </div>
         </div>
 

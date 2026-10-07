@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             ['id' => 4, 'name' => 'parent', 'created_at' => now(), 'updated_at' => now()],
             ['id' => 5, 'name' => 'accountant', 'created_at' => now(), 'updated_at' => now()],
             ['id' => 6, 'name' => 'attendance-manager', 'created_at' => now(), 'updated_at' => now()],
+            ['id' => 7, 'name' => 'coordinator', 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         // Insert specific Super Admins

@@ -128,12 +128,36 @@ class ResultController extends Controller
                 'students.father_name',
                 'students.roll_number',
                 'students.image',
+                'students.class_id',
+                'students.section_id',
                 'classes.name as class_name',
                 'sections.name as section_name',
                 'academic_sessions.name as session_name',
                 'majors.name as major_name'
             )
             ->first();
+
+        if ($student) {
+            // Find assigned teacher for this class & section
+            $assignedTeacher = DB::table('teacher_assignments')
+                ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+                ->where('teacher_assignments.class_id', $student->class_id)
+                ->where(function($q) use ($student) {
+                    if ($student->section_id) {
+                        $q->where('teacher_assignments.section_id', $student->section_id)
+                          ->orWhereNull('teacher_assignments.section_id');
+                    }
+                })
+                ->whereNull('teachers.deleted_at')
+                ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+                ->select('teachers.id', 'teachers.name', 'teachers.signature')
+                ->first();
+
+            $student->class_incharge = $assignedTeacher ? $assignedTeacher->name : null;
+            $student->teacher_signature = ($assignedTeacher && $assignedTeacher->signature) 
+                ? (str_starts_with($assignedTeacher->signature, 'http') ? $assignedTeacher->signature : asset('storage/' . $assignedTeacher->signature))
+                : null;
+        }
 
         $query = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')

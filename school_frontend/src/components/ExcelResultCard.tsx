@@ -41,6 +41,8 @@ export interface RoundInfo {
   total_marks?: number;
 }
 
+const STORAGE_URL = process.env.NEXT_PUBLIC_STORAGE_URL || "http://localhost:8000/storage";
+
 export interface ExcelResultCardProps {
   student: {
     id?: number | string;
@@ -58,6 +60,8 @@ export interface ExcelResultCardProps {
     session_name?: string;
     campus_name?: string;
     class_incharge?: string;
+    teacher_signature?: string;
+    class_teacher_signature?: string;
     rank?: number | string;
   };
   subjects: SubjectSummary[];
@@ -308,7 +312,7 @@ export default function ExcelResultCard({
               KIPS School Chunian Campus
             </h1>
             <p className="text-[11px] sm:text-xs font-bold text-slate-700 mt-1">
-              Exchange Road, Hadi Town Chunian &bull; Phone: 0300 39 39 581
+              Opposite Shell Pump Changa Manga Road, Chunian &bull; Phone: 0300 39 39 581
             </p>
           </div>
 
@@ -668,19 +672,44 @@ export default function ExcelResultCard({
           </div>
 
           {/* Class Teacher Signature */}
-          <div className="col-span-3 text-center">
-            <div className="border-b border-black w-3/4 mx-auto mb-1 h-8"></div>
-            <span className="text-xs font-black uppercase text-slate-800">
-              Class Teacher
-            </span>
+          <div className="col-span-3 text-center flex flex-col items-center justify-end">
+            <div className="w-3/4 mx-auto mb-1 h-10 flex items-end justify-center">
+              {student?.teacher_signature || student?.class_teacher_signature ? (
+                <img
+                  src={
+                    (student.teacher_signature || student.class_teacher_signature)!.startsWith("http") || (student.teacher_signature || student.class_teacher_signature)!.startsWith("data:")
+                      ? (student.teacher_signature || student.class_teacher_signature)
+                      : `${STORAGE_URL}/${student.teacher_signature || student.class_teacher_signature}`
+                  }
+                  alt="Teacher Signature"
+                  className="max-h-9 max-w-full object-contain"
+                />
+              ) : (
+                <div className="border-b border-black w-full h-8"></div>
+              )}
+            </div>
+            <div className="border-t border-black w-3/4 mx-auto pt-0.5">
+              <span className="text-xs font-black uppercase text-slate-800 block">
+                Class Teacher
+              </span>
+              {student?.class_incharge && (
+                <span className="text-[10px] font-bold text-slate-600 block truncate mt-0.5">
+                  {student.class_incharge}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Principal Signature */}
-          <div className="col-span-3 text-center">
-            <div className="border-b border-black w-3/4 mx-auto mb-1 h-8"></div>
-            <span className="text-xs font-black uppercase text-slate-800">
-              Principal
-            </span>
+          <div className="col-span-3 text-center flex flex-col items-center justify-end">
+            <div className="w-3/4 mx-auto mb-1 h-10 flex items-end justify-center">
+              <div className="border-b border-black w-full h-8"></div>
+            </div>
+            <div className="border-t border-black w-3/4 mx-auto pt-0.5">
+              <span className="text-xs font-black uppercase text-slate-800 block">
+                Principal
+              </span>
+            </div>
           </div>
         </div>
       </div>

@@ -12,9 +12,8 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        // Get all users except students(3), teachers(2), parents(4)
-        // Essentially admins(1), accountants(5), attendance managers(6)
-        $users = User::whereIn('role_id', [1, 5, 6])->get();
+        // Get all administrative users: admins(1), accountants(5), attendance managers(6), coordinators(7)
+        $users = User::whereIn('role_id', [1, 5, 6, 7])->get();
         return response()->json($users);
     }
 
@@ -23,7 +22,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'role_id' => 'required|integer|in:1,5,6',
+            'role_id' => 'required|integer|in:1,5,6,7',
             'permissions' => 'nullable|array',
             'permissions.*' => 'string'
         ]);
@@ -57,7 +56,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'role_id' => 'required|integer|in:1,5,6',
+            'role_id' => 'required|integer|in:1,5,6,7',
             'permissions' => 'nullable|array',
             'permissions.*' => 'string'
         ]);

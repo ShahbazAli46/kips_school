@@ -212,6 +212,65 @@ export const attendanceManagerMenu: NavItem[] = [
     icon: icon("M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"),
   },
 ];
+export const coordinatorMenu: NavItem[] = [
+  {
+    label: "Overview",
+    href: "/dashboard",
+    icon: icon("M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"),
+  },
+  {
+    label: "Attendance",
+    icon: icon("M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"),
+    subItems: [
+      { label: "Class Attendance", href: "/dashboard/attendance" },
+      { label: "Subject Attendance", href: "/dashboard/subject-attendance" },
+      { label: "Attendance Sheet", href: "/dashboard/attendance-sheet" },
+      { label: "Follow-ups", href: "/dashboard/follow-ups" },
+      { label: "Leave Applications", href: "/dashboard/leave-applications" },
+    ],
+  },
+  {
+    label: "Teachers",
+    icon: icon("M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"),
+    subItems: [
+      { label: "Manage Teachers", href: "/dashboard/teachers" },
+      { label: "Teacher Attendance", href: "/dashboard/teacher-attendance" },
+      { label: "Teacher Register", href: "/dashboard/teacher-attendance/register" },
+      { label: "Teacher Leaves", href: "/dashboard/teacher-leaves" },
+    ],
+  },
+  {
+    label: "Students",
+    icon: icon("M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"),
+    subItems: [
+      { label: "Manage Students", href: "/dashboard/students" },
+    ],
+  },
+  {
+    label: "Tests & Results",
+    icon: icon("M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"),
+    subItems: [
+      { label: "Setup Tests", href: "/dashboard/tests" },
+      { label: "Marks Entry", href: "/dashboard/marks-entry" },
+      { label: "Results", href: "/dashboard/results" },
+    ],
+  },
+  {
+    label: "Announcements",
+    href: "/dashboard/announcements",
+    icon: icon("M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"),
+  },
+  {
+    label: "Messages",
+    href: "/dashboard/messages",
+    icon: icon("M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"),
+  },
+  {
+    label: "Notifications",
+    href: "/dashboard/notifications",
+    icon: icon("M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"),
+  },
+];
 
 export const menuByRole: Record<string, NavItem[]> = {
   "1": adminMenu,
@@ -221,6 +280,9 @@ export const menuByRole: Record<string, NavItem[]> = {
   office_admin: accountantMenu,
   "6": attendanceManagerMenu,
   "attendance-manager": attendanceManagerMenu,
+  "7": coordinatorMenu,
+  coordinator: coordinatorMenu,
+  "co-ordinator": coordinatorMenu,
 
   "2": [
     {
@@ -229,29 +291,57 @@ export const menuByRole: Record<string, NavItem[]> = {
       icon: icon("M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"),
     },
     {
-      label: "My Classes",
-      href: "/dashboard/classes",
-      icon: icon("M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"),
+      label: "Attendance",
+      icon: icon("M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"),
+      subItems: [
+        { label: "Subject Attendance", href: "/dashboard/subject-attendance" },
+        { label: "Class Attendance", href: "/dashboard/attendance" },
+        { label: "Attendance Sheet", href: "/dashboard/attendance-sheet" },
+      ],
+    },
+    {
+      label: "Tests & Results",
+      icon: icon("M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"),
+      subItems: [
+        { label: "Setup Tests", href: "/dashboard/tests" },
+        { label: "Marks Entry", href: "/dashboard/marks-entry" },
+        { label: "View Results", href: "/dashboard/results" },
+      ],
+    },
+    {
+      label: "Announcements",
+      href: "/dashboard/announcements",
+      icon: icon("M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"),
+    },
+  ],
+  teacher: [
+    {
+      label: "Overview",
+      href: "/dashboard",
+      icon: icon("M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"),
     },
     {
       label: "Attendance",
-      href: "/dashboard/attendance",
       icon: icon("M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"),
+      subItems: [
+        { label: "Subject Attendance", href: "/dashboard/subject-attendance" },
+        { label: "Class Attendance", href: "/dashboard/attendance" },
+        { label: "Attendance Sheet", href: "/dashboard/attendance-sheet" },
+      ],
     },
     {
-      label: "Attendance Sheet",
-      href: "/dashboard/attendance-sheet",
-      icon: icon("M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"),
-    },
-    {
-      label: "Tests",
-      href: "/dashboard/tests",
+      label: "Tests & Results",
       icon: icon("M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"),
+      subItems: [
+        { label: "Setup Tests", href: "/dashboard/tests" },
+        { label: "Marks Entry", href: "/dashboard/marks-entry" },
+        { label: "View Results", href: "/dashboard/results" },
+      ],
     },
     {
-      label: "Enter Marks",
-      href: "/dashboard/marks",
-      icon: icon("M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"),
+      label: "Announcements",
+      href: "/dashboard/announcements",
+      icon: icon("M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"),
     },
   ],
 

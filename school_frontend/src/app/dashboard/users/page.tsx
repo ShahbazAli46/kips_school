@@ -27,7 +27,8 @@ function getAuthHeaders() {
 const ROLES: Record<number, string> = {
   1: "Super Admin",
   5: "Accountant",
-  6: "Attendance Manager"
+  6: "Attendance Manager",
+  7: "Coordinator",
 };
 
 // ─── User Modal ────────────────────────────────────────────────────────────────
@@ -107,7 +108,8 @@ function UserModal({ user, onClose, onSaved }: UserModalProps) {
               options={[
                 { label: "Super Admin", value: 1 },
                 { label: "Accountant", value: 5 },
-                { label: "Attendance Manager", value: 6 }
+                { label: "Attendance Manager", value: 6 },
+                { label: "Coordinator", value: 7 },
               ]}
             />
           </div>

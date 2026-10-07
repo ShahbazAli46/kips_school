@@ -32,6 +32,7 @@ class User extends Authenticatable
         'class_id',
         'major_id',
         'image',
+        'signature',
         'is_active',
         'qualification',
         'emergency_contact',

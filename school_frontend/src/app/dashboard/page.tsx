@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import AdminDashboard from "./admin-dashboard/AdminDashboard";
 import ParentDashboard from "./parent/ParentDashboard";
+import TeacherDashboard from "./teacher/TeacherDashboard";
 
 export default function DashboardPage() {
   const [role, setRole] = useState<string | null>(() => {
@@ -26,8 +27,9 @@ export default function DashboardPage() {
   const renderContent = () => {
     switch (role) {
       case "1":
-      case "5":           return <AdminDashboard />;
-      case "2":           return <div className="p-8 text-center text-sm font-semibold" style={{ color: "#1e3a8a" }}>Teacher Dashboard — coming soon</div>;
+      case "5":
+      case "7":           return <AdminDashboard />;
+      case "2":           return <TeacherDashboard />;
       case "3":           return <ParentDashboard />;
       case "4":           return <ParentDashboard />;
       case "6":           return null; // Redirecting

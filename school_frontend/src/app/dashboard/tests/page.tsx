@@ -117,6 +117,7 @@ function CustomDropdown({
     section_id: initialData?.section_id || "",
     major_id: initialData?.major_id || "",
     subject_id: initialData?.subject_id || "",
+    title: initialData?.title || "",
     date: initialData?.date || "",
     total_marks: initialData?.total_marks || "",
     passing_marks: initialData?.passing_marks ?? 0,
@@ -195,6 +196,17 @@ function CustomDropdown({
                 }
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 text-[#1e3a8a]">Title / Name <span className="text-gray-400 font-normal text-xs">(Optional - auto-generated if blank)</span></label>
+            <input
+              type="text"
+              value={data.title}
+              onChange={(e) => setData({ ...data, title: e.target.value })}
+              placeholder="e.g. Round 2, CT 1"
+              className="w-full px-4 py-2 border rounded-lg border-gray-300 focus:outline-none focus:border-[#2563eb]"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -503,8 +515,8 @@ export default function ManageTestsPage() {
                 <tr key={t.id} className="hover:bg-blue-50">
                   <td className="px-5 py-3 font-semibold text-[#1e40af]">{t.academic_session?.name}</td>
                   <td className="px-5 py-3 text-gray-600">{t.date}</td>
-                  <td className="px-5 py-3 text-[#1e40af]">{t.test_category?.name}</td>
-                  <td className="px-5 py-3 font-bold text-[#1e3a8a]">{t.title}</td>
+                  <td className="px-5 py-3 text-[#1e40af] whitespace-nowrap font-medium">{t.test_category?.name}</td>
+                  <td className="px-5 py-3 font-bold text-[#1e3a8a] whitespace-nowrap">{t.title}</td>
                   <td className="px-5 py-3 text-sm">
                     {t.academy_class?.name} {t.section ? `(${t.section.name})` : ''} - {t.subject?.name}
                   </td>

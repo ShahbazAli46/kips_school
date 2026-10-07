@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import CustomDropdown from "@/components/CustomDropdown";
 import NumberInput from "@/components/NumberInput";
@@ -57,6 +57,7 @@ interface Teacher {
   teaching_exp_year: number | null;
   monthly_salary: string | null;
   image: string | null;
+  signature?: string | null;
   teacher_assignments?: TeacherAssignment[];
   is_online?: boolean;
   last_seen_at?: string | null;
@@ -507,6 +508,469 @@ function DeleteModal({ teacherName, onClose, onConfirm, loading }: DeleteModalPr
   );
 }
 
+// ─── Teacher Signature Modal ──────────────────────────────────────────────────
+interface TeacherSignatureModalProps {
+  teacher: Teacher;
+  onClose: () => void;
+  onSuccess: (updatedTeacher?: Teacher) => void;
+}
+
+function TeacherSignatureModal({ teacher, onClose, onSuccess }: TeacherSignatureModalProps) {
+  const [activeTab, setActiveTab] = useState<"upload" | "draw">("upload");
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Canvas drawing state
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
+
+  // Initialize canvas
+  useEffect(() => {
+    if (activeTab === "draw" && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.strokeStyle = "#0f172a";
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+      }
+    }
+  }, [activeTab]);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = "touches" in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+    const y = "touches" in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+    setHasDrawn(true);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = "touches" in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+    const y = "touches" in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawn(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      if (!selected.type.startsWith("image/")) {
+        setError("Please select a valid image file (PNG, JPG, WEBP).");
+        return;
+      }
+      setFile(selected);
+      setError("");
+      const reader = new FileReader();
+      reader.onload = () => setPreviewUrl(reader.result as string);
+      reader.readAsDataURL(selected);
+    }
+  };
+
+  const handleSave = async () => {
+    setError("");
+    setSaving(true);
+    try {
+      if (activeTab === "upload") {
+        if (!file) {
+          setError("Please select an image file to upload.");
+          setSaving(false);
+          return;
+        }
+        const formData = new FormData();
+        formData.append("signature", file);
+
+        const res = await fetch(`${API}/teachers/${teacher.id}/signature`, {
+          method: "POST",
+          headers: getAuthHeaders(true),
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to upload signature");
+        onSuccess(data.teacher);
+        onClose();
+      } else {
+        const canvas = canvasRef.current;
+        if (!canvas || !hasDrawn) {
+          setError("Please draw a signature before saving.");
+          setSaving(false);
+          return;
+        }
+        const base64Data = canvas.toDataURL("image/png");
+        const res = await fetch(`${API}/teachers/${teacher.id}/signature`, {
+          method: "POST",
+          headers: getAuthHeaders(false),
+          body: JSON.stringify({ signature_base64: base64Data }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to save signature");
+        onSuccess(data.teacher);
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.message || "An error occurred while saving signature.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteSignature = async () => {
+    if (!confirm("Are you sure you want to remove this teacher's signature?")) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`${API}/teachers/${teacher.id}/signature`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to delete signature");
+      onSuccess({ ...teacher, signature: null });
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete signature.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const currentSigUrl = teacher.signature
+    ? teacher.signature.startsWith("http") || teacher.signature.startsWith("data:")
+      ? teacher.signature
+      : `${STORAGE_URL}/${teacher.signature}`
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-2xl shadow-2xl p-6 bg-white border border-[#bfdbfe] z-10 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-3 border-b border-[#bfdbfe] mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-[#0f224a] flex items-center gap-2">
+              <span>✍️ Teacher Signature</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {teacher.name} • Appears on student result cards for assigned classes &amp; sections
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg">
+            ✕
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+            {error}
+          </div>
+        )}
+
+        {/* Current Signature (if exists) */}
+        {currentSigUrl && (
+          <div className="mb-4 p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-emerald-800">Current Active Signature:</span>
+              <button
+                type="button"
+                onClick={handleDeleteSignature}
+                disabled={deleting}
+                className="text-[11px] font-bold text-red-600 hover:text-red-800 underline disabled:opacity-50 cursor-pointer"
+              >
+                {deleting ? "Removing..." : "Remove Signature"}
+              </button>
+            </div>
+            <div className="h-16 flex items-center justify-center bg-white rounded-lg border border-emerald-200 p-2">
+              <img src={currentSigUrl} alt="Current Signature" className="max-h-full max-w-full object-contain" />
+            </div>
+          </div>
+        )}
+
+        {/* Tabs: Upload vs Draw */}
+        <div className="flex rounded-xl bg-slate-100 p-1 mb-4 border border-slate-200">
+          <button
+            type="button"
+            onClick={() => setActiveTab("upload")}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              activeTab === "upload" ? "bg-white text-[#2563eb] shadow-sm" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            📁 Upload Image
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("draw")}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              activeTab === "draw" ? "bg-white text-[#2563eb] shadow-sm" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            🖋️ Draw Signature
+          </button>
+        </div>
+
+        {activeTab === "upload" ? (
+          <div className="space-y-3">
+            <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 text-center hover:border-blue-400 transition bg-slate-50/50">
+              <input
+                type="file"
+                id="sig-file-input"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <label htmlFor="sig-file-input" className="cursor-pointer block">
+                <div className="w-10 h-10 mx-auto rounded-full bg-blue-100 text-[#2563eb] flex items-center justify-center mb-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <span className="text-xs font-bold text-[#2563eb] block">Click to select signature file</span>
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Recommended: Transparent PNG (approx. 300 × 100 px)
+                </span>
+              </label>
+            </div>
+
+            {previewUrl && (
+              <div className="p-3 bg-white border border-slate-200 rounded-xl">
+                <span className="text-[11px] font-bold text-slate-600 block mb-1.5">New Image Preview:</span>
+                <div className="h-16 flex items-center justify-center bg-slate-50 rounded-lg border border-slate-200 p-2">
+                  <img src={previewUrl} alt="Preview" className="max-h-full max-w-full object-contain" />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-inner">
+              <canvas
+                ref={canvasRef}
+                width={440}
+                height={150}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+                className="w-full h-36 bg-white cursor-crosshair touch-none"
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Sign using mouse, stylus, or touch screen</span>
+              <button
+                type="button"
+                onClick={clearCanvas}
+                className="text-xs font-bold text-slate-600 hover:text-red-600 px-2 py-1 rounded hover:bg-slate-100 transition cursor-pointer"
+              >
+                🧹 Clear
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-5 mt-4 border-t border-slate-200">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-slate-300 text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white bg-[#2563eb] hover:bg-[#1e3a8a] shadow-md transition disabled:opacity-50 cursor-pointer active:scale-95"
+          >
+            {saving ? "Saving Signature..." : "Save Signature"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Teacher Action Dropdown ──────────────────────────────────────────────────
+interface TeacherActionDropdownProps {
+  teacher: Teacher;
+  isOfficeAdmin: boolean;
+  isPinging: boolean;
+  onOpenSignature: (teacher: Teacher) => void;
+  onOpenAssignments: (teacher: Teacher) => void;
+  onOpenLocationTrail: (teacher: Teacher) => void;
+  onOpenAppDetails: (teacher: Teacher) => void;
+  onRequestPing: (teacher: Teacher) => void;
+  onEdit: (teacher: Teacher) => void;
+  onDelete: (teacher: Teacher) => void;
+}
+
+function TeacherActionDropdown({
+  teacher,
+  isOfficeAdmin,
+  isPinging,
+  onOpenSignature,
+  onOpenAssignments,
+  onOpenLocationTrail,
+  onOpenAppDetails,
+  onRequestPing,
+  onEdit,
+  onDelete,
+}: TeacherActionDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div className="relative inline-block text-left" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm border bg-white hover:bg-[#f0f4f8] text-[#1e40af] cursor-pointer"
+        style={{ borderColor: "#bfdbfe" }}
+        title="Teacher Actions"
+      >
+        <span>Actions</span>
+        <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute right-0 mt-1.5 w-56 rounded-2xl shadow-xl bg-white border border-[#bfdbfe] py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100 text-left"
+          style={{ boxShadow: "0 10px 25px -5px rgba(15, 34, 74, 0.15)" }}
+        >
+          {/* Signature Action */}
+          <button
+            onClick={() => { setIsOpen(false); onOpenSignature(teacher); }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#2563eb] flex items-center justify-between transition cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-sm">✍️</span>
+              <span>Upload / Signature</span>
+            </span>
+            {teacher.signature ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold">
+                ✓ Signed
+              </span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">
+                No Sig
+              </span>
+            )}
+          </button>
+
+          {/* Assignments */}
+          <button
+            onClick={() => { setIsOpen(false); onOpenAssignments(teacher); }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-[#2563eb] flex items-center gap-2 transition cursor-pointer"
+          >
+            <span className="text-sm">📚</span>
+            <span>Classes &amp; Subjects</span>
+          </button>
+
+          {/* GPS Trail */}
+          <button
+            onClick={() => { setIsOpen(false); onOpenLocationTrail(teacher); }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 transition cursor-pointer"
+          >
+            <span className="text-sm">📍</span>
+            <span>View GPS Trail</span>
+          </button>
+
+          {/* Mobile App Options */}
+          {teacher.has_app && (
+            <>
+              <div className="my-1 border-t border-slate-100" />
+              <button
+                onClick={() => { setIsOpen(false); onOpenAppDetails(teacher); }}
+                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 flex items-center gap-2 transition cursor-pointer"
+              >
+                <span className="text-sm">📱</span>
+                <span>App &amp; Device Info</span>
+              </button>
+
+              <button
+                onClick={() => { setIsOpen(false); onRequestPing(teacher); }}
+                disabled={isPinging}
+                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-50 flex items-center gap-2 transition disabled:opacity-50 cursor-pointer"
+              >
+                <span className="text-sm">⚡</span>
+                <span>{isPinging ? "Pinging Device..." : "Request GPS Ping"}</span>
+              </button>
+            </>
+          )}
+
+          {/* Edit / Delete */}
+          {!isOfficeAdmin && (
+            <>
+              <div className="my-1 border-t border-slate-100" />
+              <button
+                onClick={() => { setIsOpen(false); onEdit(teacher); }}
+                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 transition cursor-pointer"
+              >
+                <span className="text-sm">✏️</span>
+                <span>Edit Details</span>
+              </button>
+
+              <button
+                onClick={() => { setIsOpen(false); onDelete(teacher); }}
+                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2 transition cursor-pointer"
+              >
+                <span className="text-sm">🗑️</span>
+                <span>Delete Teacher</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface AssignmentModalProps {
   teacher: Teacher;
   classes: AcademyClass[];
@@ -719,6 +1183,7 @@ export default function ManageTeachersPage() {
   const [editTarget, setEditTarget] = useState<Teacher | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Teacher | null>(null);
   const [assignmentTarget, setAssignmentTarget] = useState<Teacher | null>(null);
+  const [signatureTarget, setSignatureTarget] = useState<Teacher | null>(null);
   const [appDetailsTarget, setAppDetailsTarget] = useState<Teacher | null>(null);
   const [locationTrailTarget, setLocationTrailTarget] = useState<Teacher | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
@@ -1211,64 +1676,19 @@ export default function ManageTeachersPage() {
                       </td>
 
                       {/* Actions */}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center justify-end gap-1">
-                          {teacher.has_app && (
-                            <button
-                              onClick={() => handleRequestPing(teacher)}
-                              disabled={isPingingThis}
-                              className="p-1.5 rounded-lg transition hover:bg-sky-100 text-sky-600 hover:text-sky-800 disabled:opacity-50"
-                              title="⚡ Ping Device (Request instant location sync)"
-                            >
-                              <svg className={`w-4 h-4 ${isPingingThis ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => setLocationTrailTarget(teacher)}
-                            className="p-1.5 rounded-lg transition hover:bg-emerald-100 text-emerald-700"
-                            title="📍 View GPS Check-in Trail"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                          </button>
-
-                          <button
-                            onClick={() => setAssignmentTarget(teacher)}
-                            className="p-1.5 rounded-lg transition hover:bg-[#bfdbfe]"
-                            style={{ color: "#2563eb" }}
-                            title="Manage Class & Subject Assignments"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                          </button>
-
-                          <button
-                            onClick={() => setAppDetailsTarget(teacher)}
-                            className="p-1.5 rounded-lg transition hover:bg-[#bfdbfe] text-[#2563eb]"
-                            title="View App & Device Details"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          </button>
-
-                          {!isOfficeAdmin && (
-                            <>
-                              <button
-                                onClick={() => { setModalError(""); setEditTarget(teacher); }}
-                                className="p-1.5 rounded-lg transition hover:bg-[#bfdbfe]"
-                                style={{ color: "#2563eb" }}
-                                title="Edit Teacher"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(teacher)}
-                                className="p-1.5 rounded-lg transition hover:bg-red-50 text-red-500 hover:text-red-600"
-                                title="Delete Teacher"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              </button>
-                            </>
-                          )}
-                        </div>
+                      <td className="px-5 py-3.5 text-right">
+                        <TeacherActionDropdown
+                          teacher={teacher}
+                          isOfficeAdmin={isOfficeAdmin}
+                          isPinging={isPingingThis}
+                          onOpenSignature={(t) => setSignatureTarget(t)}
+                          onOpenAssignments={(t) => setAssignmentTarget(t)}
+                          onOpenLocationTrail={(t) => setLocationTrailTarget(t)}
+                          onOpenAppDetails={(t) => setAppDetailsTarget(t)}
+                          onRequestPing={(t) => handleRequestPing(t)}
+                          onEdit={(t) => { setModalError(""); setEditTarget(t); }}
+                          onDelete={(t) => setDeleteTarget(t)}
+                        />
                       </td>
                     </tr>
                   );
@@ -1298,6 +1718,23 @@ export default function ManageTeachersPage() {
           initialData={editTarget}
           loading={modalLoading}
           error={modalError}
+        />
+      )}
+
+      {signatureTarget && (
+        <TeacherSignatureModal
+          teacher={signatureTarget}
+          onClose={() => setSignatureTarget(null)}
+          onSuccess={(updatedTeacher) => {
+            if (updatedTeacher) {
+              setTeachers((prev) =>
+                prev.map((t) => (t.id === updatedTeacher.id ? { ...t, ...updatedTeacher } : t))
+              );
+            } else {
+              fetchData(true);
+            }
+            showToast("✍️ Teacher signature saved successfully!");
+          }}
         />
       )}
 

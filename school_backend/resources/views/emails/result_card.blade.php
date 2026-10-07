@@ -20,7 +20,7 @@
                         <td style="text-align: center; padding: 24px 0;">
                             <h2 style="margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Kips School Chunian Campus</h2>
                             <p style="margin: 5px 0 0; font-size: 14px; font-weight: bold; opacity: 0.9;">Topper's First Choice</p>
-                            <p style="margin: 5px 0 0; font-size: 12px; font-weight: normal; opacity: 0.8;">Exchange Road, Hadi Town Chunian, 0300 39 39 581</p>
+                            <p style="margin: 5px 0 0; font-size: 12px; font-weight: normal; opacity: 0.8;">Opposite Shell Pump Changa Manga Road, Chunian, 0300 39 39 581</p>
                             <div style="margin-top: 15px;">
                                 <span style="display: inline-block; background-color: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">Student Report Card</span>
                             </div>

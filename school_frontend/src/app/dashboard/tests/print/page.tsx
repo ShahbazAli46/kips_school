@@ -148,7 +148,7 @@ export default function TestSchedulePrintPage() {
             KIPS SCHOOL CHUNIAN CAMPUS
           </h1>
           <p className="text-xs font-bold text-black mt-0.5">
-            Exchange Road Hadi Town 0300 39 39 581
+            Opposite Shell Pump Changa Manga Road, Chunian • 0300 39 39 581
           </p>
         </div>
       </div>

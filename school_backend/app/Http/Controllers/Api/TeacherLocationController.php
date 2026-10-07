@@ -198,6 +198,7 @@ class TeacherLocationController extends Controller
                 'emergency_contact' => $teacher->emergency_contact,
                 'qualification' => $teacher->qualification,
                 'image' => $teacher->image,
+                'signature' => $teacher->signature,
                 'is_online' => $isOnline,
                 'last_seen_at' => $teacher->last_seen_at ? Carbon::parse($teacher->last_seen_at)->toIso8601String() : null,
                 'last_seen_human' => $teacher->last_seen_at ? Carbon::parse($teacher->last_seen_at)->diffForHumans() : 'Never logged in',

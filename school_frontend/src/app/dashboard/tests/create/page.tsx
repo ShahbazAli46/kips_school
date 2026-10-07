@@ -495,7 +495,7 @@ export default function CreateTestBatchPage() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Leave blank to auto-generate (e.g. CT 1, Exam 1)"
+                placeholder="Leave blank to use category name or auto-number (e.g. Round 2, CT 1)"
                 className="w-full h-[38px] px-3.5 py-2 text-sm border rounded-lg border-slate-300 focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-blue-100 transition font-medium"
               />
             </div>

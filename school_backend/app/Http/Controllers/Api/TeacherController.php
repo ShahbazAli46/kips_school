@@ -74,9 +74,10 @@ class TeacherController extends Controller
             'monthly_salary' => 'nullable|numeric|min:0',
             'joining_date' => 'nullable|date',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'signature' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $data = $request->except(['image']);
+        $data = $request->except(['image', 'signature']);
         $data['role_id'] = 2;
         
         // Random secure password for teachers if they don't have one
@@ -84,6 +85,10 @@ class TeacherController extends Controller
 
         if ($request->hasFile('image')) {
             $data['image'] = $request->file('image')->store('teachers', 'public');
+        }
+
+        if ($request->hasFile('signature')) {
+            $data['signature'] = $request->file('signature')->store('signatures', 'public');
         }
 
         $teacher = User::create($data);
@@ -107,18 +112,110 @@ class TeacherController extends Controller
             'monthly_salary' => 'nullable|numeric|min:0',
             'joining_date' => 'nullable|date',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'signature' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $data = $request->except(['image']);
+        $data = $request->except(['image', 'signature']);
 
         if ($request->hasFile('image')) {
             if ($teacher->image) Storage::disk('public')->delete($teacher->image);
             $data['image'] = $request->file('image')->store('teachers', 'public');
         }
 
+        if ($request->hasFile('signature')) {
+            if ($teacher->signature) Storage::disk('public')->delete($teacher->signature);
+            $data['signature'] = $request->file('signature')->store('signatures', 'public');
+        }
+
         $teacher->update($data);
 
         return response()->json($teacher);
+    }
+
+    public function updateSignature(Request $request, User $teacher)
+    {
+        if ($teacher->role_id !== 2) {
+            return response()->json(['message' => 'User is not a teacher'], 400);
+        }
+
+        if ($request->hasFile('signature')) {
+            $request->validate([
+                'signature' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
+            ]);
+
+            if ($teacher->signature) {
+                Storage::disk('public')->delete($teacher->signature);
+            }
+
+            $path = $request->file('signature')->store('signatures', 'public');
+            $teacher->update(['signature' => $path]);
+
+            return response()->json([
+                'message' => 'Signature uploaded successfully.',
+                'signature' => $path,
+                'teacher' => $teacher
+            ]);
+        }
+
+        if ($request->filled('signature_base64')) {
+            $base64 = $request->input('signature_base64');
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64, $type)) {
+                $base64 = substr($base64, strpos($base64, ',') + 1);
+                $type = strtolower($type[1]);
+                $data = base64_decode($base64);
+                if ($data === false) {
+                    return response()->json(['message' => 'Invalid base64 image data'], 422);
+                }
+
+                if ($teacher->signature) {
+                    Storage::disk('public')->delete($teacher->signature);
+                }
+
+                $filename = 'signatures/' . uniqid('sig_', true) . '.' . $type;
+                Storage::disk('public')->put($filename, $data);
+                $teacher->update(['signature' => $filename]);
+
+                return response()->json([
+                    'message' => 'Signature saved successfully.',
+                    'signature' => $filename,
+                    'teacher' => $teacher
+                ]);
+            }
+        }
+
+        return response()->json(['message' => 'No signature file or base64 image provided'], 422);
+    }
+
+    public function deleteSignature(User $teacher)
+    {
+        if ($teacher->role_id !== 2) {
+            return response()->json(['message' => 'User is not a teacher'], 400);
+        }
+
+        if ($teacher->signature) {
+            Storage::disk('public')->delete($teacher->signature);
+            $teacher->update(['signature' => null]);
+        }
+
+        return response()->json(['message' => 'Signature deleted successfully']);
+    }
+
+    public function updateMySignature(Request $request)
+    {
+        $teacher = auth()->user();
+        if (!$teacher || (int)$teacher->role_id !== 2) {
+            return response()->json(['message' => 'Unauthorized: User is not a teacher'], 403);
+        }
+        return $this->updateSignature($request, $teacher);
+    }
+
+    public function deleteMySignature()
+    {
+        $teacher = auth()->user();
+        if (!$teacher || (int)$teacher->role_id !== 2) {
+            return response()->json(['message' => 'Unauthorized: User is not a teacher'], 403);
+        }
+        return $this->deleteSignature($teacher);
     }
 
     public function destroy(User $teacher)
@@ -128,6 +225,7 @@ class TeacherController extends Controller
         }
 
         if ($teacher->image) Storage::disk('public')->delete($teacher->image);
+        if ($teacher->signature) Storage::disk('public')->delete($teacher->signature);
         
         $teacher->delete();
 

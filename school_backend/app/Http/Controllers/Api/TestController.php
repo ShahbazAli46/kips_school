@@ -27,6 +27,19 @@ class TestController extends Controller
         return response()->json($query->get());
     }
 
+    private function generateDefaultTitle($category, int $count): string
+    {
+        $catName = trim($category->name ?? '');
+
+        // If category name already ends with a digit/number (e.g. "Round 1", "Round 2", "FLP 1", "Term 2", "T1")
+        if (preg_match('/\d+$/', $catName)) {
+            return ($count === 0) ? $catName : $catName . ' (' . ($count + 1) . ')';
+        }
+
+        // For categories without trailing numbers (e.g. "CT", "Class Test", "Quarter", "Quiz")
+        return $catName . ' ' . ($count + 1);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -36,6 +49,7 @@ class TestController extends Controller
             'section_id' => 'nullable|exists:sections,id',
             'major_id' => 'nullable|exists:majors,id',
             'subject_id' => 'required|exists:subjects,id',
+            'title' => 'nullable|string|max:255',
             'date' => 'required|date',
             'total_marks' => 'required|numeric|min:1',
             'passing_marks' => 'nullable|numeric|min:0',
@@ -51,7 +65,8 @@ class TestController extends Controller
             ->where('academic_session_id', $validated['academic_session_id'])
             ->count();
             
-        $validated['title'] = $request->input('title', $category->name . ' ' . ($count + 1));
+        $defaultTitle = $this->generateDefaultTitle($category, $count);
+        $validated['title'] = $request->filled('title') ? $request->input('title') : $defaultTitle;
 
         $test = Test::create($validated);
         return response()->json($test, 201);
@@ -88,11 +103,12 @@ class TestController extends Controller
                     ->where('academic_session_id', $validated['academic_session_id'])
                     ->count();
 
+                $defaultTitle = $this->generateDefaultTitle($category, $count);
                 $title = !empty($testData['title']) 
                     ? $testData['title'] 
                     : (!empty($validated['title']) 
                         ? $validated['title'] 
-                        : $category->name . ' ' . ($count + 1));
+                        : $defaultTitle);
 
                 $test = Test::create([
                     'test_category_id' => $validated['test_category_id'],
