@@ -5,6 +5,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import CustomDropdown from "@/components/CustomDropdown";
 import NumberInput from "@/components/NumberInput";
 import Link from "next/link";
+import StaffLedgerModal from "./StaffLedgerModal";
+import SalaryAdjustmentModal from "./SalaryAdjustmentModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Designation {
@@ -74,6 +76,11 @@ interface StaffMember {
   emergency_contact: string | null;
   teaching_exp_year: number | null;
   monthly_salary: string | null;
+  bf_percentage?: string | number | null;
+  joining_date?: string | null;
+  resignation_date?: string | null;
+  resignation_remarks?: string | null;
+  is_active?: boolean;
   image: string | null;
   signature?: string | null;
   designation_id?: number | null;
@@ -132,6 +139,8 @@ function StaffModal({
     emergency_contact: initialData?.emergency_contact || "",
     teaching_exp_year: initialData?.teaching_exp_year?.toString() || "",
     monthly_salary: initialData?.monthly_salary?.toString() || "",
+    bf_percentage: initialData?.bf_percentage?.toString() || "",
+    joining_date: initialData?.joining_date || "",
     designation_id: initialData?.designation_id?.toString() || initialData?.designation?.id?.toString() || "",
   });
 
@@ -230,6 +239,8 @@ function StaffModal({
     if (formData.emergency_contact) data.append("emergency_contact", formData.emergency_contact);
     if (formData.teaching_exp_year) data.append("teaching_exp_year", formData.teaching_exp_year);
     if (userRole !== "5" && formData.monthly_salary) data.append("monthly_salary", formData.monthly_salary);
+    if (userRole !== "5" && formData.bf_percentage) data.append("bf_percentage", formData.bf_percentage);
+    if (formData.joining_date) data.append("joining_date", formData.joining_date);
     if (imageFile) data.append("image", imageFile);
 
     // Signature processing
@@ -378,22 +389,58 @@ function StaffModal({
             </div>
 
             {userRole !== "5" && (
-              <div>
-                <label className="block text-sm font-semibold mb-1 text-[#1e3a8a]">
-                  Monthly Salary (PKR)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.monthly_salary}
-                  onChange={(e) => setFormData({ ...formData, monthly_salary: e.target.value })}
-                  placeholder="e.g. 35000"
-                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none transition"
-                  style={{ borderColor: "#bfdbfe", background: "#f0f4f8" }}
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-[#1e3a8a]">
+                    Monthly Salary (PKR)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.monthly_salary}
+                    onChange={(e) => setFormData({ ...formData, monthly_salary: e.target.value })}
+                    placeholder="e.g. 35000"
+                    className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none transition"
+                    style={{ borderColor: "#bfdbfe", background: "#f0f4f8" }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-1 text-[#1e3a8a]">
+                    Default BF Deduction (%)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={formData.bf_percentage}
+                      onChange={(e) => setFormData({ ...formData, bf_percentage: e.target.value })}
+                      placeholder="e.g. 5"
+                      className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none transition pr-8"
+                      style={{ borderColor: "#bfdbfe", background: "#f0f4f8" }}
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Benevolent Fund % deducted into Staff Ledger, collected upon resignation.
+                  </p>
+                </div>
+              </>
             )}
+
+            <div>
+              <label className="block text-sm font-semibold mb-1 text-[#1e3a8a]">Joining Date</label>
+              <input
+                type="date"
+                value={formData.joining_date}
+                onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none transition"
+                style={{ borderColor: "#bfdbfe", background: "#f0f4f8" }}
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-semibold mb-1 text-[#1e3a8a]">Profile Photo (Optional)</label>
@@ -1373,6 +1420,9 @@ export default function ManageStaffPage() {
   const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
   const [signatureTarget, setSignatureTarget] = useState<StaffMember | null>(null);
   const [assignmentTarget, setAssignmentTarget] = useState<StaffMember | null>(null);
+  const [ledgerTarget, setLedgerTarget] = useState<StaffMember | null>(null);
+  const [adjustmentTarget, setAdjustmentTarget] = useState<StaffMember | null>(null);
+  const [actionMenuStaffId, setActionMenuStaffId] = useState<number | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1381,6 +1431,22 @@ export default function ManageStaffPage() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  // Close actions popover menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-staff-action-menu]")) {
+        setActionMenuStaffId(null);
+      }
+    };
+    if (actionMenuStaffId !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [actionMenuStaffId]);
 
   // Fetch all staff & auxiliary data
   const fetchData = useCallback(async (isSilent = false) => {
@@ -1426,6 +1492,20 @@ export default function ManageStaffPage() {
 
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Handle URL query parameter ?ledger={id} to open ledger automatically
+  useEffect(() => {
+    if (typeof window !== "undefined" && staffList.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const ledgerId = params.get("ledger");
+      if (ledgerId) {
+        const found = staffList.find((s) => s.id === Number(ledgerId));
+        if (found) {
+          setLedgerTarget(found);
+        }
+      }
+    }
+  }, [staffList]);
 
   // Handle Save (Create or Update)
   const handleSaveStaff = async (formData: FormData) => {
@@ -1781,7 +1861,7 @@ export default function ManageStaffPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-h-[380px]">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#f0f4f8] text-[#1e3a8a] text-xs font-bold uppercase tracking-wider border-b border-[#bfdbfe]">
@@ -1796,7 +1876,8 @@ export default function ManageStaffPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#dbeafe] text-sm">
-                  {filtered.map((staff) => {
+                  {filtered.map((staff, idx) => {
+                    const isNearBottom = idx >= filtered.length - 2 && filtered.length > 2;
                     const telemetry = staff.location_telemetry;
                     const signatureUrl = staff.signature
                       ? staff.signature.startsWith("http") || staff.signature.startsWith("data:")
@@ -1971,58 +2052,174 @@ export default function ManageStaffPage() {
                           )}
                         </td>
 
-                        {/* Contact */}
+                        {/* Contact & Salary */}
                         <td className="py-3.5 px-5">
                           <p className="text-xs font-semibold text-[#1e3a8a]">{staff.contact_number || "—"}</p>
                           {staff.monthly_salary && !isOfficeAdmin && (
-                            <p className="text-[11px] text-slate-500">
-                              Rs {Number(staff.monthly_salary).toLocaleString()}
-                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className="text-[11px] font-bold text-[#0f224a]">
+                                Rs {Number(staff.monthly_salary).toLocaleString()}
+                              </span>
+                              {parseFloat(String(staff.bf_percentage || "0")) > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-extrabold bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs" title="Default Benevolent Fund deduction %">
+                                  BF {staff.bf_percentage}%
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
 
-                        {/* Actions */}
-                        <td className="py-3.5 px-5 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        {/* Actions Popover Dropdown Menu */}
+                        <td className="py-3.5 px-5 text-right" data-staff-action-menu>
+                          <div className="relative inline-block text-left">
                             <button
-                              onClick={() => setAssignmentTarget(staff)}
-                              title="Assign Subjects & Class Incharge"
-                              className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition"
-                            >
-                              <span className="text-sm">📚</span>
-                            </button>
-
-                            <button
-                              onClick={() => setSignatureTarget(staff)}
-                              title="Manage Signature"
-                              className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition"
-                            >
-                              <span className="text-sm">✍️</span>
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setModalError("");
-                                setEditTarget(staff);
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActionMenuStaffId(actionMenuStaffId === staff.id ? null : staff.id);
                               }}
-                              title="Edit Staff Member"
-                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border shadow-xs select-none active:scale-95 ${
+                                actionMenuStaffId === staff.id
+                                  ? "bg-[#2563eb] text-white border-[#2563eb] ring-2 ring-blue-200"
+                                  : "bg-white text-slate-700 hover:text-[#0f224a] hover:bg-slate-50 border-slate-200"
+                              }`}
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              <span>Actions</span>
+                              <svg
+                                className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                                  actionMenuStaffId === staff.id ? "rotate-180" : ""
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                               </svg>
                             </button>
 
-                            {!isOfficeAdmin && (
-                              <button
-                                onClick={() => setDeleteTarget(staff)}
-                                title="Delete Staff Member"
-                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition"
+                            {/* Floating Popover Menu */}
+                            {actionMenuStaffId === staff.id && (
+                              <div
+                                className={`absolute right-0 ${
+                                  isNearBottom ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                                } w-64 rounded-2xl bg-white shadow-2xl border border-blue-100 z-50 py-1.5 text-left text-xs divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-150`}
+                                style={{
+                                  boxShadow: "0 10px 25px -5px rgba(15, 34, 74, 0.18), 0 8px 10px -6px rgba(15, 34, 74, 0.12)",
+                                }}
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
+                                {/* Group 1: Accounts & Finance */}
+                                <div className="py-1">
+                                  <div className="px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                    Accounts &amp; Finance
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActionMenuStaffId(null);
+                                      setLedgerTarget(staff);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 flex items-center gap-2.5 transition"
+                                  >
+                                    <span className="p-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs shrink-0">📊</span>
+                                    <div>
+                                      <p className="font-bold">Accounts &amp; Ledger</p>
+                                      <p className="text-[10px] text-slate-400 font-normal">Salary slips, dues &amp; BF pool</p>
+                                    </div>
+                                  </button>
+
+                                  {!isOfficeAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActionMenuStaffId(null);
+                                        setAdjustmentTarget(staff);
+                                      }}
+                                      className="w-full px-3.5 py-2 text-left font-semibold text-slate-700 hover:text-blue-700 hover:bg-blue-50/70 flex items-center gap-2.5 transition"
+                                    >
+                                      <span className="p-1 rounded-lg bg-blue-100 text-blue-700 text-xs shrink-0">📈</span>
+                                      <div>
+                                        <p className="font-bold">Salary Adjustment</p>
+                                        <p className="text-[10px] text-slate-400 font-normal">Increment or decrement monthly pay</p>
+                                      </div>
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Group 2: Teaching & Role */}
+                                <div className="py-1">
+                                  <div className="px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                    Teaching &amp; Assignments
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActionMenuStaffId(null);
+                                      setAssignmentTarget(staff);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left font-semibold text-slate-700 hover:text-indigo-700 hover:bg-indigo-50/70 flex items-center gap-2.5 transition"
+                                  >
+                                    <span className="p-1 rounded-lg bg-indigo-100 text-indigo-700 text-xs shrink-0">📚</span>
+                                    <div>
+                                      <p className="font-bold">Assign Subjects &amp; Incharge</p>
+                                      <p className="text-[10px] text-slate-400 font-normal">Class subjects &amp; incharge roles</p>
+                                    </div>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActionMenuStaffId(null);
+                                      setSignatureTarget(staff);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/70 flex items-center gap-2.5 transition"
+                                  >
+                                    <span className="p-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs shrink-0">✍️</span>
+                                    <div>
+                                      <p className="font-bold">Digital Signature</p>
+                                      <p className="text-[10px] text-slate-400 font-normal">Draw, upload or update signature</p>
+                                    </div>
+                                  </button>
+                                </div>
+
+                                {/* Group 3: Profile & Management */}
+                                <div className="py-1">
+                                  <div className="px-3.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                    Profile &amp; Settings
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActionMenuStaffId(null);
+                                      setModalError("");
+                                      setEditTarget(staff);
+                                    }}
+                                    className="w-full px-3.5 py-2 text-left font-semibold text-slate-700 hover:text-[#2563eb] hover:bg-blue-50/70 flex items-center gap-2.5 transition"
+                                  >
+                                    <span className="p-1 rounded-lg bg-slate-100 text-slate-700 text-xs shrink-0">✏️</span>
+                                    <div>
+                                      <p className="font-bold">Edit Profile</p>
+                                      <p className="text-[10px] text-slate-400 font-normal">Designation, contact &amp; details</p>
+                                    </div>
+                                  </button>
+
+                                  {!isOfficeAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActionMenuStaffId(null);
+                                        setDeleteTarget(staff);
+                                      }}
+                                      className="w-full px-3.5 py-2 text-left font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition"
+                                    >
+                                      <span className="p-1 rounded-lg bg-red-100 text-red-700 text-xs shrink-0">🗑️</span>
+                                      <div>
+                                        <p className="font-bold">Delete Staff Member</p>
+                                        <p className="text-[10px] text-red-400 font-normal">Permanently remove staff record</p>
+                                      </div>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -2083,6 +2280,35 @@ export default function ManageStaffPage() {
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
           loading={modalLoading}
+        />
+      )}
+
+      {/* Staff Accounts Ledger & Benevolent Fund Modal */}
+      {ledgerTarget && (
+        <StaffLedgerModal
+          staff={ledgerTarget}
+          onClose={() => setLedgerTarget(null)}
+          onOpenAdjustment={() => {
+            const current = ledgerTarget;
+            setLedgerTarget(null);
+            setAdjustmentTarget(current);
+          }}
+          onStaffUpdated={() => {
+            fetchData(true);
+          }}
+        />
+      )}
+
+      {/* Salary Increment / Decrement Modal */}
+      {adjustmentTarget && (
+        <SalaryAdjustmentModal
+          staff={adjustmentTarget}
+          onClose={() => setAdjustmentTarget(null)}
+          onSuccess={(newSalary) => {
+            setAdjustmentTarget(null);
+            showToast(`📈 Base monthly salary updated to Rs ${newSalary.toLocaleString()}!`);
+            fetchData(true);
+          }}
         />
       )}
     </DashboardLayout>

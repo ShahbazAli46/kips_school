@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ExcelResultCard from "@/components/ExcelResultCard";
+import RnTResultCard from "@/components/RnTResultCard";
 import { Printer, ArrowLeft, Download } from "lucide-react";
 import PageLoader from "@/components/PageLoader";
 
@@ -106,6 +107,8 @@ function PrintContent() {
     );
   }
 
+  const isRnT = resolvedCategoryName?.toLowerCase().includes("r n t") || resolvedCategoryName?.toLowerCase().includes("r&t");
+
   return (
     <>
       <style
@@ -115,7 +118,7 @@ function PrintContent() {
             .no-print { display: none !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
             body { background-color: white !important; margin: 0 !important; padding: 0 !important; }
-            @page { margin: 10mm; size: A4 portrait; }
+            @page { margin: 10mm; size: ${isRnT ? 'A4 landscape' : 'A4 portrait'}; }
             header, nav, aside { display: none !important; }
         }
       `,
@@ -148,16 +151,29 @@ function PrintContent() {
         </div>
 
         {/* The Exact Excel Result Card */}
-        <ExcelResultCard
-          student={student}
-          subjects={subjects}
-          tests={tests}
-          rounds={rounds}
-          categoryTitle={resolvedCategoryName || "First Term"}
-          sessionTitle={sessionName || student?.session_name || "Session 2026-27"}
-          showChart={false}
-          selectedRounds={selectedRounds}
-        />
+        {isRnT ? (
+          <RnTResultCard
+            student={student}
+            subjects={subjects}
+            tests={tests}
+            rounds={rounds}
+            categoryTitle={resolvedCategoryName || "R n T"}
+            sessionTitle={sessionName || student?.session_name || "Session 2026-27"}
+            showChart={false}
+            selectedRounds={selectedRounds}
+          />
+        ) : (
+          <ExcelResultCard
+            student={student}
+            subjects={subjects}
+            tests={tests}
+            rounds={rounds}
+            categoryTitle={resolvedCategoryName || "First Term"}
+            sessionTitle={sessionName || student?.session_name || "Session 2026-27"}
+            showChart={false}
+            selectedRounds={selectedRounds}
+          />
+        )}
       </div>
     </>
   );

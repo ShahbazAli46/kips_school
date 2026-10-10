@@ -2,9 +2,15 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 import NumberInput from "@/components/NumberInput";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { format, parse } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -58,6 +64,8 @@ interface SalarySlip {
   payment_status: "unpaid" | "partial" | "paid";
   status: "draft" | "final" | "approved";
   previous_arrears?: string;
+  bf_percentage?: string | number;
+  bf_deduction?: string | number;
   needs_recalculation?: boolean;
   teacher?: { id: number; name: string; advance_balance?: string; arrears_balance?: string };
   items: SalaryItem[];
@@ -75,6 +83,17 @@ export default function SalariesPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [search, setSearch] = useState("");
+  const [defaultBfPercentage, setDefaultBfPercentage] = useState("");
+  
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const currentYear = parseInt(monthStr.split("-")[0]);
+  const currentMonth = parseInt(monthStr.split("-")[1]);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const handleMonthChange = (year: number, month: number) => {
+    setMonthStr(`${year}-${String(month).padStart(2, '0')}`);
+    setMonthPickerOpen(false);
+  };
 
   // ── Modal: Adjust (attendance / bonus) ──────────────────────────────────────
   const [adjustTarget, setAdjustTarget] = useState<SalarySlip | null>(null);
@@ -92,6 +111,12 @@ export default function SalariesPage() {
   const [historyTarget, setHistoryTarget] = useState<SalarySlip | null>(null);
 
   const [includePreviousArrears, setIncludePreviousArrears] = useState(true);
+
+  const currentMonthStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+  const isCurrentOrFutureMonth = monthStr >= currentMonthStr;
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   const fetchSlips = useCallback(async () => {
@@ -126,7 +151,11 @@ export default function SalariesPage() {
       const res = await fetch(`${API}/salaries/generate`, {
         method: "POST",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ month: monthStr, include_previous_arrears: includePreviousArrears }),
+        body: JSON.stringify({ 
+          month: monthStr, 
+          include_previous_arrears: includePreviousArrears,
+          bf_percentage: defaultBfPercentage !== "" ? parseFloat(defaultBfPercentage) : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to generate");
@@ -153,6 +182,7 @@ export default function SalariesPage() {
           permitted_off_days: fd.get("permitted_off_days"),
           taken_off_days: fd.get("taken_off_days"),
           bonus: fd.get("bonus"),
+          bf_percentage: fd.get("bf_percentage"),
         }),
       });
       const data = await res.json();
@@ -255,17 +285,47 @@ export default function SalariesPage() {
             >
               Salary Month
             </label>
-            <input
-              type="month"
-              value={monthStr}
-              onChange={(e) => setMonthStr(e.target.value)}
-              className="px-4 py-2.5 rounded-xl border-2 text-sm font-semibold outline-none transition-colors"
-              style={{
-                borderColor: "#bfdbfe",
-                color: "#1e3a8a",
-                background: "#fff",
-              }}
-            />
+            <Popover open={monthPickerOpen} onOpenChange={setMonthPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[180px] justify-start text-left font-semibold h-[46px] px-4 rounded-xl border-2 hover:bg-gray-50",
+                    !monthStr && "text-muted-foreground"
+                  )}
+                  style={{ borderColor: '#bfdbfe', color: '#1e3a8a' }}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" style={{ color: '#2563eb' }} />
+                  {format(parse(monthStr, "yyyy-MM", new Date()), "MMMM yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="start">
+                <div className="flex items-center justify-between mb-4">
+                  <Button variant="ghost" size="icon" onClick={() => setMonthStr(`${currentYear - 1}-${String(currentMonth).padStart(2, '0')}`)} className="h-7 w-7 p-0 hover:bg-gray-100">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="font-bold text-sm" style={{ color: '#0f224a' }}>{currentYear}</div>
+                  <Button variant="ghost" size="icon" onClick={() => setMonthStr(`${currentYear + 1}-${String(currentMonth).padStart(2, '0')}`)} className="h-7 w-7 p-0 hover:bg-gray-100">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {months.map((m, idx) => (
+                    <Button
+                      key={m}
+                      variant="ghost"
+                      onClick={() => handleMonthChange(currentYear, idx + 1)}
+                      className={cn(
+                        "h-9 text-xs font-semibold hover:bg-gray-100 hover:text-gray-900",
+                        currentMonth === idx + 1 && "bg-[#2563eb] text-white hover:bg-[#2563eb] hover:text-white"
+                      )}
+                    >
+                      {m}
+                    </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="flex items-center">
@@ -283,12 +343,42 @@ export default function SalariesPage() {
               <span>Include Previous Arrears</span>
             </label>
           </div>
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="px-6 py-2.5 rounded-xl font-bold text-white transition hover:opacity-90 active:scale-95 disabled:opacity-50 h-[46px] flex items-center justify-center gap-2"
-            style={{ background: "linear-gradient(135deg, #2563eb, #1e3a8a)" }}
+
+          <div className="flex flex-col gap-1">
+            <label
+              className="text-xs font-semibold"
+              style={{ color: "#1e3a8a" }}
+              title="Benevolent Fund % deducted into staff ledger pool, collected upon resignation"
+            >
+              Default BF Ded (%)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              placeholder="e.g. 5"
+              value={defaultBfPercentage}
+              onChange={(e) => setDefaultBfPercentage(e.target.value)}
+              className="w-28 px-3 py-2.5 rounded-xl border-2 text-sm font-semibold outline-none"
+              style={{
+                borderColor: "#bfdbfe",
+                color: "#1e3a8a",
+                background: "#fff",
+              }}
+              title="Enter Benevolent Fund deduction percentage to apply across generated slips"
+            />
+          </div>
+
+          <div 
+            title={isCurrentOrFutureMonth ? "Salaries can only be generated for past months." : ""}
           >
+            <button
+              onClick={handleGenerate}
+              disabled={generating || isCurrentOrFutureMonth}
+              className="px-6 py-2.5 rounded-xl font-bold text-white transition hover:opacity-90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed h-[46px] flex items-center justify-center gap-2"
+              style={{ background: "linear-gradient(135deg, #2563eb, #1e3a8a)" }}
+            >
             {generating ? (
               <svg
                 className="animate-spin w-5 h-5"
@@ -328,6 +418,7 @@ export default function SalariesPage() {
               </>
             )}
           </button>
+          </div>
         </div>
       </div>
 
@@ -458,13 +549,16 @@ export default function SalariesPage() {
             <p className="text-base font-medium" style={{ color: "#38bdf8" }}>
               No salary slips generated for {monthStr}.
             </p>
-            <button
-              onClick={handleGenerate}
-              className="text-sm font-bold underline transition"
-              style={{ color: "#2563eb" }}
-            >
-              Generate Now
-            </button>
+            <div title={isCurrentOrFutureMonth ? "Salaries can only be generated for past months." : ""}>
+              <button
+                onClick={handleGenerate}
+                disabled={generating || isCurrentOrFutureMonth}
+                className="text-sm font-bold underline transition disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ color: "#2563eb" }}
+              >
+                Generate Now
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -547,6 +641,11 @@ export default function SalariesPage() {
                           {parseFloat(s.advance_deducted || "0") > 0 && (
                             <p className="text-[10px] text-blue-600 font-semibold mt-0.5">
                               Earned: Rs {parseFloat(s.total_amount).toLocaleString(undefined, { minimumFractionDigits: 0 })} | Adv: −Rs {parseFloat(s.advance_deducted).toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                            </p>
+                          )}
+                          {parseFloat(String(s.bf_deduction || "0")) > 0 && (
+                            <p className="text-[10px] text-amber-700 font-bold mt-0.5" title="Benevolent Fund deduction added to Staff Ledger">
+                              BF Ded: −Rs {parseFloat(String(s.bf_deduction)).toLocaleString(undefined, { minimumFractionDigits: 0 })} ({s.bf_percentage}%)
                             </p>
                           )}
                           {parseFloat(s.bonus || "0") > 0 && (
@@ -735,6 +834,29 @@ export default function SalariesPage() {
                   style={{ borderColor: "#bfdbfe", background: "#f0f4f8" }}
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "#1e3a8a" }}>
+                  BF Deduction (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    name="bf_percentage"
+                    defaultValue={adjustTarget.bf_percentage !== undefined ? parseFloat(String(adjustTarget.bf_percentage)) : 0}
+                    className="w-full px-3 py-2.5 rounded-lg border text-sm outline-none pr-8"
+                    style={{ borderColor: "#bfdbfe", background: "#f0f4f8" }}
+                    placeholder="e.g. 5"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">%</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Benevolent Fund deduction is added to the staff member&apos;s ledger and collected upon resignation.
+                </p>
               </div>
 
               <div
@@ -1011,6 +1133,20 @@ export default function SalariesPage() {
                 })()}
               </div>
             </div>
+
+            {parseFloat(String(liveHistorySlip.bf_deduction || "0")) > 0 && (
+              <div className="px-6 py-2 bg-amber-50/70 border-b border-amber-200 flex items-center justify-between text-xs">
+                <span className="font-semibold text-amber-900">
+                  BF Deduction: Rs {parseFloat(String(liveHistorySlip.bf_deduction)).toLocaleString()} ({liveHistorySlip.bf_percentage}%)
+                </span>
+                <Link
+                  href={`/dashboard/staff?ledger=${liveHistorySlip.teacher_id}`}
+                  className="font-bold text-[#2563eb] hover:underline"
+                >
+                  View Staff Ledger →
+                </Link>
+              </div>
+            )}
 
             {/* Payments list */}
             <div className="flex-1 overflow-y-auto px-6 py-4">

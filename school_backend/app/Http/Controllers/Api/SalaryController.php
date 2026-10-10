@@ -49,7 +49,7 @@ class SalaryController extends Controller
                     $extraOffs = max(0, $s->taken_off_days - $s->permitted_off_days);
                     $dailyRate = $s->total_amount / 30;
                     $deduction = $extraOffs * $dailyRate;
-                    $monthlyNet = max(0, (float)$s->total_amount - $deduction) + (float)$s->bonus - (float)$s->advance_deducted;
+                    $monthlyNet = max(0, (float)$s->total_amount - $deduction - (float)$s->bf_deduction) + (float)$s->bonus - (float)$s->advance_deducted;
                     
                     $cumulativeNet += $monthlyNet;
                     $cumulativePaid += (float)$s->payments->sum('amount_paid');
@@ -143,6 +143,9 @@ class SalaryController extends Controller
             $includePreviousArrears = $request->has('include_previous_arrears') 
                 ? filter_var($request->include_previous_arrears, FILTER_VALIDATE_BOOLEAN) 
                 : true;
+            $defaultBfPercentage = $request->filled('bf_percentage')
+                ? (float) $request->bf_percentage
+                : null;
 
             $startOfMonth = \Carbon\Carbon::parse($month . '-01')->startOfMonth();
             $endOfMonth = \Carbon\Carbon::parse($month . '-01')->endOfMonth();
@@ -284,7 +287,7 @@ class SalaryController extends Controller
                             $extraOffs = max(0, $s->taken_off_days - $s->permitted_off_days);
                             $dailyRate = $s->total_amount / 30;
                             $deduction = $extraOffs * $dailyRate;
-                            $monthlyNet = max(0, (float)$s->total_amount - $deduction) + (float)$s->bonus - (float)$s->advance_deducted;
+                            $monthlyNet = max(0, (float)$s->total_amount - $deduction - (float)$s->bf_deduction) + (float)$s->bonus - (float)$s->advance_deducted;
                             
                             $cumulativeNet += $monthlyNet;
                             $cumulativePaid += (float)$s->total_paid;
@@ -317,14 +320,23 @@ class SalaryController extends Controller
                     $existingSlip = $existingSlips->get($teacher->id);
                     
                     if ($existingSlip) {
+                        $effectiveBfPercentage = $defaultBfPercentage !== null
+                            ? $defaultBfPercentage
+                            : (float)($existingSlip->bf_percentage ?? $teacher->bf_percentage ?? 0);
+                        $bfDeduction = round(($totalAmount * $effectiveBfPercentage) / 100, 2);
+                        
+                        $extraOffs = max(0, $existingSlip->taken_off_days - $existingSlip->permitted_off_days);
+                        $dailyRate = $totalAmount / 30;
+                        $deduction = $extraOffs * $dailyRate;
+                        
+                        $payableSalary = max(0, $payableSalary - $bfDeduction - $deduction) + (float)$existingSlip->bonus;
+
                         // Ensure we don't overwrite total_paid
-                        $totalPaid = $existingSlip->total_paid ?? 0;
+                        $totalPaid = (float)($existingSlip->total_paid ?? 0);
                         $paymentStatus = 'unpaid';
                         if ($totalPaid > 0 && $totalPaid < $payableSalary) {
                             $paymentStatus = 'partial';
-                        } elseif ($totalPaid >= $payableSalary && $payableSalary > 0) {
-                            $paymentStatus = 'paid';
-                        } elseif ($payableSalary == 0 && $totalPaid > 0) {
+                        } elseif ($totalPaid >= $payableSalary) {
                             $paymentStatus = 'paid';
                         }
 
@@ -332,6 +344,8 @@ class SalaryController extends Controller
                             'total_amount' => $totalAmount,
                             'previous_arrears' => $arrears,
                             'advance_deducted' => $advanceDeducted,
+                            'bf_percentage' => $effectiveBfPercentage,
+                            'bf_deduction' => $bfDeduction,
                             'payable_salary' => $payableSalary,
                             'payment_status' => $paymentStatus,
                             // we do not touch status, bonus, taken_off_days etc.
@@ -341,11 +355,16 @@ class SalaryController extends Controller
                         // Delete old items so we can insert fresh ones
                         SalarySlipItem::where('salary_slip_id', $slipId)->delete();
                     } else {
+                        $teacherBfPercentage = $defaultBfPercentage !== null
+                            ? $defaultBfPercentage
+                            : (float)($teacher->bf_percentage ?? 0);
+                        $bfDeduction = round(($totalAmount * $teacherBfPercentage) / 100, 2);
+
                         $approvedOffDays = $teacherApprovedLeaveDays[$teacher->id] ?? 0;
                         $dailyRate = $totalAmount / 30;
                         $deduction = $approvedOffDays * $dailyRate;
                         
-                        $finalPayable = max(0, $payableSalary - $deduction);
+                        $finalPayable = max(0, $payableSalary - $deduction - $bfDeduction);
                         
                         $slip = SalarySlip::create([
                             'teacher_id' => $teacher->id,
@@ -355,6 +374,8 @@ class SalaryController extends Controller
                             'bonus' => 0,
                             'previous_arrears' => $arrears,
                             'advance_deducted' => $advanceDeducted,
+                            'bf_percentage' => $teacherBfPercentage,
+                            'bf_deduction' => $bfDeduction,
                             'payable_salary' => $finalPayable,
                             'total_paid' => 0,
                             'payment_status' => 'unpaid',
@@ -434,6 +455,7 @@ class SalaryController extends Controller
             'permitted_off_days' => 'required|integer|min:0',
             'taken_off_days' => 'required|integer|min:0',
             'bonus' => 'required|numeric|min:0',
+            'bf_percentage' => 'nullable|numeric|min:0|max:100',
             'status' => 'nullable|string|in:draft,final,approved',
         ]);
 
@@ -442,18 +464,33 @@ class SalaryController extends Controller
         $slip->permitted_off_days = $request->permitted_off_days;
         $slip->taken_off_days = $request->taken_off_days;
         $slip->bonus = $request->bonus;
+
+        if ($request->has('bf_percentage')) {
+            $slip->bf_percentage = (float) $request->bf_percentage;
+            $slip->bf_deduction = round(((float)$slip->total_amount * $slip->bf_percentage) / 100, 2);
+        }
         
         // Calculate deduction based on 30-day month
         $extraOffDays = max(0, $request->taken_off_days - $request->permitted_off_days);
         $dailyRate = $slip->total_amount / 30;
         $deduction = $extraOffDays * $dailyRate;
-        $slip->payable_salary = max(0, $slip->total_amount - $deduction) + $request->bonus + $slip->previous_arrears - $slip->advance_deducted;
+        $bfDeduction = (float) ($slip->bf_deduction ?? 0);
+        $slip->payable_salary = max(0, $slip->total_amount - $deduction - $bfDeduction) + $request->bonus + $slip->previous_arrears - $slip->advance_deducted;
         
         // Calculate attendance percentage for reference (max 100, min 0)
         $slip->attendance_percentage = max(0, 100 - ($extraOffDays * (100 / 30)));
         
         if ($request->has('status')) {
             $slip->status = $request->status;
+        }
+
+        $totalPaid = (float)($slip->total_paid ?? 0);
+        if ($totalPaid <= 0) {
+            $slip->payment_status = 'unpaid';
+        } elseif ($totalPaid < $slip->payable_salary) {
+            $slip->payment_status = 'partial';
+        } else {
+            $slip->payment_status = 'paid';
         }
 
         $slip->save();
@@ -598,7 +635,8 @@ class SalaryController extends Controller
             $extraOffDays = max(0, $slip->taken_off_days - $slip->permitted_off_days);
             $dailyRate = $slip->total_amount / 30;
             $deduction = $extraOffDays * $dailyRate;
-            $slip->payable_salary = max(0, (float)$slip->total_amount - $deduction) + (float)$slip->bonus + (float)$slip->previous_arrears - (float)$slip->advance_deducted;
+            $bfDeduction = (float) ($slip->bf_deduction ?? 0);
+            $slip->payable_salary = max(0, (float)$slip->total_amount - $deduction - $bfDeduction) + (float)$slip->bonus + (float)$slip->previous_arrears - (float)$slip->advance_deducted;
             
             $totalPaid = (float)($slip->total_paid ?? 0);
             if ($totalPaid <= 0) {

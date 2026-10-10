@@ -207,6 +207,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('staff/{teacher}', [\App\Http\Controllers\Api\TeacherController::class, 'show']);
         Route::delete('staff/{teacher}', [\App\Http\Controllers\Api\TeacherController::class, 'destroy']);
 
+        // Staff Ledger, Accounts, Adjustments & Benevolent Fund (BF)
+        Route::get('staff/{id}/ledger', [\App\Http\Controllers\Api\StaffLedgerController::class, 'getLedger']);
+        Route::post('staff/{id}/salary-adjustments', [\App\Http\Controllers\Api\StaffLedgerController::class, 'storeSalaryAdjustment']);
+        Route::get('staff/{id}/salary-adjustments', [\App\Http\Controllers\Api\StaffLedgerController::class, 'getSalaryAdjustments']);
+        Route::delete('staff/{id}/salary-adjustments/{adjustment}', [\App\Http\Controllers\Api\StaffLedgerController::class, 'deleteSalaryAdjustment']);
+        Route::post('staff/{id}/bf-settlement', [\App\Http\Controllers\Api\StaffLedgerController::class, 'storeBfSettlement']);
+        Route::delete('staff/{id}/bf-settlement/{settlement}', [\App\Http\Controllers\Api\StaffLedgerController::class, 'deleteBfSettlement']);
+
         // Teacher Live Presence & GPS Telemetry
         Route::get('admin/teachers/live-presence', [\App\Http\Controllers\Api\TeacherLocationController::class, 'getLivePresence']);
         Route::get('admin/teachers/{teacher}/location-trail', [\App\Http\Controllers\Api\TeacherLocationController::class, 'getLocationTrail']);

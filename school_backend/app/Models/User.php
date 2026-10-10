@@ -43,9 +43,12 @@ class User extends Authenticatable
         'total_paid',
         'section_id',
         'monthly_salary',
+        'bf_percentage',
         'academic_session_id',
         'roll_number',
         'joining_date',
+        'resignation_date',
+        'resignation_remarks',
         'last_seen_at',
 
         // School Admission Fields
@@ -182,6 +185,21 @@ class User extends Authenticatable
         return $this->hasMany(TeacherLocationPing::class, 'teacher_id');
     }
 
+    public function salarySlips()
+    {
+        return $this->hasMany(SalarySlip::class, 'teacher_id');
+    }
+
+    public function salaryAdjustments()
+    {
+        return $this->hasMany(StaffSalaryAdjustment::class, 'user_id')->orderBy('effective_date', 'desc')->orderBy('id', 'desc');
+    }
+
+    public function bfSettlements()
+    {
+        return $this->hasMany(StaffBfSettlement::class, 'user_id')->orderBy('settlement_date', 'desc')->orderBy('id', 'desc');
+    }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -193,9 +211,12 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'dob' => 'date',
+            'joining_date' => 'date',
+            'resignation_date' => 'date',
             'monthly_fee' => 'decimal:2',
             'pending_amount' => 'decimal:2',
             'monthly_salary' => 'decimal:2',
+            'bf_percentage' => 'decimal:2',
             'test_marks' => 'decimal:2',
             'obtained_marks' => 'decimal:2',
             'tuition_fee_per_policy' => 'decimal:2',
