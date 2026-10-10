@@ -27,6 +27,8 @@ function StudentResultContent() {
   const sessionParam = searchParams.get("session");
   const classParam = searchParams.get("class");
   const categoryParam = searchParams.get("category");
+  const roundsParam = searchParams.get("rounds");
+  const selectedRounds = roundsParam ? roundsParam.split(",").map(r => r.trim()).filter(Boolean) : undefined;
 
   const [resolvedClass, setResolvedClass] = useState<string | null>(null);
   const [resolvedSession, setResolvedSession] = useState<string | null>(null);
@@ -120,13 +122,14 @@ function StudentResultContent() {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         };
 
+        const roundsQuery = roundsParam ? `&rounds=${encodeURIComponent(roundsParam)}` : "";
         const [detailsRes, seriesRes] = await Promise.all([
           fetch(
-            `${API}/results/series/student/${id}?academic_session_id=${session}&academy_class_id=${academyClass}&test_category_id=${category}`,
+            `${API}/results/series/student/${id}?academic_session_id=${session}&academy_class_id=${academyClass}&test_category_id=${category}${roundsQuery}`,
             { headers }
           ),
           fetch(
-            `${API}/results/series?academic_session_id=${session}&academy_class_id=${academyClass}&test_category_id=${category}`,
+            `${API}/results/series?academic_session_id=${session}&academy_class_id=${academyClass}&test_category_id=${category}${roundsQuery}`,
             { headers }
           ),
         ]);
@@ -151,6 +154,14 @@ function StudentResultContent() {
               percentage: 0,
             };
           }
+          if (detailsData?.student) {
+            std = {
+              ...detailsData.student,
+              ...std,
+              class_incharge: detailsData.student.class_incharge || std?.class_incharge || "",
+              teacher_signature: detailsData.student.teacher_signature || std?.teacher_signature || "",
+            };
+          }
           setStudent(std);
 
           if (detailsData.subjects) {
@@ -170,7 +181,7 @@ function StudentResultContent() {
     }
 
     fetchData();
-  }, [id, session, academyClass, category, fallbackProfile]);
+  }, [id, session, academyClass, category, fallbackProfile, roundsParam]);
 
   const handleCategoryChange = (newCategoryId: string) => {
     setLoadingCategory(true);
@@ -352,7 +363,7 @@ function StudentResultContent() {
               {sendingEmail ? "Sending..." : "Email Report"}
             </button>
             <Link 
-              href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}`}
+              href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}${roundsParam ? `&rounds=${encodeURIComponent(roundsParam)}` : ""}`}
               target="_blank"
               className="text-white hover:bg-[#1e40af] transition bg-[#2563eb] px-6 py-2.5 rounded-xl shadow-md text-sm font-bold flex items-center justify-center gap-2"
             >
@@ -416,7 +427,7 @@ function StudentResultContent() {
           </div>
 
           <Link
-            href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}`}
+            href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}${roundsParam ? `&rounds=${encodeURIComponent(roundsParam)}` : ""}`}
             target="_blank"
             className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
           >
@@ -434,6 +445,7 @@ function StudentResultContent() {
               categoryTitle={categories.find((c) => c.id.toString() === category)?.name || "First Term"}
               sessionTitle={fallbackProfile?.academic_session?.name || "Session 2026-27"}
               showChart={false}
+              selectedRounds={selectedRounds}
             />
           </div>
         )}

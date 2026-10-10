@@ -1,19 +1,26 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import CustomDropdown from "@/components/CustomDropdown";
-import { Crown, Medal, Award, Plus, X, Search, FileDown, CheckCircle2, AlertCircle, Mail } from "lucide-react";
+import { Crown, Medal, Award, Plus, X, Search, FileDown, CheckCircle2, AlertCircle, Mail, Layers } from "lucide-react";
 import {
   useGetAcademicSessionsQuery,
   useGetClassesQuery,
   useGetTestCategoriesQuery,
   useGetSectionsQuery,
   useGetResultsSeriesQuery,
+  useGetAvailableRoundsQuery,
 } from "@/store/apiSlice";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+const TEST_TYPE_OPTIONS = [
+  { label: "Class Test", value: "class_test" },
+  { label: "School Test", value: "school_test" },
+  { label: "R n T", value: "rnt" },
+];
 
 function ResultsContent() {
   const router = useRouter();
@@ -27,9 +34,14 @@ function ResultsContent() {
 
   const selectedSession = searchParams.get("session") || "";
   const selectedClass = searchParams.get("class") || "";
-  const selectedType = searchParams.get("type") || "academy_series";
+  const selectedType = searchParams.get("type") || "class_test";
   const selectedSection = searchParams.get("section") || "";
-  const selectedCategory = searchParams.get("category") || searchParams.get("type") || "academy_series";
+  const selectedCategory = searchParams.get("category") || searchParams.get("type") || "class_test";
+
+  const selectedClassObj = classes.find((c: any) => String(c.id) === String(selectedClass));
+  const availableSections: any[] = selectedClassObj?.sections && Array.isArray(selectedClassObj.sections) && selectedClassObj.sections.length > 0
+    ? selectedClassObj.sections
+    : sections;
 
   const updateURL = (key: string, value: string, additionalParams: Record<string, string> = {}) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -44,8 +56,74 @@ function ResultsContent() {
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
-  // 2. Fetch Results via RTK Query
-  const shouldFetchResults = Boolean(selectedSession && selectedClass && selectedCategory && (selectedType !== 'class_test' || selectedSection));
+  const shouldFetchResults = Boolean(selectedSession && selectedClass && selectedCategory);
+
+  // 2. Fetch Available Rounds for current session, class & category
+  const { data: roundsData, isLoading: isLoadingRounds } = useGetAvailableRoundsQuery(
+    {
+      session: selectedSession,
+      classId: selectedClass,
+      category: selectedCategory,
+      section: selectedSection,
+    },
+    { skip: !shouldFetchResults }
+  );
+
+  const availableRounds: string[] = roundsData?.rounds || [];
+  const activeRounds: string[] = roundsData?.active_rounds || [];
+  const roundStatuses: Record<string, { status: "completed" | "partial" | "template"; entered: number; total: number }> =
+    roundsData?.round_statuses || {};
+
+  const roundsParam = searchParams.get("rounds");
+
+  // Derive selectedRounds directly from searchParams and availableRounds to eliminate setState inside useEffect loops
+  const selectedRounds = useMemo(() => {
+    if (roundsParam === "none") return [];
+    if (roundsParam) {
+      return roundsParam.split(",").map((r) => r.trim()).filter(Boolean);
+    }
+    return availableRounds;
+  }, [roundsParam, availableRounds]);
+
+  const handleToggleRound = (roundName: string) => {
+    let next: string[];
+    if (selectedRounds.includes(roundName)) {
+      next = selectedRounds.filter((r) => r !== roundName);
+    } else {
+      next = [...selectedRounds, roundName];
+    }
+    const ordered = availableRounds.filter((r) => next.includes(r));
+    updateURL("rounds", ordered.length === 0 ? "none" : ordered.join(","));
+  };
+
+  const handleSelectAllRounds = () => {
+    updateURL("rounds", availableRounds.join(","));
+  };
+
+  const handleSelectActiveRounds = () => {
+    const active = activeRounds.length > 0 ? activeRounds : availableRounds.slice(0, 1);
+    updateURL("rounds", active.join(","));
+  };
+
+  const handleClearRounds = () => {
+    updateURL("rounds", "none");
+  };
+
+  const roundsQueryString =
+    roundsParam === "none"
+      ? "none"
+      : roundsParam
+      ? roundsParam
+      : undefined;
+
+  const roundsNavQuery =
+    roundsParam === "none"
+      ? "&rounds=none"
+      : roundsParam
+      ? `&rounds=${encodeURIComponent(roundsParam)}`
+      : "";
+
+  // 3. Fetch Results via RTK Query
   const { data: results = [], isLoading: loadingResults } = useGetResultsSeriesQuery(
     {
       session: selectedSession,
@@ -53,6 +131,7 @@ function ResultsContent() {
       category: selectedCategory,
       type: selectedType,
       section: selectedSection,
+      rounds: roundsQueryString,
     },
     { skip: !shouldFetchResults }
   );
@@ -79,7 +158,7 @@ function ResultsContent() {
           academic_session_id: selectedSession,
           academy_class_id: selectedClass,
           test_category_id: selectedCategory,
-          section_id: selectedType === "class_test" && selectedSection && selectedSection !== "all" ? selectedSection : null,
+          section_id: selectedSection && selectedSection !== "all" ? selectedSection : null,
         }),
       });
       const data = await res.json();
@@ -100,7 +179,7 @@ function ResultsContent() {
     <DashboardLayout>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-[#0f224a]">Series Results</h2>
-        <p className="text-sm mt-1 text-[#2563eb]">Aggregate and view overall results for test series or class tests.</p>
+        <p className="text-sm mt-1 text-[#2563eb]">Aggregate and view overall results for Class Test, School Test, and R n T.</p>
       </div>
 
       <div className="bg-white p-5 rounded-xl shadow-sm border border-[#bfdbfe] mb-6 flex flex-wrap gap-4 items-end">
@@ -110,7 +189,7 @@ function ResultsContent() {
             name="session"
             value={selectedSession}
             onChange={(name, val) => { 
-              updateURL("session", val as string, { category: selectedType }); 
+              updateURL("session", val as string, { category: selectedType, rounds: "" }); 
             }}
             placeholder="Select Session"
             options={sessions.map((s) => ({ label: s.name, value: s.id }))}
@@ -122,7 +201,7 @@ function ResultsContent() {
             name="class"
             value={selectedClass}
             onChange={(name, val) => { 
-              updateURL("class", val as string, { category: selectedType }); 
+              updateURL("class", val as string, { category: selectedType, section: "", rounds: "" }); 
             }}
             placeholder="Select Class"
             options={classes.map((c) => ({ label: c.name, value: c.id }))}
@@ -134,16 +213,13 @@ function ResultsContent() {
             name="type"
             value={selectedType}
             onChange={(name, val) => { 
-              updateURL("type", val as string, { category: val as string, section: "" }); 
+              updateURL("type", val as string, { category: val as string, section: "", rounds: "" }); 
             }}
             placeholder="Select Type"
-            options={[
-              { label: "Academy Series", value: "academy_series" },
-              { label: "Class Test", value: "class_test" },
-            ]}
+            options={TEST_TYPE_OPTIONS}
           />
         </div>
-        {selectedType === "class_test" && (
+        {selectedClass && (
           <div className="w-48">
             <label className="block text-xs font-bold text-[#2563eb] uppercase tracking-wide mb-1">Section</label>
             <CustomDropdown
@@ -152,10 +228,10 @@ function ResultsContent() {
               onChange={(name, val) => {
                 updateURL("section", val as string);
               }}
-              placeholder="Select Section"
+              placeholder="All Sections"
               options={[
                 { label: "All Sections", value: "all" },
-                ...sections.map((s) => ({ label: s.name, value: s.id }))
+                ...availableSections.map((s: any) => ({ label: s.name, value: String(s.id) }))
               ]}
             />
           </div>
@@ -163,12 +239,13 @@ function ResultsContent() {
       </div>
 
       {selectedSession && selectedClass && (
-        <div className="mb-6">
-          <div className="flex flex-wrap gap-2 mb-4">
+        <div className="mb-6 space-y-4">
+          {/* Categories Pills */}
+          <div className="flex flex-wrap gap-2">
             {filteredCategories.length > 0 && (
               <button
                 onClick={() => {
-                  updateURL("category", selectedType);
+                  updateURL("category", selectedType, { rounds: "" });
                 }}
                 className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
                   selectedCategory === selectedType
@@ -183,7 +260,7 @@ function ResultsContent() {
               <button
                 key={c.id}
                 onClick={() => {
-                  updateURL("category", c.id.toString());
+                  updateURL("category", c.id.toString(), { rounds: "" });
                 }}
                 className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
                   selectedCategory === c.id.toString()
@@ -198,6 +275,108 @@ function ResultsContent() {
               <p className="text-sm text-gray-500 italic">No categories found for this type.</p>
             )}
           </div>
+
+          {/* Test Rounds Checkboxes List */}
+          {availableRounds.length > 0 && (
+            <div className="bg-white p-4 rounded-xl shadow-xs border border-[#bfdbfe]">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#2563eb]" />
+                  <span className="text-xs font-bold text-[#0f224a] uppercase tracking-wider">
+                    Evaluation Rounds / Test Series:
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    ({selectedRounds.length} of {availableRounds.length} selected for result cards)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllRounds}
+                    className="px-2.5 py-1 rounded-md text-xs font-bold text-[#2563eb] bg-blue-50 hover:bg-blue-100 border border-blue-200 transition active:scale-95"
+                  >
+                    Select All
+                  </button>
+                  {activeRounds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSelectActiveRounds}
+                      className="px-2.5 py-1 rounded-md text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition active:scale-95"
+                      title="Select only rounds that have tests in the database"
+                    >
+                      Conducted Only ({activeRounds.length})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleClearRounds}
+                    className="px-2.5 py-1 rounded-md text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition active:scale-95"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {/* Checkbox pills */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {availableRounds.map((round) => {
+                  const isChecked = selectedRounds.includes(round);
+                  const roundInfo = roundStatuses[round];
+                  const status = roundInfo?.status || (activeRounds.includes(round) ? "partial" : "template");
+                  const enteredCount = roundInfo?.entered ?? 0;
+                  const totalCount = roundInfo?.total ?? 0;
+
+                  return (
+                    <label
+                      key={round}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleToggleRound(round);
+                      }}
+                      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all border select-none ${
+                        isChecked
+                          ? "bg-blue-50 border-[#2563eb] text-[#1e40af] shadow-xs ring-1 ring-[#2563eb]/20"
+                          : "bg-slate-50/70 border-slate-200 text-slate-500 hover:bg-slate-100/70 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {}}
+                        className="rounded border-slate-300 text-[#2563eb] focus:ring-[#2563eb] w-3.5 h-3.5 cursor-pointer pointer-events-none"
+                      />
+                      <span className="font-extrabold tracking-wide text-xs">{round}</span>
+                      
+                      {status === "completed" && (
+                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+                          Completed {totalCount > 0 ? `(${totalCount}/${totalCount})` : ""}
+                        </span>
+                      )}
+
+                      {status === "partial" && (
+                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+                          Partial {totalCount > 0 ? `(${enteredCount}/${totalCount})` : ""}
+                        </span>
+                      )}
+
+                      {status === "template" && (
+                        <span className="bg-slate-200 text-slate-600 border border-slate-300 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">
+                          Template
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+
+              {availableRounds.length > 0 && selectedRounds.length === 0 && (
+                <p className="text-xs text-amber-600 font-semibold mt-2.5">
+                  ⚠️ No rounds selected. Please check at least one round above to calculate and display result cards.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -209,7 +388,14 @@ function ResultsContent() {
 
       {!loadingResults && results.length > 0 && (
         <>
-          <div className="flex justify-end gap-3 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            {results[0]?.class_incharge ? (
+              <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-900 px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-2xs">
+                <span>👨‍🏫 Class Incharge:</span>
+                <span className="text-blue-700 font-extrabold">{results[0].class_incharge}</span>
+              </div>
+            ) : <div />}
+            <div className="flex items-center gap-3">
             <button
               onClick={() => setShowBroadcastConfirm(true)}
               disabled={isBroadcastingWhatsApp}
@@ -225,7 +411,7 @@ function ResultsContent() {
               {isBroadcastingWhatsApp ? "Dispatching..." : "Broadcast via WhatsApp"}
             </button>
             <a 
-              href={`/dashboard/results/print-all?session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${selectedType === "class_test" && selectedSection && selectedSection !== "all" ? "&section=" + selectedSection : ""}&session_name=${sessions.find(s => s.id.toString() === selectedSession.toString())?.name || ''}&class_name=${classes.find(c => c.id.toString() === selectedClass.toString())?.name || ''}`}
+              href={`/dashboard/results/print-all?session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${selectedSection && selectedSection !== "all" ? "&section=" + selectedSection : ""}&session_name=${sessions.find(s => s.id.toString() === selectedSession.toString())?.name || ''}&class_name=${classes.find(c => c.id.toString() === selectedClass.toString())?.name || ''}${roundsNavQuery}`}
               target="_blank"
               rel="noopener noreferrer"
               className="bg-[#2563eb] text-white hover:bg-[#1e40af] transition px-4 py-2 rounded-lg shadow-sm font-semibold flex items-center gap-2"
@@ -234,6 +420,7 @@ function ResultsContent() {
               Print Results Sheet
             </a>
           </div>
+        </div>
 
           {/* Broadcast Confirmation Modal */}
           {showBroadcastConfirm && (
@@ -280,7 +467,7 @@ function ResultsContent() {
           {/* TOP 3 CARDS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {top3.map((r, idx) => (
-              <div key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`)} className={`cursor-pointer hover:scale-[1.02] transition-transform relative p-6 rounded-2xl border-2 flex flex-col items-center text-center shadow-sm overflow-hidden ${
+              <div key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`)} className={`cursor-pointer hover:scale-[1.02] transition-transform relative p-6 rounded-2xl border-2 flex flex-col items-center text-center shadow-sm overflow-hidden ${
                 idx === 0 ? "border-amber-400 bg-gradient-to-b from-amber-50 to-white" :
                 idx === 1 ? "border-slate-300 bg-gradient-to-b from-slate-50 to-white" :
                 "border-blue-300 bg-gradient-to-b from-orange-50 to-white"
@@ -341,7 +528,7 @@ function ResultsContent() {
                     </div>
                   </div>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`); }} 
+                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`); }} 
                     className="mt-1 w-full bg-[#f0f4f8] text-[#2563eb] border border-[#bfdbfe] hover:bg-[#2563eb] hover:text-white transition px-4 py-2 rounded-lg shadow-sm font-bold text-xs"
                   >
                     View Detailed Report
@@ -368,7 +555,7 @@ function ResultsContent() {
                 </thead>
                 <tbody className="divide-y divide-[#dbeafe]">
                   {rest.map((r) => (
-                    <tr key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`)} className="hover:bg-blue-100 cursor-pointer transition-colors">
+                    <tr key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`)} className="hover:bg-blue-100 cursor-pointer transition-colors">
                       <td className="px-5 py-3 font-bold text-gray-500 text-center">#{r.rank}</td>
                       <td className="px-5 py-3 font-medium text-[#1e3a8a]">
                         <div className="flex items-center gap-3">
@@ -399,13 +586,13 @@ function ResultsContent() {
                       <td className="px-5 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button 
-                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`); }} 
+                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`); }} 
                             className="bg-white border border-[#bfdbfe] text-[#2563eb] hover:bg-[#f0f4f8] transition px-2.5 py-1 rounded-lg shadow-xs text-xs font-bold whitespace-nowrap"
                           >
                             Details
                           </button>
                           <a
-                            href={`/dashboard/results/print?student_id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}`}
+                            href={`/dashboard/results/print?student_id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}

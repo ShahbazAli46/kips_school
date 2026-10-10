@@ -60,8 +60,11 @@ export interface ExcelResultCardProps {
     session_name?: string;
     campus_name?: string;
     class_incharge?: string;
+    class_incharge_name?: string;
     teacher_signature?: string;
     class_teacher_signature?: string;
+    signature?: string;
+    incharge_signature?: string;
     rank?: number | string;
   };
   subjects: SubjectSummary[];
@@ -70,6 +73,7 @@ export interface ExcelResultCardProps {
   categoryTitle?: string;
   sessionTitle?: string;
   showChart?: boolean;
+  selectedRounds?: string[];
 }
 
 // Compute Grade helper matching Excel formula
@@ -100,6 +104,7 @@ export default function ExcelResultCard({
   categoryTitle,
   sessionTitle,
   showChart = true,
+  selectedRounds,
 }: ExcelResultCardProps) {
   // 1. Identify distinct test rounds (minimum 5 rounds like in Excel template)
   const roundColumns = useMemo(() => {
@@ -140,8 +145,23 @@ export default function ExcelResultCard({
       });
     }
 
+    // If selectedRounds is provided and non-empty, only keep the selected rounds!
+    if (selectedRounds && selectedRounds.length > 0) {
+      const selectedSet = new Set(selectedRounds.map((s) => s.trim().toLowerCase()));
+      const filtered = finalRounds.filter((r) => selectedSet.has(r.title.trim().toLowerCase()));
+      selectedRounds.forEach((sr) => {
+        const trimmed = sr.trim();
+        if (
+          !filtered.some((f) => f.title.trim().toLowerCase() === trimmed.toLowerCase())
+        ) {
+          filtered.push({ title: trimmed, date: undefined });
+        }
+      });
+      return filtered.length > 0 ? filtered : finalRounds;
+    }
+
     return finalRounds;
-  }, [rounds, tests, categoryTitle]);
+  }, [rounds, tests, categoryTitle, selectedRounds]);
 
   // 2. Build structured Matrix for each subject
   const subjectRows = useMemo(() => {
@@ -209,10 +229,31 @@ export default function ExcelResultCard({
         };
       });
 
-      const totalMax = Number(sub.total_max || 0);
-      const totalObtained = Number(sub.total_obtained || 0);
-      const percentage = Number(sub.percentage) || (totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0);
-      const grade = sub.grade || calculateGrade(percentage);
+      let rowTotalMax = 0;
+      let rowTotalObtained = 0;
+      let rowHasTestData = false;
+      let rowAbsents = 0;
+
+      roundDetails.forEach((rd) => {
+        if (rd.hasData) {
+          rowHasTestData = true;
+          rowTotalMax += Number(rd.tm || 0);
+          if (rd.isAbsent) {
+            rowAbsents += 1;
+          } else {
+            rowTotalObtained += Number(rd.ob || 0);
+          }
+        }
+      });
+
+      const totalMax = rowHasTestData ? rowTotalMax : Number(sub.total_max || 0);
+      const totalObtained = rowHasTestData ? rowTotalObtained : Number(sub.total_obtained || 0);
+      const percentage =
+        totalMax > 0
+          ? Math.round((totalObtained / totalMax) * 100)
+          : Number(sub.percentage) || 0;
+      const grade = calculateGrade(percentage);
+      const absents = rowHasTestData ? rowAbsents : Number(subAbsents || 0);
 
       return {
         sr: idx + 1,
@@ -222,7 +263,7 @@ export default function ExcelResultCard({
         totalObtained,
         percentage,
         grade,
-        absents: Number(subAbsents || 0),
+        absents: Number(absents || 0),
       };
     });
   }, [subjects, tests, roundColumns]);
@@ -279,7 +320,17 @@ export default function ExcelResultCard({
   const sectionName = student?.section_name || "G";
   const sessionName = student?.session_name || sessionTitle || "Session 2026-27";
   const campusName = student?.campus_name || "Chunian Campus";
-  const classIncharge = student?.class_incharge || "MS. AMNA";
+  const classIncharge =
+    student?.class_incharge ||
+    student?.class_incharge_name ||
+    (student as any)?.incharge ||
+    "";
+  const teacherSignature =
+    student?.teacher_signature ||
+    student?.class_teacher_signature ||
+    student?.signature ||
+    student?.incharge_signature ||
+    "";
 
   const displayCategoryTitle = useMemo(() => {
     if (!categoryTitle || /^\d+$/.test(String(categoryTitle).trim())) {
@@ -370,7 +421,7 @@ export default function ExcelResultCard({
           </div>
           <div className="col-span-3 px-3 py-1.5 flex items-center gap-1.5 bg-slate-100">
             <span className="text-slate-600 uppercase text-[11px]">Class Incharge:</span>
-            <span className="text-black font-extrabold uppercase">{classIncharge}</span>
+            <span className="text-black font-extrabold uppercase truncate">{classIncharge || "—"}</span>
           </div>
         </div>
       </div>
@@ -671,18 +722,20 @@ export default function ExcelResultCard({
             </div>
           </div>
 
-          {/* Class Teacher Signature */}
+          {/* Class Incharge Signature */}
           <div className="col-span-3 text-center flex flex-col items-center justify-end">
-            <div className="w-3/4 mx-auto mb-1 h-10 flex items-end justify-center">
-              {student?.teacher_signature || student?.class_teacher_signature ? (
+            <div className="w-4/5 mx-auto mb-1 h-20 flex items-end justify-center">
+              {teacherSignature ? (
                 <img
-                  src={
-                    (student.teacher_signature || student.class_teacher_signature)!.startsWith("http") || (student.teacher_signature || student.class_teacher_signature)!.startsWith("data:")
-                      ? (student.teacher_signature || student.class_teacher_signature)
-                      : `${STORAGE_URL}/${student.teacher_signature || student.class_teacher_signature}`
-                  }
-                  alt="Teacher Signature"
-                  className="max-h-9 max-w-full object-contain"
+                  src={(() => {
+                    const raw = teacherSignature.trim();
+                    if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:")) return raw;
+                    if (raw.startsWith("/")) return `${STORAGE_URL.replace(/\/storage\/?$/, "")}${raw}`;
+                    if (raw.startsWith("storage/")) return `${STORAGE_URL.replace(/\/storage\/?$/, "")}/${raw}`;
+                    return `${STORAGE_URL.replace(/\/$/, "")}/${raw}`;
+                  })()}
+                  alt="Class Incharge Signature"
+                  className="max-h-[76px] max-w-full object-contain filter contrast-125"
                 />
               ) : (
                 <div className="border-b border-black w-full h-8"></div>
@@ -690,11 +743,11 @@ export default function ExcelResultCard({
             </div>
             <div className="border-t border-black w-3/4 mx-auto pt-0.5">
               <span className="text-xs font-black uppercase text-slate-800 block">
-                Class Teacher
+                Class Incharge
               </span>
-              {student?.class_incharge && (
-                <span className="text-[10px] font-bold text-slate-600 block truncate mt-0.5">
-                  {student.class_incharge}
+              {classIncharge && (
+                <span className="text-[10px] font-bold text-slate-700 block truncate mt-0.5">
+                  {classIncharge}
                 </span>
               )}
             </div>
@@ -702,7 +755,7 @@ export default function ExcelResultCard({
 
           {/* Principal Signature */}
           <div className="col-span-3 text-center flex flex-col items-center justify-end">
-            <div className="w-3/4 mx-auto mb-1 h-10 flex items-end justify-center">
+            <div className="w-3/4 mx-auto mb-1 h-20 flex items-end justify-center">
               <div className="border-b border-black w-full h-8"></div>
             </div>
             <div className="border-t border-black w-3/4 mx-auto pt-0.5">

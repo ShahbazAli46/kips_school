@@ -60,15 +60,34 @@ export const apiSlice = createApi({
         { type: 'Students', id: 'LIST' }
       ],
     }),
-    getResultsSeries: builder.query<any[], { session: string; classId: string; category: string; type: string; section?: string }>({
+    getAvailableRounds: builder.query<{
+      rounds: string[];
+      active_rounds: string[];
+      completed_rounds?: string[];
+      partial_rounds?: string[];
+      round_statuses?: Record<string, { status: 'completed' | 'partial' | 'template'; entered: number; total: number }>;
+    }, { session: string; classId: string; category: string; section?: string }>({
       query: (args) => {
-        let url = `/results/series?academic_session_id=${args.session}&academy_class_id=${args.classId}&test_category_id=${args.category}`;
-        if (args.type === 'class_test' && args.section && args.section !== 'all') {
+        let url = `/results/rounds?academic_session_id=${args.session}&academy_class_id=${args.classId}&test_category_id=${args.category}`;
+        if (args.section && args.section !== 'all') {
           url += `&section_id=${args.section}`;
         }
         return url;
       },
-      providesTags: (result, error, arg) => [{ type: 'Results', id: `${arg.session}-${arg.classId}-${arg.category}-${arg.section || 'all'}` }],
+      providesTags: (result, error, arg) => [{ type: 'Results', id: `ROUNDS-${arg.session}-${arg.classId}-${arg.category}-${arg.section || 'all'}` }],
+    }),
+    getResultsSeries: builder.query<any[], { session: string; classId: string; category: string; type: string; section?: string; rounds?: string }>({
+      query: (args) => {
+        let url = `/results/series?academic_session_id=${args.session}&academy_class_id=${args.classId}&test_category_id=${args.category}`;
+        if (args.section && args.section !== 'all') {
+          url += `&section_id=${args.section}`;
+        }
+        if (args.rounds) {
+          url += `&rounds=${encodeURIComponent(args.rounds)}`;
+        }
+        return url;
+      },
+      providesTags: (result, error, arg) => [{ type: 'Results', id: `${arg.session}-${arg.classId}-${arg.category}-${arg.section || 'all'}-${arg.rounds || 'all'}` }],
     }),
     getAttentionSeekersSummary: builder.query<any, { sessionId?: string | number; classId?: string | number; sectionId?: string | number; subjectId?: string | number; topThreshold?: number; attentionThreshold?: number }>({
       query: (args) => {
@@ -148,6 +167,7 @@ export const {
   useGetSectionsQuery,
   useGetSubjectsQuery,
   useGetStudentsQuery,
+  useGetAvailableRoundsQuery,
   useGetResultsSeriesQuery,
   useGetAttentionSeekersSummaryQuery,
   useGetAttentionSeekerStudentsQuery,

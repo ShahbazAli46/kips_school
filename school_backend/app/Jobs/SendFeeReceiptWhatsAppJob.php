@@ -89,9 +89,30 @@ class SendFeeReceiptWhatsAppJob implements ShouldQueue
                 $totalTuitionDisc = 0;
                 foreach ($allPayments as $p) {
                     $pItems = $p->items;
-                    $nonTuition = (float)$pItems->whereNotNull('student_fee_item_id')->sum('amount_paid');
-                    $totalTuitionPaid += max(0, (float)$p->amount_paid - $nonTuition);
-                    $totalTuitionDisc += (float)$p->discount_amount;
+                    if ($pItems && $pItems->isNotEmpty()) {
+                        $tuitionItems = $pItems->filter(function($it) {
+                            return $it->head_key === 'tuition_fee' || stripos($it->head_name ?? '', 'Tuition') !== false;
+                        });
+                        if ($tuitionItems->isNotEmpty()) {
+                            $totalTuitionPaid += (float)$tuitionItems->sum('amount_paid');
+                            $itemDisc = (float)$tuitionItems->sum('discount_applied');
+                            $totalTuitionDisc += $itemDisc > 0 ? $itemDisc : (float)$p->discount_amount;
+                        } else {
+                            $nonTuition = (float)$pItems->filter(function($it) {
+                                return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
+                            })->sum('amount_paid');
+                            $totalTuitionPaid += max(0, (float)$p->amount_paid - $nonTuition);
+                            $totalTuitionDisc += (float)$p->discount_amount;
+                        }
+                    } else {
+                        $isExtra = $p->relationLoaded('studentExtraCharge')
+                            ? (bool)$p->studentExtraCharge
+                            : \App\Models\StudentExtraCharge::where('fee_payment_id', $p->id)->exists();
+                        if (!$isExtra) {
+                            $totalTuitionPaid += (float)$p->amount_paid;
+                            $totalTuitionDisc += (float)$p->discount_amount;
+                        }
+                    }
                 }
                 $tuitionBal = max(0, $totalTuitionDue - ($totalTuitionPaid + $totalTuitionDisc));
 

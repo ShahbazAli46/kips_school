@@ -19,6 +19,7 @@ export default function AttendanceSheetPrintPage() {
   
   const [sessionName, setSessionName] = useState("");
   const [className, setClassName] = useState("");
+  const [sectionName, setSectionName] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -26,21 +27,22 @@ export default function AttendanceSheetPrintPage() {
     const params = new URLSearchParams(window.location.search);
     setSessionName(params.get("session_name") || "");
     setClassName(params.get("class_name") || "");
+    setSectionName(params.get("section_name") || "");
 
     const classId = params.get("class_id");
+    const sectionId = params.get("section_id");
     const gender = params.get("gender");
-    const majorId = params.get("major_id");
 
     const fetchStudents = async () => {
       try {
         let url = `${API}/students?all=true`;
         if (classId) url += `&class_id=${classId}`;
+        if (sectionId) url += `&section_id=${sectionId}`;
         if (gender) url += `&gender=${gender}`;
-        if (majorId) url += `&major_id=${majorId}`;
 
         const res = await fetch(url, { headers: getAuthHeaders() });
         const data = await res.json();
-        setStudents(data);
+        setStudents(Array.isArray(data) ? data : (data.data || []));
       } catch (err) {
         console.error(err);
       } finally {
@@ -54,14 +56,20 @@ export default function AttendanceSheetPrintPage() {
   }, []);
 
   if (loading) {
-    return <div className="p-10 text-center font-medium">Preparing Attendance Sheet...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-white">
+        <div className="w-16 h-16 rounded-2xl border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
+        <h3 className="text-sm font-bold text-slate-800 mt-4 tracking-wide">KIPS School Chunian</h3>
+        <p className="text-xs font-medium text-blue-600 mt-1 animate-pulse">Preparing Attendance Sheet...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-white min-h-screen text-black print:p-0 p-8 max-w-5xl mx-auto">
+    <div className="bg-white min-h-screen text-black print:p-0 p-8 max-w-5xl mx-auto font-sans">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: A4 portrait; margin: 15mm; }
+          @page { size: A4 portrait; margin: 12mm; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}} />
@@ -74,7 +82,7 @@ export default function AttendanceSheetPrintPage() {
            }}/>
         </div>
         <div>
-          <h1 className="text-lg font-black uppercase tracking-wide text-black">Kips School Chunian Campus</h1>
+          <h1 className="text-lg font-black uppercase tracking-wide text-black">KIPS SCHOOL CHUNIAN CAMPUS</h1>
           <p className="text-[10px] font-bold text-gray-700 mt-0.5">Topper's First Choice | Opposite Shell Pump Changa Manga Road, Chunian | 0300 39 39 581</p>
         </div>
       </div>
@@ -85,21 +93,29 @@ export default function AttendanceSheetPrintPage() {
       </div>
 
       {/* Info Grid */}
-      <div className="grid grid-cols-2 mb-3 border border-gray-400 rounded-lg overflow-hidden font-bold text-xs text-black">
+      <div className="grid grid-cols-3 mb-3 border border-gray-400 rounded-lg overflow-hidden font-bold text-xs text-black">
         <div className="p-2 border-b border-r border-gray-400 flex items-center">
-          <span className="w-28 text-gray-600 uppercase text-[10px] tracking-wider">Session:</span>
-          <span>{sessionName || 'N/A'}</span>
+          <span className="w-20 text-gray-600 uppercase text-[10px] tracking-wider">Session:</span>
+          <span className="truncate">{sessionName || 'N/A'}</span>
+        </div>
+        <div className="p-2 border-b border-r border-gray-400 flex items-center">
+          <span className="w-20 text-gray-600 uppercase text-[10px] tracking-wider">Class:</span>
+          <span className="text-sm font-black truncate">{className || 'N/A'}</span>
         </div>
         <div className="p-2 border-b border-gray-400 flex items-center">
-          <span className="w-28 text-gray-600 uppercase text-[10px] tracking-wider">Class:</span>
-          <span className="text-sm">{className || 'N/A'}</span>
+          <span className="w-20 text-gray-600 uppercase text-[10px] tracking-wider">Section:</span>
+          <span className="text-xs font-bold text-slate-900 truncate">{sectionName || 'All Sections'}</span>
         </div>
         <div className="p-2 border-r border-gray-400 flex items-center">
-          <span className="w-28 text-gray-600 uppercase text-[10px] tracking-wider">Total Students:</span>
+          <span className="w-20 text-gray-600 uppercase text-[10px] tracking-wider">Students:</span>
           <span>{students.length}</span>
         </div>
+        <div className="p-2 border-r border-gray-400 flex items-center">
+          <span className="w-20 text-gray-600 uppercase text-[10px] tracking-wider">Date:</span>
+          <span className="flex-1 border-b border-dashed border-gray-500 mt-2"></span>
+        </div>
         <div className="p-2 flex items-center">
-          <span className="w-28 text-gray-600 uppercase text-[10px] tracking-wider">Subject Name:</span>
+          <span className="w-20 text-gray-600 uppercase text-[10px] tracking-wider">Subject:</span>
           <span className="flex-1 border-b border-dashed border-gray-500 mt-2"></span>
         </div>
       </div>
@@ -108,22 +124,24 @@ export default function AttendanceSheetPrintPage() {
       <table className="w-full text-left text-[11px] border-collapse border border-gray-400 text-black">
         <thead className="bg-gray-200 text-black font-black uppercase text-[10px] tracking-wider">
           <tr>
-            <th className="border border-gray-400 px-2 py-1 w-12 text-center">Sr.No</th>
-            <th className="border border-gray-400 px-2 py-1 w-16 text-center">Reg.No</th>
-            <th className="border border-gray-400 px-2 py-1">Student Name</th>
-            <th className="border border-gray-400 px-2 py-1">Father Name</th>
-            <th className="border border-gray-400 px-2 py-1 w-24">Major</th>
-            <th className="border border-gray-400 px-2 py-1 w-32 text-center">Signature</th>
-            <th className="border border-gray-400 px-2 py-1 w-24 text-center">Obt. Marks</th>
+            <th className="border border-gray-400 px-2 py-1.5 w-10 text-center">Sr.No</th>
+            <th className="border border-gray-400 px-2 py-1.5 w-16 text-center">Roll No</th>
+            <th className="border border-gray-400 px-2 py-1.5">Student Name</th>
+            <th className="border border-gray-400 px-2 py-1.5">Father Name</th>
+            <th className="border border-gray-400 px-2 py-1.5 w-28">Section</th>
+            <th className="border border-gray-400 px-2 py-1.5 w-24">Major</th>
+            <th className="border border-gray-400 px-2 py-1.5 w-32 text-center">Signature</th>
+            <th className="border border-gray-400 px-2 py-1.5 w-24 text-center">Obt. Marks</th>
           </tr>
         </thead>
         <tbody>
           {students.map((s, index) => (
-            <tr key={s.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-100"}>
+            <tr key={s.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
               <td className="border border-gray-400 px-2 py-1 text-center font-bold">{index + 1}</td>
-              <td className="border border-gray-400 px-2 py-1 text-center font-bold">{s.id}</td>
+              <td className="border border-gray-400 px-2 py-1 text-center font-bold font-mono">{s.roll_number || s.id}</td>
               <td className="border border-gray-400 px-2 py-1 font-bold uppercase">{s.name}</td>
               <td className="border border-gray-400 px-2 py-1 uppercase">{s.father_name || '-'}</td>
+              <td className="border border-gray-400 px-2 py-1 font-medium text-gray-800">{s.section?.name || '-'}</td>
               <td className="border border-gray-400 px-2 py-1 font-semibold">{s.major?.name || '-'}</td>
               <td className="border border-gray-400 px-2 py-1"></td>
               <td className="border border-gray-400 px-2 py-1"></td>
@@ -131,8 +149,8 @@ export default function AttendanceSheetPrintPage() {
           ))}
           {students.length === 0 && (
             <tr>
-              <td colSpan={7} className="border border-gray-400 px-4 py-6 text-center text-gray-500 italic">
-                No students found for this class.
+              <td colSpan={8} className="border border-gray-400 px-4 py-6 text-center text-gray-500 italic">
+                No students found for this selection ({className}{sectionName ? ` • Section: ${sectionName}` : ''}).
               </td>
             </tr>
           )}

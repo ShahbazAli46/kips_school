@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import PageLoader from "@/components/PageLoader";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -21,6 +22,7 @@ function CustomDropdown({
   placeholder = "Select...",
   name,
   className = "",
+  disabled = false,
 }: {
   options: { label: string; value: string | number }[];
   value: string | number;
@@ -28,6 +30,7 @@ function CustomDropdown({
   placeholder?: string;
   name: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -47,14 +50,18 @@ function CustomDropdown({
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div
-        className="w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all cursor-pointer font-medium flex items-center justify-between shadow-sm hover:shadow-md"
+        className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all font-medium flex items-center justify-between shadow-sm ${
+          disabled ? "bg-gray-100 cursor-not-allowed opacity-75" : "cursor-pointer hover:shadow-md"
+        }`}
         style={{
           borderColor: isOpen ? "#2563eb" : "#bfdbfe",
-          background: "#fff",
+          background: disabled ? "#f8fafc" : "#fff",
           color: value ? "#0f224a" : "#38bdf8",
           boxShadow: isOpen ? "0 0 0 4px rgba(138, 50, 24, 0.1)" : "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
         }}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!disabled) setIsOpen(!isOpen);
+        }}
       >
         <span className="truncate pr-4">{selectedOption ? selectedOption.label : placeholder}</span>
         <svg
@@ -68,7 +75,7 @@ function CustomDropdown({
         </svg>
       </div>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div
           className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border overflow-hidden"
           style={{ borderColor: "#bfdbfe", maxHeight: "240px", overflowY: "auto", animation: "fadeIn 0.2s ease-out" }}
@@ -108,29 +115,34 @@ function CustomDropdown({
 export default function AttendanceSheetConfigPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
-  const [majors, setMajors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
-  const [selectedMajor, setSelectedMajor] = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
   const [selectedGender, setSelectedGender] = useState("");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [resSess, resCls, resMaj] = await Promise.all([
+      const [resSess, resCls] = await Promise.all([
         fetch(`${API}/academic-sessions`, { headers: getAuthHeaders() }),
         fetch(`${API}/classes`, { headers: getAuthHeaders() }),
-        fetch(`${API}/majors`, { headers: getAuthHeaders() }),
       ]);
       const sessData = await resSess.json();
       const clsData = await resCls.json();
-      const majData = await resMaj.json();
 
-      setSessions(Array.isArray(sessData) ? sessData : (sessData.data || []));
-      setClasses(Array.isArray(clsData) ? clsData : (clsData.data || []));
-      setMajors(Array.isArray(majData) ? majData : (majData.data || []));
+      const sessList = Array.isArray(sessData) ? sessData : (sessData.data || []);
+      const clsList = Array.isArray(clsData) ? clsData : (clsData.data || []);
+
+      setSessions(sessList);
+      setClasses(clsList);
+
+      // Default to active session if available
+      const activeSess = sessList.find((s: any) => s.is_active) || sessList[0];
+      if (activeSess) {
+        setSelectedSession(String(activeSess.id));
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -142,19 +154,31 @@ export default function AttendanceSheetConfigPage() {
     fetchData();
   }, [fetchData]);
 
+  // Derive available sections strictly belonging to the currently selected class
+  const selectedClassObj = classes.find((c: any) => String(c.id) === String(selectedClass));
+  const availableSections: any[] = selectedClassObj?.sections && Array.isArray(selectedClassObj.sections)
+    ? selectedClassObj.sections
+    : [];
+
+  const handleClassChange = (name: string, val: string | number) => {
+    setSelectedClass(String(val));
+    setSelectedSection(""); // Reset section selection when class changes
+  };
+
   const handleGenerate = () => {
     if (!selectedSession || !selectedClass) return;
     
-    // Find session name and class name to pass via URL
+    // Find session name, class name, and section name to pass via URL
     const sessionName = sessions.find(s => s.id.toString() === selectedSession)?.name || "";
     const className = classes.find(c => c.id.toString() === selectedClass)?.name || "";
+    const sectionName = availableSections.find(s => String(s.id) === String(selectedSection))?.name || "";
 
     const params = new URLSearchParams({
       session_name: sessionName,
       class_name: className,
       class_id: selectedClass,
-      gender: selectedGender,
-      major_id: selectedMajor
+      ...(selectedSection ? { section_id: selectedSection, section_name: sectionName } : {}),
+      ...(selectedGender ? { gender: selectedGender } : {}),
     });
 
     window.open(`/dashboard/attendance-sheet/print?${params.toString()}`, "_blank");
@@ -167,10 +191,12 @@ export default function AttendanceSheetConfigPage() {
         <p className="text-sm mt-1 text-[#2563eb]">Configure filters to generate a printable student attendance sheet.</p>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-[#bfdbfe] max-w-2xl">
-        {loading ? (
-          <div className="text-sm text-gray-500">Loading options...</div>
-        ) : (
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[50vh] py-12">
+          <PageLoader text="Loading session & class details..." />
+        </div>
+      ) : (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-[#bfdbfe] max-w-2xl">
           <div className="space-y-5">
             <div>
               <label className="block text-sm font-medium mb-1.5 text-[#1e3a8a]">Academic Session *</label>
@@ -188,20 +214,38 @@ export default function AttendanceSheetConfigPage() {
               <CustomDropdown
                 name="selectedClass"
                 value={selectedClass}
-                onChange={(name, val) => setSelectedClass(String(val))}
+                onChange={handleClassChange}
                 placeholder="Select Class"
                 options={classes.map(c => ({ label: c.name, value: c.id }))}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5 text-[#1e3a8a]">Major (Optional)</label>
+              <label className="block text-sm font-medium mb-1.5 text-[#1e3a8a]">
+                Section (Optional)
+              </label>
               <CustomDropdown
-                name="selectedMajor"
-                value={selectedMajor}
-                onChange={(name, val) => setSelectedMajor(String(val))}
-                placeholder="All Majors"
-                options={majors.map(m => ({ label: m.name, value: m.id }))}
+                name="selectedSection"
+                value={selectedSection}
+                onChange={(name, val) => setSelectedSection(String(val))}
+                disabled={!selectedClass}
+                placeholder={
+                  !selectedClass
+                    ? "Select Class First"
+                    : availableSections.length === 0
+                    ? "No Sections for this Class"
+                    : "All Sections"
+                }
+                options={
+                  !selectedClass
+                    ? []
+                    : availableSections.length === 0
+                    ? [{ label: "No sections for this class", value: "" }]
+                    : [
+                        { label: "All Sections", value: "" },
+                        ...availableSections.map((s: any) => ({ label: s.name, value: String(s.id) }))
+                      ]
+                }
               />
             </div>
 
@@ -233,8 +277,8 @@ export default function AttendanceSheetConfigPage() {
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

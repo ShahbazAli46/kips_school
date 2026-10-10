@@ -154,6 +154,22 @@ class SendResultCardWhatsAppBatchJob implements ShouldQueue
                             }
                             $rollNo = $student->roll_number ? $student->roll_number : ("KIPS-" . str_pad($student->id, 4, "0", STR_PAD_LEFT));
 
+                            $assignedTeacher = DB::table('teacher_assignments')
+                                ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+                                ->where('teacher_assignments.class_id', $this->classId)
+                                ->where(function($q) use ($student) {
+                                    if ($student->section_id) {
+                                        $q->where('teacher_assignments.section_id', $student->section_id)
+                                          ->orWhereNull('teacher_assignments.section_id');
+                                    }
+                                })
+                                ->whereNull('teachers.deleted_at')
+                                ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+                                ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+                                ->value('teachers.name');
+
+                            $inchargeLine = $assignedTeacher ? "👨‍🏫 *کلاس انچارج / Class Incharge:* {$assignedTeacher}\n" : "";
+
                             $message = "📢 *KIPS SCHOOL CHUNIAN CAMPUS*\n"
                                 . "*امتحانی نتیجہ / Official Result Card*\n\n"
                                 . "محترم والدین / سرپرست،\n"
@@ -161,7 +177,8 @@ class SendResultCardWhatsAppBatchJob implements ShouldQueue
                                 . "👤 *طالب علم / Student:* {$student->name}\n"
                                 . "🔢 *رول نمبر / Roll No:* {$rollNo}\n"
                                 . "📚 *کلاس / Class:* {$className}\n"
-                                . "🏆 *کلاس پوزیشن / Rank:* #{$studentRank}\n\n"
+                                . "🏆 *کلاس پوزیشن / Rank:* #{$studentRank}\n"
+                                . $inchargeLine . "\n"
                                 . "📊 *مضامین کے نمبرات / Subject Breakdown:*\n"
                                 . $subjectBreakdownText . "\n"
                                 . "━━━━━━━━━━━━━━━━━━━━\n"

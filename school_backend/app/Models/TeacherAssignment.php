@@ -17,10 +17,12 @@ class TeacherAssignment extends Model
         'subject_id',
         'payment_type',
         'fixed_amount',
+        'is_class_incharge',
     ];
 
     protected $casts = [
         'fixed_amount' => 'decimal:2',
+        'is_class_incharge' => 'boolean',
     ];
 
     public function teacher()

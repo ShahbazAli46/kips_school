@@ -9,6 +9,214 @@ use App\Models\Test;
 
 class ResultController extends Controller
 {
+    public function getAvailableRounds(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_session_id' => 'required|exists:academic_sessions,id',
+            'academy_class_id' => 'required|exists:classes,id',
+            'test_category_id' => 'required',
+            'section_id' => 'nullable',
+        ]);
+
+        $query = DB::table('tests')
+            ->where('academic_session_id', $validated['academic_session_id'])
+            ->where('academy_class_id', $validated['academy_class_id']);
+
+        if (!empty($validated['section_id']) && $validated['section_id'] !== 'all') {
+            $query->where(function($q) use ($validated) {
+                $q->where('section_id', $validated['section_id'])
+                  ->orWhereNull('section_id');
+            });
+        }
+
+        if ($validated['test_category_id'] !== 'all') {
+            if (is_numeric($validated['test_category_id'])) {
+                $query->where('test_category_id', $validated['test_category_id']);
+            } else {
+                $query->whereIn('test_category_id', function($q) use ($validated) {
+                    $q->select('id')->from('test_categories')->where('type', $validated['test_category_id']);
+                });
+            }
+        }
+
+        // Distinct test titles in database ordered by test date
+        $dbTitles = $query->whereNotNull('title')
+            ->orderBy('date', 'asc')
+            ->pluck('title')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // Also build standard template round names matching Excel (up to 5 rounds)
+        $categoryName = null;
+        if (is_numeric($validated['test_category_id'])) {
+            $categoryName = DB::table('test_categories')->where('id', $validated['test_category_id'])->value('name');
+        }
+        $defaultRoundNames = [
+            $categoryName ?: "First Term",
+            "Round 2",
+            "Round 3",
+            "Round 4",
+            "Round 5"
+        ];
+
+        $rounds = $dbTitles;
+        while (count($rounds) < 5) {
+            $nextIdx = count($rounds);
+            $rounds[] = $defaultRoundNames[$nextIdx] ?? ("Round " . ($nextIdx + 1));
+        }
+
+        $classId = $validated['academy_class_id'];
+        $studentsQuery = DB::table('users')
+            ->where('class_id', $classId)
+            ->whereNull('deleted_at')
+            ->where('is_active', 1);
+
+        if (!empty($validated['section_id']) && $validated['section_id'] !== 'all') {
+            $studentsQuery->where('section_id', $validated['section_id']);
+        }
+        $students = $studentsQuery->get();
+
+        $majorIds = $students->pluck('major_id')->filter()->unique();
+        $majorSubjects = [];
+        if ($majorIds->isNotEmpty()) {
+            $msRows = DB::table('major_subject')->whereIn('major_id', $majorIds)->get();
+            foreach ($msRows as $row) {
+                $majorSubjects[$row->major_id][] = $row->subject_id;
+            }
+        }
+
+        $roundStatuses = [];
+        $activeRounds = [];
+        $completedRounds = [];
+        $partialRounds = [];
+
+        // 1. Single batch query for all tests across all rounds in this session/class
+        $allTests = $query->whereNotNull('title')->get();
+        $testsByTitle = $allTests->groupBy('title');
+
+        // 2. Single batch query for all test marks using the covering index
+        $allTestIds = $allTests->pluck('id');
+        $marksByStudentAndTest = [];
+        $testsWithMarksMap = [];
+
+        if ($allTestIds->isNotEmpty()) {
+            $marksRows = DB::table('test_marks')
+                ->whereIn('test_id', $allTestIds)
+                ->where(function ($q) {
+                    $q->whereNotNull('obtained_marks')
+                      ->orWhere('is_absent', 1);
+                })
+                ->select('test_id', 'student_id')
+                ->get();
+
+            foreach ($marksRows as $m) {
+                $marksByStudentAndTest[$m->student_id][$m->test_id] = true;
+                $testsWithMarksMap[$m->test_id] = true;
+            }
+        }
+
+        // 3. Fast in-memory evaluation for each round - zero additional DB queries
+        foreach ($rounds as $rTitle) {
+            $rTests = $testsByTitle->get($rTitle, collect());
+
+            if ($rTests->isEmpty()) {
+                $roundStatuses[$rTitle] = [
+                    'status' => 'template',
+                    'entered' => 0,
+                    'total' => 0,
+                ];
+                continue;
+            }
+
+            $testIds = $rTests->pluck('id');
+            $hasAnyMarks = false;
+            foreach ($testIds as $tId) {
+                if (isset($testsWithMarksMap[$tId])) {
+                    $hasAnyMarks = true;
+                    break;
+                }
+            }
+
+            $studentTotals = [];
+            $studentEntered = [];
+
+            if ($students->isNotEmpty()) {
+                foreach ($students as $student) {
+                    $appTests = $rTests->filter(function ($t) use ($student, $majorSubjects) {
+                        if ($t->section_id && $student->section_id && $t->section_id != $student->section_id) {
+                            return false;
+                        }
+                        if ($t->major_id && $student->major_id && $t->major_id != $student->major_id) {
+                            return false;
+                        }
+                        if ($student->major_id && isset($majorSubjects[$student->major_id])) {
+                            if (!in_array($t->subject_id, $majorSubjects[$student->major_id])) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+
+                    $appTestIds = $appTests->pluck('id')->toArray();
+                    $sMarksMap = $marksByStudentAndTest[$student->id] ?? [];
+
+                    $totalCount = count($appTestIds);
+                    $enteredCount = 0;
+                    foreach ($appTestIds as $tId) {
+                        if (isset($sMarksMap[$tId])) {
+                            $enteredCount++;
+                        }
+                    }
+
+                    if ($totalCount > 0) {
+                        $studentTotals[] = $totalCount;
+                        $studentEntered[] = $enteredCount;
+                    }
+                }
+            }
+
+            if (!empty($studentTotals)) {
+                $totalSubjects = (int) round(collect($studentTotals)->avg());
+                $enteredSubjects = (int) round(collect($studentEntered)->avg());
+            } else {
+                $totalSubjects = $rTests->pluck('subject_id')->unique()->count();
+                $enteredSubjects = 0;
+                foreach ($testIds as $tId) {
+                    if (isset($testsWithMarksMap[$tId])) {
+                        $enteredSubjects++;
+                    }
+                }
+            }
+
+            if ($totalSubjects > 0 && $enteredSubjects >= $totalSubjects) {
+                $status = 'completed';
+                $completedRounds[] = $rTitle;
+                $activeRounds[] = $rTitle;
+            } elseif ($enteredSubjects > 0 || $hasAnyMarks) {
+                $status = 'partial';
+                $partialRounds[] = $rTitle;
+                $activeRounds[] = $rTitle;
+            } else {
+                $status = 'template';
+            }
+
+            $roundStatuses[$rTitle] = [
+                'status' => $status,
+                'entered' => $enteredSubjects,
+                'total' => $totalSubjects,
+            ];
+        }
+
+        return response()->json([
+            'rounds' => $rounds,
+            'active_rounds' => $activeRounds,
+            'completed_rounds' => $completedRounds,
+            'partial_rounds' => $partialRounds,
+            'round_statuses' => $roundStatuses,
+        ]);
+    }
+
     public function getSeriesResults(Request $request)
     {
         $validated = $request->validate([
@@ -28,6 +236,14 @@ class ResultController extends Controller
                 $query->whereIn('test_category_id', function($q) use ($validated) {
                     $q->select('id')->from('test_categories')->where('type', $validated['test_category_id']);
                 });
+            }
+        }
+
+        if ($request->filled('rounds')) {
+            $selectedRounds = is_array($request->rounds) ? $request->rounds : explode(',', $request->rounds);
+            $selectedRounds = array_filter(array_map('trim', $selectedRounds));
+            if (!empty($selectedRounds)) {
+                $query->whereIn('title', $selectedRounds);
             }
         }
 
@@ -65,6 +281,8 @@ class ResultController extends Controller
                 'students.father_name as student_father_name',
                 'students.roll_number as student_roll_number',
                 'students.image as student_image',
+                'students.class_id as class_id',
+                'students.section_id as section_id',
                 'classes.name as class_name',
                 'sections.name as section_name',
                 'majors.name as major_name',
@@ -73,7 +291,7 @@ class ResultController extends Controller
                 DB::raw('SUM(CASE WHEN test_marks.is_absent = 1 THEN 1 ELSE 0 END) as total_absents'),
                 DB::raw('COUNT(tests.id) as tests_taken')
             )
-            ->groupBy('students.id', 'students.name', 'students.father_name', 'students.roll_number', 'students.image', 'classes.name', 'sections.name', 'majors.name')
+            ->groupBy('students.id', 'students.name', 'students.father_name', 'students.roll_number', 'students.image', 'students.class_id', 'students.section_id', 'classes.name', 'sections.name', 'majors.name')
             ->orderByRaw('(SUM(IFNULL(test_marks.obtained_marks, 0)) / NULLIF(SUM(tests.total_marks), 0)) DESC')
             ->get();
 
@@ -83,12 +301,41 @@ class ResultController extends Controller
 
         $sessionName = DB::table('academic_sessions')->where('id', $validated['academic_session_id'])->value('name');
 
-        $results->transform(function ($item, $key) use (&$rank, &$prevScore, &$actualRank, $sessionName) {
+        $teacherAssignments = DB::table('teacher_assignments')
+            ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+            ->where('teacher_assignments.class_id', $validated['academy_class_id'])
+            ->whereNull('teachers.deleted_at')
+            ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+            ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+            ->select('teacher_assignments.section_id', 'teacher_assignments.is_class_incharge', 'teachers.id', 'teachers.name', 'teachers.signature')
+            ->get();
+
+        $results->transform(function ($item, $key) use (&$rank, &$prevScore, &$actualRank, $sessionName, $teacherAssignments) {
             $item->total_obtained = (float) $item->total_obtained;
             $item->total_max = (float) $item->total_max;
             $item->percentage = $item->total_max > 0 ? round(($item->total_obtained / $item->total_max) * 100, 2) : 0;
             $item->session_name = $sessionName;
-            
+
+            // Priority for Class Incharge:
+            // 1. Incharge assigned specifically to this student's section
+            // 2. Incharge assigned to the entire class (section_id is null)
+            // 3. Any incharge assigned to this class
+            // 4. Any teacher assigned to this student's section
+            // 5. Any teacher assigned to this class
+            $assigned = $teacherAssignments->first(function($t) use ($item) {
+                return !empty($t->section_id) && !empty($item->section_id) && $t->section_id == $item->section_id && $t->is_class_incharge;
+            }) ?: $teacherAssignments->first(function($t) {
+                return empty($t->section_id) && $t->is_class_incharge;
+            }) ?: $teacherAssignments->first(function($t) {
+                return (bool) $t->is_class_incharge;
+            }) ?: $teacherAssignments->first(function($t) use ($item) {
+                return !empty($t->section_id) && !empty($item->section_id) && $t->section_id == $item->section_id;
+            }) ?: $teacherAssignments->first();
+
+            $item->class_incharge = $assigned ? $assigned->name : null;
+            $item->teacher_signature = ($assigned && $assigned->signature)
+                ? (str_starts_with($assigned->signature, 'http') ? $assigned->signature : asset('storage/' . $assigned->signature))
+                : null;
 
             if ($prevScore === -1) {
                 $item->rank = $rank;
@@ -149,9 +396,22 @@ class ResultController extends Controller
                     }
                 })
                 ->whereNull('teachers.deleted_at')
+                ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+                ->orderByRaw('CASE WHEN teacher_assignments.section_id = ' . intval($student->section_id ?? 0) . ' THEN 0 ELSE 1 END')
                 ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
                 ->select('teachers.id', 'teachers.name', 'teachers.signature')
                 ->first();
+
+            if (!$assignedTeacher) {
+                $assignedTeacher = DB::table('teacher_assignments')
+                    ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+                    ->where('teacher_assignments.class_id', $student->class_id)
+                    ->whereNull('teachers.deleted_at')
+                    ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+                    ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+                    ->select('teachers.id', 'teachers.name', 'teachers.signature')
+                    ->first();
+            }
 
             $student->class_incharge = $assignedTeacher ? $assignedTeacher->name : null;
             $student->teacher_signature = ($assignedTeacher && $assignedTeacher->signature) 
@@ -184,6 +444,14 @@ class ResultController extends Controller
                 $query->whereIn('tests.test_category_id', function($q) use ($validated) {
                     $q->select('id')->from('test_categories')->where('type', $validated['test_category_id']);
                 });
+            }
+        }
+
+        if ($request->filled('rounds')) {
+            $selectedRounds = is_array($request->rounds) ? $request->rounds : explode(',', $request->rounds);
+            $selectedRounds = array_filter(array_map('trim', $selectedRounds));
+            if (!empty($selectedRounds)) {
+                $query->whereIn('tests.title', $selectedRounds);
             }
         }
 
@@ -407,9 +675,40 @@ class ResultController extends Controller
         $studentSummary->total_max = (float) $studentSummary->total_max;
         $studentSummary->percentage = $studentSummary->total_max > 0 ? round(($studentSummary->total_obtained / $studentSummary->total_max) * 100, 2) : 0;
 
-
-        // Get detailed results
+        // Get student & assigned incharge
         $student = DB::table('users')->find($studentId);
+
+        $assignedTeacher = DB::table('teacher_assignments')
+            ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+            ->where('teacher_assignments.class_id', $validated['academy_class_id'])
+            ->where(function($q) use ($student) {
+                if ($student && $student->section_id) {
+                    $q->where('teacher_assignments.section_id', $student->section_id)
+                      ->orWhereNull('teacher_assignments.section_id');
+                }
+            })
+            ->whereNull('teachers.deleted_at')
+            ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+            ->orderByRaw('CASE WHEN teacher_assignments.section_id = ' . intval($student->section_id ?? 0) . ' THEN 0 ELSE 1 END')
+            ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+            ->select('teachers.name', 'teachers.signature')
+            ->first();
+
+        if (!$assignedTeacher) {
+            $assignedTeacher = DB::table('teacher_assignments')
+                ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+                ->where('teacher_assignments.class_id', $validated['academy_class_id'])
+                ->whereNull('teachers.deleted_at')
+                ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+                ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+                ->select('teachers.name', 'teachers.signature')
+                ->first();
+        }
+
+        $studentSummary->class_incharge = $assignedTeacher ? $assignedTeacher->name : null;
+        $studentSummary->teacher_signature = ($assignedTeacher && $assignedTeacher->signature)
+            ? (str_starts_with($assignedTeacher->signature, 'http') ? $assignedTeacher->signature : asset('storage/' . $assignedTeacher->signature))
+            : null;
 
         $detailsQuery = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')
@@ -580,7 +879,21 @@ class ResultController extends Controller
         if (!empty($student->section?->name)) {
             $className .= ' - Section ' . $student->section->name;
         }
-        $rollNo = $student->roll_number ? $student->roll_number : ('KIPS-' . str_pad($student->id, 4, '0', STR_PAD_LEFT));
+        $assignedTeacher = DB::table('teacher_assignments')
+            ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+            ->where('teacher_assignments.class_id', $validated['academy_class_id'])
+            ->where(function($q) use ($student) {
+                if ($student->section_id) {
+                    $q->where('teacher_assignments.section_id', $student->section_id)
+                      ->orWhereNull('teacher_assignments.section_id');
+                }
+            })
+            ->whereNull('teachers.deleted_at')
+            ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+            ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+            ->value('teachers.name');
+
+        $inchargeLine = $assignedTeacher ? "👨‍🏫 *کلاس انچارج / Class Incharge:* {$assignedTeacher}\n" : "";
 
         $message = "📢 *KIPS SCHOOL CHUNIAN CAMPUS*\n"
             . "*امتحانی نتیجہ / Official Result Card*\n\n"
@@ -589,7 +902,8 @@ class ResultController extends Controller
             . "👤 *طالب علم / Student:* {$student->name}\n"
             . "🔢 *رول نمبر / Roll No:* {$rollNo}\n"
             . "📚 *کلاس / Class:* {$className}\n"
-            . "🏆 *کلاس پوزیشن / Rank:* #{$studentRank}\n\n"
+            . "🏆 *کلاس پوزیشن / Rank:* #{$studentRank}\n"
+            . $inchargeLine . "\n"
             . "📊 *مضامین کے نمبرات / Subject Breakdown:*\n"
             . $subjectBreakdownText . "\n"
             . "━━━━━━━━━━━━━━━━━━━━\n"

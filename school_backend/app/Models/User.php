@@ -26,6 +26,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
+        'designation_id',
         'father_name',
         'gender',
         'contact_number',
@@ -96,6 +97,11 @@ class User extends Authenticatable
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function designation()
+    {
+        return $this->belongsTo(Designation::class, 'designation_id');
     }
 
     public function major()

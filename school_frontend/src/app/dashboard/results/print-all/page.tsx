@@ -23,6 +23,7 @@ function ResultsPrintAllContent() {
   const sectionId = searchParams.get("section");
   const sessionName = searchParams.get("session_name") || "";
   const className = searchParams.get("class_name") || "";
+  const roundsParam = searchParams.get("rounds");
 
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +36,9 @@ function ResultsPrintAllContent() {
         let url = `${API}/results/series?academic_session_id=${sessionId}&academy_class_id=${classId}&test_category_id=${categoryId}`;
         if (sectionId && sectionId !== "all") {
           url += `&section_id=${sectionId}`;
+        }
+        if (roundsParam) {
+          url += `&rounds=${encodeURIComponent(roundsParam)}`;
         }
 
         const res = await fetch(url, { headers: getAuthHeaders() });
@@ -50,7 +54,7 @@ function ResultsPrintAllContent() {
     };
 
     fetchResults();
-  }, [sessionId, classId, categoryId, sectionId]);
+  }, [sessionId, classId, categoryId, sectionId, roundsParam]);
 
   if (loading) {
     return <div className="p-10 text-center font-medium">Preparing Results Sheet...</div>;
@@ -102,8 +106,8 @@ function ResultsPrintAllContent() {
           <span>{results.length}</span>
         </div>
         <div className="p-2 flex items-center">
-          <span className="w-28 text-gray-600 uppercase text-[10px] tracking-wider">Type:</span>
-          <span>Results Overview</span>
+          <span className="w-28 text-gray-600 uppercase text-[10px] tracking-wider">Class Incharge:</span>
+          <span className="font-extrabold">{results[0]?.class_incharge || 'N/A'}</span>
         </div>
       </div>
 
@@ -225,6 +229,34 @@ function ResultsPrintAllContent() {
           </table>
         </div>
       )}
+
+      {/* Signatures */}
+      <div className="mt-12 grid grid-cols-2 gap-8 print:break-inside-avoid">
+        <div className="text-center flex flex-col items-center">
+          <div className="h-20 flex items-end justify-center mb-1">
+            {results[0]?.teacher_signature ? (
+              <img
+                src={results[0].teacher_signature}
+                alt="Class Incharge Signature"
+                className="max-h-[76px] object-contain filter contrast-125"
+              />
+            ) : null}
+          </div>
+          <div className="border-t border-black w-48 pt-1">
+            <span className="text-xs font-black uppercase tracking-wider block">Class Incharge</span>
+            {results[0]?.class_incharge && (
+              <span className="text-[11px] font-bold text-gray-700 block mt-0.5">{results[0].class_incharge}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="text-center flex flex-col items-center">
+          <div className="h-20 mb-1" />
+          <div className="border-t border-black w-48 pt-1">
+            <span className="text-xs font-black uppercase tracking-wider block">Principal</span>
+          </div>
+        </div>
+      </div>
 
       {/* Footer */}
       <div className="mt-8 text-center text-xs text-gray-400">

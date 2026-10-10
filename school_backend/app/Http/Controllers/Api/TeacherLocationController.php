@@ -149,6 +149,7 @@ class TeacherLocationController extends Controller
         $teachers = User::where('role_id', 2)
             ->where('is_active', true)
             ->with([
+                'designation',
                 'teacherAssignments.academyClass',
                 'teacherAssignments.subject',
                 'fcmTokens' => function ($q) {

@@ -17,6 +17,8 @@ function PrintContent() {
   const categoryId = searchParams.get("category");
   const paramCategoryName = searchParams.get("category_name");
   const sessionName = searchParams.get("session_name");
+  const roundsParam = searchParams.get("rounds");
+  const selectedRounds = roundsParam ? roundsParam.split(",").map((r) => r.trim()).filter(Boolean) : undefined;
 
   const [student, setStudent] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -38,13 +40,15 @@ function PrintContent() {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         };
 
+        const roundsQuery = roundsParam ? `&rounds=${encodeURIComponent(roundsParam)}` : "";
+
         const [detailsRes, seriesRes, categoriesRes] = await Promise.all([
           fetch(
-            `${API}/results/series/student/${studentId}?academic_session_id=${sessionId}&academy_class_id=${classId}&test_category_id=${categoryId}&_t=${Date.now()}`,
+            `${API}/results/series/student/${studentId}?academic_session_id=${sessionId}&academy_class_id=${classId}&test_category_id=${categoryId}${roundsQuery}&_t=${Date.now()}`,
             { headers }
           ),
           fetch(
-            `${API}/results/series?academic_session_id=${sessionId}&academy_class_id=${classId}&test_category_id=${categoryId}&_t=${Date.now()}`,
+            `${API}/results/series?academic_session_id=${sessionId}&academy_class_id=${classId}&test_category_id=${categoryId}${roundsQuery}&_t=${Date.now()}`,
             { headers }
           ),
           fetch(`${API}/test-categories`, { headers }).catch(() => null),
@@ -66,7 +70,10 @@ function PrintContent() {
           const baseStudent = detailsData.student || std || {};
 
           setStudent({
+            ...std,
             ...baseStudent,
+            class_incharge: baseStudent?.class_incharge || std?.class_incharge || "",
+            teacher_signature: baseStudent?.teacher_signature || std?.teacher_signature || "",
             rank: std?.rank,
             total_obtained: std?.total_obtained,
             total_max: std?.total_max,
@@ -85,7 +92,7 @@ function PrintContent() {
     }
 
     fetchData();
-  }, [studentId, sessionId, classId, categoryId]);
+  }, [studentId, sessionId, classId, categoryId, roundsParam]);
 
   if (loading) {
     return <PageLoader text="Preparing Official Result Card..." />;
@@ -149,6 +156,7 @@ function PrintContent() {
           categoryTitle={resolvedCategoryName || "First Term"}
           sessionTitle={sessionName || student?.session_name || "Session 2026-27"}
           showChart={false}
+          selectedRounds={selectedRounds}
         />
       </div>
     </>

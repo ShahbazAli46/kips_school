@@ -113,7 +113,7 @@ export default function RollNumberSlipsPage() {
 
   // ─── Exam Metadata State ─────────────────────────────────────────────────
   const [examTitle, setExamTitle] = useState("First Term Examination 2026-2027");
-  const [examCenter, setExamCenter] = useState("Main Examination Hall, KIPS School Chunian");
+  const [examCenter, setExamCenter] = useState("Main Examination Hall");
   const [defaultTiming, setDefaultTiming] = useState("08:30 AM - 11:30 AM");
   const [reportingTime, setReportingTime] = useState("08:00 AM Sharp");
   const [issueDate, setIssueDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
@@ -515,12 +515,6 @@ export default function RollNumberSlipsPage() {
             <img src="/logo.jpg" onerror="this.onerror=null; this.src='/logo.png';" alt="KIPS Watermark" />
           </div>
 
-          <!-- Top Classification Bar -->
-          <div class="slip-top-bar">
-            <span class="top-tag">KIPS SCHOOL • OFFICIAL CANDIDATE ADMIT CARD • SESSION ${currentSessionName}</span>
-            <span class="top-tag">HELPLINE: <strong>${helplinePhone}</strong></span>
-          </div>
-
           <!-- Slip Header -->
           <div class="slip-header">
             <div class="header-left">
@@ -530,9 +524,12 @@ export default function RollNumberSlipsPage() {
               <div>
                 <div class="school-brand">KIPS SCHOOL</div>
                 <div class="campus-sub">Chunian Campus</div>
-                <div class="exam-title-badge">${examTitle}</div>
               </div>
             </div>
+            <div class="header-center">
+              <div class="exam-title-badge">${examTitle}</div>
+            </div>
+            <div class="header-right"></div>
           </div>
 
           <!-- Student Profile Grid -->
@@ -570,10 +567,34 @@ export default function RollNumberSlipsPage() {
                   <span class="info-label">Class &amp; Section</span>
                   <span class="info-val">${classNameDisplay} — (${sectionNameDisplay})</span>
                 </div>
-                <div class="info-cell full-width">
-                  <span class="info-label">Study Group / Major &amp; Exam Center</span>
-                  <span class="info-val" style="font-size: 8.5px; color: #1e3a8a;">${majorDisplay} • ${examCenter} (Reporting: <strong>${reportingTime}</strong>)</span>
-                </div>
+                ${
+                  examCenter && reportingTime
+                    ? `
+                    <div class="info-cell">
+                      <span class="info-label">Examination Hall</span>
+                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${examCenter}</span>
+                    </div>
+                    <div class="info-cell">
+                      <span class="info-label">Reporting Time</span>
+                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${reportingTime}</span>
+                    </div>
+                    `
+                    : examCenter
+                    ? `
+                    <div class="info-cell full-width">
+                      <span class="info-label">Examination Hall</span>
+                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${examCenter}</span>
+                    </div>
+                    `
+                    : reportingTime
+                    ? `
+                    <div class="info-cell full-width">
+                      <span class="info-label">Reporting Time</span>
+                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${reportingTime}</span>
+                    </div>
+                    `
+                    : ""
+                }
               </div>
             </div>
           </div>
@@ -827,6 +848,7 @@ export default function RollNumberSlipsPage() {
 
             /* Header */
             .slip-header {
+              position: relative;
               display: flex;
               justify-content: space-between;
               align-items: center;
@@ -838,6 +860,13 @@ export default function RollNumberSlipsPage() {
               display: flex;
               align-items: center;
               gap: 8px;
+            }
+            .header-center {
+              position: absolute;
+              left: 50%;
+              transform: translateX(-50%);
+              text-align: center;
+              white-space: nowrap;
             }
             .logo-box {
               width: 40px;
@@ -870,15 +899,14 @@ export default function RollNumberSlipsPage() {
             }
             .exam-title-badge {
               display: inline-block;
-              font-size: 8px;
+              font-size: 9.5px;
               font-weight: 800;
               text-transform: uppercase;
-              letter-spacing: 0.03em;
+              letter-spacing: 0.04em;
               color: #0f172a;
               background: #f1f5f9;
-              padding: 1px 6px;
-              border-radius: 3px;
-              margin-top: 2px;
+              padding: 2.5px 12px;
+              border-radius: 4px;
               border: 1px solid #cbd5e1;
             }
 
@@ -1422,16 +1450,40 @@ export default function RollNumberSlipsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#1e3a8a" }}>
-                      Examination Venue / Hall
+                      Examination Hall Name
                     </label>
                     <input
                       type="text"
                       value={examCenter}
                       onChange={(e) => setExamCenter(e.target.value)}
                       placeholder="e.g. Main Examination Hall"
-                      className="w-full px-3.5 py-2 rounded-xl border text-sm outline-none"
+                      className="w-full px-3.5 py-2 rounded-xl border text-sm font-semibold outline-none"
                       style={{ borderColor: "#bfdbfe", background: "#f0f4f8", color: "#0f224a" }}
                     />
+                    {/* Preset chips for Examination Hall */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {[
+                        "Main Examination Hall",
+                        "Campus Examination Hall",
+                        "Hall A",
+                        "Hall B",
+                        "Junior Examination Hall",
+                        "Senior Examination Hall",
+                      ].map((hall) => (
+                        <button
+                          key={hall}
+                          type="button"
+                          onClick={() => setExamCenter(hall)}
+                          className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border transition ${
+                            examCenter === hall
+                              ? "bg-blue-100 border-blue-400 text-blue-800 font-bold"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-400"
+                          }`}
+                        >
+                          {hall}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
@@ -1443,9 +1495,32 @@ export default function RollNumberSlipsPage() {
                       value={reportingTime}
                       onChange={(e) => setReportingTime(e.target.value)}
                       placeholder="e.g. 08:00 AM Sharp"
-                      className="w-full px-3.5 py-2 rounded-xl border text-sm outline-none"
+                      className="w-full px-3.5 py-2 rounded-xl border text-sm font-semibold outline-none"
                       style={{ borderColor: "#bfdbfe", background: "#f0f4f8", color: "#0f224a" }}
                     />
+                    {/* Preset chips for Reporting Time */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {[
+                        "08:00 AM Sharp",
+                        "08:30 AM Sharp",
+                        "09:00 AM Sharp",
+                        "01:30 PM Sharp",
+                        "02:00 PM Sharp",
+                      ].map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={() => setReportingTime(time)}
+                          className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border transition ${
+                            reportingTime === time
+                              ? "bg-blue-100 border-blue-400 text-blue-800 font-bold"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-400"
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1873,6 +1948,10 @@ export default function RollNumberSlipsPage() {
                       <div className="text-2xs font-semibold text-slate-600">Chunian Campus</div>
                     </div>
                   </div>
+                  <div className="absolute left-1/2 -translate-x-1/2 text-center font-bold text-xs uppercase px-2.5 py-0.5 bg-slate-100 rounded border border-slate-300 text-slate-900 whitespace-nowrap">
+                    {examTitle}
+                  </div>
+                  <div className="w-8"></div>
                 </div>
 
                 {/* Candidate Info */}
@@ -1895,10 +1974,18 @@ export default function RollNumberSlipsPage() {
                       {st.academy_class?.name || "Class"} ({st.section?.name || "Sec"})
                     </span>
                   </div>
-                  <div className="col-span-2">
-                    <span className="text-2xs text-gray-500 uppercase font-bold block">Center</span>
-                    <span className="font-bold text-slate-900">{examCenter}</span>
-                  </div>
+                  {examCenter && (
+                    <div className={!reportingTime ? "col-span-2" : ""}>
+                      <span className="text-2xs text-gray-500 uppercase font-bold block">Examination Hall</span>
+                      <span className="font-bold text-slate-900">{examCenter}</span>
+                    </div>
+                  )}
+                  {reportingTime && (
+                    <div className={!examCenter ? "col-span-2" : ""}>
+                      <span className="text-2xs text-gray-500 uppercase font-bold block">Reporting Time</span>
+                      <span className="font-bold text-slate-900">{reportingTime}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Mini Datesheet */}

@@ -26,15 +26,15 @@ function getAuthHeaders() {
 
 // ─── Modal Component ──────────────────────────────────────────────────────────
 const CATEGORY_TYPE_OPTIONS = [
-  { label: "Class test", value: "class_test" },
-  { label: "School test", value: "school_test" },
-  { label: "RnT", value: "rnt" },
+  { label: "Class Test", value: "class_test" },
+  { label: "School Test", value: "school_test" },
+  { label: "R n T", value: "rnt" },
 ];
 
 const getTypeLabel = (type: string) => {
   const match = CATEGORY_TYPE_OPTIONS.find((opt) => opt.value === type);
   if (match) return match.label;
-  if (type === "academy_series") return "Academy Series";
+  if (type === "academy_series") return "Class Test";
   return type || "N/A";
 };
 

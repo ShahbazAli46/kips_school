@@ -260,9 +260,30 @@ class FeePaymentController extends Controller
             $tuitionDiscount = 0;
             foreach ($paymentsCollection as $p) {
                 $pItems = $p->relationLoaded('items') ? $p->items : $p->items()->get();
-                $nonTuitionPaid = (float)$pItems->whereNotNull('student_fee_item_id')->sum('amount_paid');
-                $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
-                $tuitionDiscount += (float)$p->discount_amount;
+                if ($pItems && $pItems->isNotEmpty()) {
+                    $tuitionItems = $pItems->filter(function($it) {
+                        return $it->head_key === 'tuition_fee' || stripos($it->head_name ?? '', 'Tuition') !== false;
+                    });
+                    if ($tuitionItems->isNotEmpty()) {
+                        $tuitionPaid += (float)$tuitionItems->sum('amount_paid');
+                        $itemDisc = (float)$tuitionItems->sum('discount_applied');
+                        $tuitionDiscount += $itemDisc > 0 ? $itemDisc : (float)$p->discount_amount;
+                    } else {
+                        $nonTuitionPaid = (float)$pItems->filter(function($it) {
+                            return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
+                        })->sum('amount_paid');
+                        $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
+                        $tuitionDiscount += (float)$p->discount_amount;
+                    }
+                } else {
+                    $isExtra = $p->relationLoaded('studentExtraCharge')
+                        ? (bool)$p->studentExtraCharge
+                        : \App\Models\StudentExtraCharge::where('fee_payment_id', $p->id)->exists();
+                    if (!$isExtra) {
+                        $tuitionPaid += (float)$p->amount_paid;
+                        $tuitionDiscount += (float)$p->discount_amount;
+                    }
+                }
             }
             return [$tuitionPaid, $tuitionDiscount];
         };
@@ -460,9 +481,30 @@ class FeePaymentController extends Controller
             $tuitionDiscount = 0;
             foreach ($paymentsCollection as $p) {
                 $pItems = $p->relationLoaded('items') ? $p->items : $p->items()->get();
-                $nonTuitionPaid = (float)$pItems->whereNotNull('student_fee_item_id')->sum('amount_paid');
-                $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
-                $tuitionDiscount += (float)$p->discount_amount;
+                if ($pItems && $pItems->isNotEmpty()) {
+                    $tuitionItems = $pItems->filter(function($it) {
+                        return $it->head_key === 'tuition_fee' || stripos($it->head_name ?? '', 'Tuition') !== false;
+                    });
+                    if ($tuitionItems->isNotEmpty()) {
+                        $tuitionPaid += (float)$tuitionItems->sum('amount_paid');
+                        $itemDisc = (float)$tuitionItems->sum('discount_applied');
+                        $tuitionDiscount += $itemDisc > 0 ? $itemDisc : (float)$p->discount_amount;
+                    } else {
+                        $nonTuitionPaid = (float)$pItems->filter(function($it) {
+                            return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
+                        })->sum('amount_paid');
+                        $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
+                        $tuitionDiscount += (float)$p->discount_amount;
+                    }
+                } else {
+                    $isExtra = $p->relationLoaded('studentExtraCharge')
+                        ? (bool)$p->studentExtraCharge
+                        : \App\Models\StudentExtraCharge::where('fee_payment_id', $p->id)->exists();
+                    if (!$isExtra) {
+                        $tuitionPaid += (float)$p->amount_paid;
+                        $tuitionDiscount += (float)$p->discount_amount;
+                    }
+                }
             }
             return [$tuitionPaid, $tuitionDiscount];
         };
@@ -828,21 +870,31 @@ class FeePaymentController extends Controller
                 $mStr = $curr->format('Y-m');
                 $mLabel = $curr->format('M Y');
                 
-                $monthPayment = $payments->firstWhere('month', $mStr);
+                $monthPayments = $payments->where('month', $mStr);
                 $tuitionPaid = 0;
                 $tuitionDisc = 0;
                 
-                if ($monthPayment) {
-                    $tuitionItem = $monthPayment->items->first(function($it) {
-                        return stripos($it->head_name, 'Tuition') !== false || is_null($it->student_fee_item_id);
-                    });
-                    if ($tuitionItem) {
-                        $tuitionPaid = (float)$tuitionItem->amount_paid;
+                foreach ($monthPayments as $mp) {
+                    $pItems = $mp->relationLoaded('items') ? $mp->items : $mp->items()->get();
+                    if ($pItems && $pItems->isNotEmpty()) {
+                        $tuitionItems = $pItems->filter(function($it) {
+                            return $it->head_key === 'tuition_fee' || stripos($it->head_name ?? '', 'Tuition') !== false;
+                        });
+                        if ($tuitionItems->isNotEmpty()) {
+                            $tuitionPaid += (float)$tuitionItems->sum('amount_paid');
+                            $itemDisc = (float)$tuitionItems->sum('discount_applied');
+                            $tuitionDisc += $itemDisc > 0 ? $itemDisc : (float)$mp->discount_amount;
+                        } else {
+                            $nonTuitionSum = (float)$pItems->filter(function($it) {
+                                return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
+                            })->sum('amount_paid');
+                            $tuitionPaid += max(0, (float)$mp->amount_paid - $nonTuitionSum);
+                            $tuitionDisc += (float)$mp->discount_amount;
+                        }
                     } else {
-                        $itemPaidSum = (float)$monthPayment->items->whereNotNull('student_fee_item_id')->sum('amount_paid');
-                        $tuitionPaid = max(0, (float)$monthPayment->amount_paid - $itemPaidSum);
+                        $tuitionPaid += (float)$mp->amount_paid;
+                        $tuitionDisc += (float)$mp->discount_amount;
                     }
-                    $tuitionDisc = (float)$monthPayment->discount_amount;
                 }
                 
                 $payable = max(0, $monthlyFee - $tuitionDisc);

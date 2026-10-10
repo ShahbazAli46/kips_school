@@ -84,10 +84,10 @@ class ParentPortalController extends Controller
             if (!$type) continue;
             
             $typeNames = [
-                'class_test' => 'Class test',
-                'school_test' => 'School test',
-                'rnt' => 'RnT',
-                'academy_series' => 'Academy Series',
+                'class_test' => 'Class Test',
+                'school_test' => 'School Test',
+                'rnt' => 'R n T',
+                'academy_series' => 'Class Test',
             ];
             $name = $typeNames[$type] ?? ucwords(str_replace('_', ' ', $type));
             if (!$categories->contains('id', $type)) {
@@ -164,10 +164,30 @@ class ParentPortalController extends Controller
             ];
         }
 
+        $assignedTeacher = \Illuminate\Support\Facades\DB::table('teacher_assignments')
+            ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+            ->where('teacher_assignments.class_id', $student->class_id)
+            ->where(function($q) use ($student) {
+                if ($student->section_id) {
+                    $q->where('teacher_assignments.section_id', $student->section_id)
+                      ->orWhereNull('teacher_assignments.section_id');
+                }
+            })
+            ->whereNull('teachers.deleted_at')
+            ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+            ->orderByRaw('CASE WHEN teacher_assignments.section_id = ' . intval($student->section_id ?? 0) . ' THEN 0 ELSE 1 END')
+            ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+            ->select('teachers.name', 'teachers.signature')
+            ->first();
+
         return response()->json([
             'marks' => $marks,
             'categories' => $categories,
-            'positions' => $positions
+            'positions' => $positions,
+            'class_incharge' => $assignedTeacher ? $assignedTeacher->name : null,
+            'teacher_signature' => ($assignedTeacher && $assignedTeacher->signature)
+                ? (str_starts_with($assignedTeacher->signature, 'http') ? $assignedTeacher->signature : asset('storage/' . $assignedTeacher->signature))
+                : null,
         ]);
     }
 
@@ -295,7 +315,51 @@ class ParentPortalController extends Controller
         ->orderBy('tests.date', 'desc')
         ->get();
 
+        $assignedTeacher = \Illuminate\Support\Facades\DB::table('teacher_assignments')
+            ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+            ->where('teacher_assignments.class_id', $student->class_id)
+            ->where(function($q) use ($student) {
+                if ($student->section_id) {
+                    $q->where('teacher_assignments.section_id', $student->section_id)
+                      ->orWhereNull('teacher_assignments.section_id');
+                }
+            })
+            ->whereNull('teachers.deleted_at')
+            ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+            ->orderByRaw('CASE WHEN teacher_assignments.section_id = ' . intval($student->section_id ?? 0) . ' THEN 0 ELSE 1 END')
+            ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+            ->select('teachers.id', 'teachers.name', 'teachers.signature')
+            ->first();
+
+        if (!$assignedTeacher) {
+            $assignedTeacher = \Illuminate\Support\Facades\DB::table('teacher_assignments')
+                ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+                ->where('teacher_assignments.class_id', $student->class_id)
+                ->whereNull('teachers.deleted_at')
+                ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+                ->orderByRaw('CASE WHEN teachers.signature IS NOT NULL THEN 0 ELSE 1 END')
+                ->select('teachers.id', 'teachers.name', 'teachers.signature')
+                ->first();
+        }
+
+        $studentData = [
+            'id' => $student->id,
+            'name' => $student->name,
+            'father_name' => $student->father_name,
+            'roll_number' => $student->roll_number,
+            'image' => $student->image,
+            'class_id' => $student->class_id,
+            'section_id' => $student->section_id,
+            'class_name' => $student->academyClass?->name,
+            'section_name' => $student->section?->name,
+            'class_incharge' => $assignedTeacher ? $assignedTeacher->name : null,
+            'teacher_signature' => ($assignedTeacher && $assignedTeacher->signature)
+                ? (str_starts_with($assignedTeacher->signature, 'http') ? $assignedTeacher->signature : asset('storage/' . $assignedTeacher->signature))
+                : null,
+        ];
+
         return response()->json([
+            'student' => $studentData,
             'subjects' => $details,
             'tests' => $individualTests
         ]);

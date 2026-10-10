@@ -191,20 +191,38 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('students/{student}/toggle-status', [StudentController::class, 'toggleStatus']);
         Route::apiResource('students', StudentController::class)->except(['update']);
 
+        Route::apiResource('designations', \App\Http\Controllers\Api\DesignationController::class);
+
         Route::post('teachers/{teacher}/signature', [\App\Http\Controllers\Api\TeacherController::class, 'updateSignature']);
         Route::delete('teachers/{teacher}/signature', [\App\Http\Controllers\Api\TeacherController::class, 'deleteSignature']);
         Route::post('teachers/{teacher}', [\App\Http\Controllers\Api\TeacherController::class, 'update']); // Workaround for multipart/form-data PUT
         Route::apiResource('teachers', \App\Http\Controllers\Api\TeacherController::class)->except(['update']);
+
+        // Staff routes alias
+        Route::post('staff/{teacher}/signature', [\App\Http\Controllers\Api\TeacherController::class, 'updateSignature']);
+        Route::delete('staff/{teacher}/signature', [\App\Http\Controllers\Api\TeacherController::class, 'deleteSignature']);
+        Route::post('staff/{teacher}', [\App\Http\Controllers\Api\TeacherController::class, 'update']);
+        Route::get('staff', [\App\Http\Controllers\Api\TeacherController::class, 'index']);
+        Route::post('staff', [\App\Http\Controllers\Api\TeacherController::class, 'store']);
+        Route::get('staff/{teacher}', [\App\Http\Controllers\Api\TeacherController::class, 'show']);
+        Route::delete('staff/{teacher}', [\App\Http\Controllers\Api\TeacherController::class, 'destroy']);
 
         // Teacher Live Presence & GPS Telemetry
         Route::get('admin/teachers/live-presence', [\App\Http\Controllers\Api\TeacherLocationController::class, 'getLivePresence']);
         Route::get('admin/teachers/{teacher}/location-trail', [\App\Http\Controllers\Api\TeacherLocationController::class, 'getLocationTrail']);
         Route::post('admin/teachers/{teacher}/request-location-ping', [\App\Http\Controllers\Api\TeacherLocationController::class, 'requestLocationPing']);
 
-        // Teacher Assignments
+        // Teacher & Staff Assignments
         Route::get('teachers/{teacher}/assignments', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'index']);
         Route::post('teachers/{teacher}/assignments', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'store']);
+        Route::patch('teachers/{teacher}/assignments/{assignment}/toggle-incharge', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'toggleIncharge']);
         Route::delete('teachers/{teacher}/assignments/{assignment}', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'destroy']);
+
+        // Staff Assignments Alias
+        Route::get('staff/{teacher}/assignments', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'index']);
+        Route::post('staff/{teacher}/assignments', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'store']);
+        Route::patch('staff/{teacher}/assignments/{assignment}/toggle-incharge', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'toggleIncharge']);
+        Route::delete('staff/{teacher}/assignments/{assignment}', [\App\Http\Controllers\Api\TeacherAssignmentController::class, 'destroy']);
 
         // Student Enrollments
         Route::get('/students/{student}/enrollments', [\App\Http\Controllers\Api\StudentSubjectEnrollmentController::class, 'index']);
@@ -388,6 +406,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Results (Super Admin, Teacher, Office Admin, Coordinator & Students/Parents)
     Route::middleware('role:1,2,3,5,7')->group(function () {
+        Route::get('/results/rounds', [\App\Http\Controllers\Api\ResultController::class, 'getAvailableRounds']);
         Route::get('/results/series', [\App\Http\Controllers\Api\ResultController::class, 'getSeriesResults']);
         Route::get('/results/series/student/{studentId}', [\App\Http\Controllers\Api\ResultController::class, 'getStudentDetailedResults']);
         Route::post('/results/email/{studentId}', [\App\Http\Controllers\Api\ResultController::class, 'emailResultCard']);

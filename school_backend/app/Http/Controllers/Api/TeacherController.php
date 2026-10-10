@@ -17,17 +17,22 @@ class TeacherController extends Controller
         $currentUser = $request->user();
         $isOfficeAdmin = $currentUser && (int)$currentUser->role_id === 5;
 
-        $teachers = User::where('role_id', 2)
+        $query = User::where('role_id', 2)
             ->with([
+                'designation',
                 'teacherAssignments.academyClass', 
                 'teacherAssignments.subject', 
                 'teacherAssignments.section',
                 'fcmTokens' => function ($q) {
                     $q->orderBy('updated_at', 'desc');
                 }
-            ])
-            ->orderBy('name')
-            ->get();
+            ]);
+
+        if ($request->filled('designation_id')) {
+            $query->where('designation_id', $request->input('designation_id'));
+        }
+
+        $teachers = $query->orderBy('name')->get();
 
         $enriched = $teachers->map(function ($teacher) use ($isOfficeAdmin) {
             $latestFcm = $teacher->fcmTokens->first();
@@ -62,11 +67,28 @@ class TeacherController extends Controller
         return response()->json($enriched);
     }
 
+    public function show(User $teacher)
+    {
+        if ($teacher->role_id !== 2) {
+            return response()->json(['message' => 'User is not a staff member'], 400);
+        }
+
+        $teacher->load([
+            'designation',
+            'teacherAssignments.academyClass', 
+            'teacherAssignments.subject', 
+            'teacherAssignments.section',
+        ]);
+
+        return response()->json($teacher);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:100',
             'email' => ['required', 'email', \Illuminate\Validation\Rule::unique('users', 'email')->whereNull('deleted_at')],
+            'designation_id' => 'nullable|exists:designations,id',
             'contact_number' => 'nullable|string|max:20',
             'qualification' => 'nullable|string|max:255',
             'emergency_contact' => 'nullable|string|max:20',
@@ -75,12 +97,13 @@ class TeacherController extends Controller
             'joining_date' => 'nullable|date',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'signature' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'signature_base64' => 'nullable|string',
         ]);
 
-        $data = $request->except(['image', 'signature']);
+        $data = $request->except(['image', 'signature', 'signature_base64']);
         $data['role_id'] = 2;
         
-        // Random secure password for teachers if they don't have one
+        // Random secure password for staff/teachers if they don't have one
         $data['password'] = Hash::make(str()->random(12));
 
         if ($request->hasFile('image')) {
@@ -89,9 +112,22 @@ class TeacherController extends Controller
 
         if ($request->hasFile('signature')) {
             $data['signature'] = $request->file('signature')->store('signatures', 'public');
+        } elseif ($request->filled('signature_base64')) {
+            $base64 = $request->input('signature_base64');
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64, $type)) {
+                $base64Data = substr($base64, strpos($base64, ',') + 1);
+                $typeExt = strtolower($type[1]);
+                $binary = base64_decode($base64Data);
+                if ($binary !== false) {
+                    $filename = 'signatures/' . uniqid('sig_', true) . '.' . $typeExt;
+                    Storage::disk('public')->put($filename, $binary);
+                    $data['signature'] = $filename;
+                }
+            }
         }
 
         $teacher = User::create($data);
+        $teacher->load('designation');
 
         return response()->json($teacher, 201);
     }
@@ -99,12 +135,13 @@ class TeacherController extends Controller
     public function update(Request $request, User $teacher)
     {
         if ($teacher->role_id !== 2) {
-            return response()->json(['message' => 'User is not a teacher'], 400);
+            return response()->json(['message' => 'User is not a staff member'], 400);
         }
 
         $request->validate([
             'name' => 'required|string|max:100',
             'email' => ['required', 'email', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($teacher->id)->whereNull('deleted_at')],
+            'designation_id' => 'nullable|exists:designations,id',
             'contact_number' => 'nullable|string|max:20',
             'qualification' => 'nullable|string|max:255',
             'emergency_contact' => 'nullable|string|max:20',
@@ -113,9 +150,10 @@ class TeacherController extends Controller
             'joining_date' => 'nullable|date',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'signature' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'signature_base64' => 'nullable|string',
         ]);
 
-        $data = $request->except(['image', 'signature']);
+        $data = $request->except(['image', 'signature', 'signature_base64']);
 
         if ($request->hasFile('image')) {
             if ($teacher->image) Storage::disk('public')->delete($teacher->image);
@@ -125,9 +163,23 @@ class TeacherController extends Controller
         if ($request->hasFile('signature')) {
             if ($teacher->signature) Storage::disk('public')->delete($teacher->signature);
             $data['signature'] = $request->file('signature')->store('signatures', 'public');
+        } elseif ($request->filled('signature_base64')) {
+            $base64 = $request->input('signature_base64');
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64, $type)) {
+                $base64Data = substr($base64, strpos($base64, ',') + 1);
+                $typeExt = strtolower($type[1]);
+                $binary = base64_decode($base64Data);
+                if ($binary !== false) {
+                    if ($teacher->signature) Storage::disk('public')->delete($teacher->signature);
+                    $filename = 'signatures/' . uniqid('sig_', true) . '.' . $typeExt;
+                    Storage::disk('public')->put($filename, $binary);
+                    $data['signature'] = $filename;
+                }
+            }
         }
 
         $teacher->update($data);
+        $teacher->load('designation');
 
         return response()->json($teacher);
     }

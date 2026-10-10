@@ -127,7 +127,7 @@
                 </table>
 
                 <!-- Remarks -->
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e5e7eb; border-radius: 8px; background-color: #ffffff;">
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e5e7eb; border-radius: 8px; background-color: #ffffff; margin-bottom: 24px;">
                     <tr>
                         <td style="padding: 20px;">
                             <span style="color: #1e3a8a; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; font-size: 14px; margin-right: 16px;">Remarks:</span>
@@ -142,6 +142,31 @@
                                 else $rem = "Serious hard work in all subjects is needed. It is a weak performance. !";
                             @endphp
                             <span style="color: #333333; font-weight: bold; font-size: 14px; font-style: italic;">{{ $rem }}</span>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Official Signatures -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 20px;">
+                    <tr>
+                        <td width="50%" align="center" style="padding: 10px;">
+                            <div style="height: 48px; line-height: 48px;">
+                                @if(!empty($student->teacher_signature))
+                                    <img src="{{ $student->teacher_signature }}" alt="Class Incharge Signature" style="max-height: 44px; max-width: 160px; vertical-align: middle;">
+                                @endif
+                            </div>
+                            <div style="border-top: 2px solid #000000; width: 75%; margin: 6px auto 0; padding-top: 6px;">
+                                <span style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; display: block; letter-spacing: 0.5px;">Class Incharge</span>
+                                @if(!empty($student->class_incharge))
+                                    <span style="font-size: 11px; font-weight: bold; color: #333333; display: block; margin-top: 2px;">{{ $student->class_incharge }}</span>
+                                @endif
+                            </div>
+                        </td>
+                        <td width="50%" align="center" style="padding: 10px;">
+                            <div style="height: 48px;"></div>
+                            <div style="border-top: 2px solid #000000; width: 75%; margin: 6px auto 0; padding-top: 6px;">
+                                <span style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: #1e3a8a; display: block; letter-spacing: 0.5px;">Principal</span>
+                            </div>
                         </td>
                     </tr>
                 </table>
