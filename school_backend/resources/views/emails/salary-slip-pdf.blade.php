@@ -7,266 +7,330 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, Helvetica, sans-serif;
-            color: #131b2e;
+            color: #19243a;
             background: #ffffff;
-            font-size: 13px;
-            padding: 30px 36px;
+            font-size: 12px;
+            padding: 24px 30px;
+        }
+
+        /* ── Top / Bottom Accent Stripes ────────────────────────────────── */
+        .top-band {
+            width: 100%;
+            height: 6px;
+            background-color: #263c83;
+            margin-bottom: 2px;
+        }
+        .top-accent {
+            width: 100%;
+            height: 3px;
+            background-color: #e8b84b;
+            margin-bottom: 20px;
+        }
+        .bottom-accent {
+            width: 100%;
+            height: 3px;
+            background-color: #e8b84b;
+            margin-top: 25px;
+            margin-bottom: 2px;
+        }
+        .bottom-band {
+            width: 100%;
+            height: 6px;
+            background-color: #263c83;
         }
 
         /* ── Header ─────────────────────────────────────────────────────── */
-        .header-wrap {
+        .header-table {
             width: 100%;
-            padding-bottom: 14px;
-            margin-bottom: 18px;
+            border-collapse: collapse;
+            margin-bottom: 12px;
         }
-        .header-inner {
-            width: 100%;
-        }
-        .header-logo {
-            width: 72px;
+        .header-logo-cell {
+            width: 76px;
             vertical-align: middle;
         }
-        .header-logo img {
-            width: 68px;
-            height: 68px;
-            border-radius: 34px;
-            display: block;
+        .header-logo-box {
+            width: 70px;
+            height: 70px;
+            border: 1px solid #ccd3e0;
+            border-radius: 12px;
+            text-align: center;
+            vertical-align: middle;
+            padding: 4px;
+        }
+        .header-logo-box img {
+            max-width: 62px;
+            max-height: 62px;
+            display: inline-block;
+        }
+        .header-divider-cell {
+            width: 18px;
+            vertical-align: middle;
+            text-align: center;
+        }
+        .header-divider-line {
+            width: 2px;
+            height: 52px;
+            background-color: #ccd3e0;
+            margin: 0 auto;
         }
         .header-name-cell {
             vertical-align: middle;
-            padding-left: 14px;
+            padding-left: 6px;
         }
         .academy-name {
-            color: #1e3a8a;
-            font-size: 18px;
+            color: #263c83;
+            font-size: 20px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: -0.3px;
+            letter-spacing: 0.5px;
             display: block;
+            margin-bottom: 4px;
         }
-        .academy-sub {
-            color: #434655;
+        .academy-motto-badge {
+            background-color: #263c83;
+            color: #e8b84b;
             font-size: 9px;
-            font-weight: bold;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            display: block;
-            margin-top: 3px;
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
         }
 
-        /* ── Teacher / Period info ───────────────────────────────────────── */
-        .info-wrap {
+        /* ── Double Rule ─────────────────────────────────────────────────── */
+        .rule-thick {
             width: 100%;
-            margin-bottom: 20px;
+            height: 3px;
+            background-color: #263c83;
+            margin-bottom: 2px;
         }
-        .info-label {
+        .rule-thin {
+            width: 100%;
+            height: 1.5px;
+            background-color: #e8b84b;
+            margin-bottom: 16px;
+        }
+
+        /* ── Title Section ───────────────────────────────────────────────── */
+        .title-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+        }
+        .doc-title {
+            color: #19243a;
+            font-size: 24px;
+            font-weight: 900;
             display: block;
-            color: #434655;
-            font-size: 9px;
-            font-weight: bold;
+            line-height: 1.1;
+        }
+        .doc-badge {
+            background-color: #263c83;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 1.2px;
-            margin-bottom: 3px;
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-top: 4px;
         }
-        .info-value {
-            display: block;
-            font-size: 16px;
-            font-weight: 700;
-            color: #131b2e;
+        .sep-line {
+            width: 100%;
+            height: 1px;
+            background-color: #ccd3e0;
+            margin-bottom: 16px;
         }
 
-        /* ── Subject / Earnings tables ───────────────────────────────────── */
-        .subject-wrap {
+        /* ── Employee Card ───────────────────────────────────────────────── */
+        .emp-card {
             width: 100%;
-            margin-bottom: 14px;
+            border: 1.5px solid #263c83;
+            border-radius: 8px;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            background: #ffffff;
         }
-        .subject-header {
-            background-color: #1e3a8a;
-            color: #ffffff;
-            padding: 7px 12px;
-            font-size: 10px;
-            font-weight: bold;
+        .emp-card td {
+            padding: 10px 14px;
+            vertical-align: middle;
+        }
+        .emp-label {
+            font-size: 9px;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
+            color: #586176;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .emp-val {
+            font-size: 16px;
+            font-weight: 700;
+            color: #19243a;
+            display: block;
+        }
+
+        /* ── Earnings Table ──────────────────────────────────────────────── */
+        .earnings-wrap {
+            width: 100%;
+            border: 1px solid #ccd3e0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+        .earnings-header {
+            background-color: #263c83;
+            color: #ffffff;
+            padding: 7px 14px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
         }
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #e2e8f0;
         }
         .data-table th {
-            background-color: #eaedff;
-            color: #434655;
+            background-color: #f8fafc;
+            color: #263c83;
             font-size: 9px;
-            font-weight: bold;
+            font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 1px;
-            padding: 5px 10px;
+            padding: 6px 14px;
+            border-bottom: 1px solid #ccd3e0;
             text-align: left;
-            border-bottom: 1px solid #e2e8f0;
         }
         .data-table td {
-            padding: 6px 10px;
-            font-size: 11px;
-            border-bottom: 1px solid #f0f0f0;
-            color: #131b2e;
-        }
-        .data-table tfoot td {
-            background-color: #f2f3ff;
-            border-top: 1px solid #1e3a8a;
-            border-bottom: none;
-            font-weight: bold;
-            font-size: 11px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #19243a;
         }
         .text-right { text-align: right; }
-        .text-center { text-align: center; }
 
-        /* ── Calculation summary ─────────────────────────────────────────── */
-        .calc-table {
+        /* ── Summary Box ─────────────────────────────────────────────────── */
+        .summary-box {
+            width: 100%;
+            border: 1px solid #ccd3e0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 14px;
+        }
+        .summary-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
-            color: #434655;
-            margin-bottom: 10px;
+            font-size: 11px;
+            color: #586176;
         }
-        .calc-table td {
+        .summary-table td {
             padding: 3px 0;
         }
-        .calc-divider td {
-            border-top: 1px solid #e2e8f0;
-            padding-top: 7px;
+        .net-badge {
+            background-color: #263c83;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 6px;
+            display: inline-block;
         }
 
-        /* ── Payment installments ────────────────────────────────────────── */
-        .section-label {
-            font-size: 9px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: #434655;
-            margin-bottom: 6px;
-            margin-top: 16px;
-        }
-
-        /* ── Balance card ────────────────────────────────────────────────── */
-        .balance-card {
+        /* ── Balance Owed Hero Card ──────────────────────────────────────── */
+        .balance-hero {
             width: 100%;
+            background-color: #263c83;
+            border-top: 3px solid #e8b84b;
+            border-radius: 8px;
             border-collapse: collapse;
-            margin-top: 14px;
-            margin-bottom: 22px;
+            color: #ffffff;
+            margin-bottom: 20px;
         }
-        .balance-card td {
-            padding: 13px 18px;
+        .balance-hero td {
+            padding: 14px 18px;
             vertical-align: middle;
         }
+        .balance-title {
+            color: #e8b84b;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .balance-sub {
+            color: #ffffff;
+            opacity: 0.85;
+            font-size: 9px;
+            display: block;
+        }
+        .balance-amount {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 900;
+            text-align: right;
+        }
 
-        /* ── Signatures ──────────────────────────────────────────────────── */
+        /* ── Signatures & Stamp ──────────────────────────────────────────── */
         .sig-table {
             width: 100%;
-            margin-top: 36px;
-        }
-        .sig-table td {
-            text-align: center;
-            width: 50%;
-            padding: 0 24px;
+            border-collapse: collapse;
+            margin-top: 10px;
         }
         .sig-line {
-            border-top: 1px solid #434655;
+            width: 100%;
+            border-top: 1px solid #ccd3e0;
             margin-bottom: 4px;
         }
-        .sig-text {
+        .sig-label {
             font-size: 9px;
-            font-weight: bold;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: #434655;
+            color: #586176;
+            display: block;
         }
-
-        /* ── Doc footer ──────────────────────────────────────────────────── */
-        .doc-footer {
-            margin-top: 30px;
-            padding-top: 14px;
-            border-top: 1px solid #e2e8f0;
+        .sig-sub {
+            font-size: 9px;
+            color: #8a95a8;
+            display: block;
+            margin-top: 2px;
+        }
+        .stamp-box {
+            width: 68px;
+            height: 68px;
+            border: 2px dashed #263c83;
+            border-radius: 34px;
+            margin: 0 auto;
             text-align: center;
-            font-size: 10px;
-            font-weight: bold;
+            padding-top: 18px;
+        }
+        .stamp-text {
+            color: #263c83;
+            font-size: 7px;
+            font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #1e3a8a;
+            letter-spacing: 0.8px;
+            line-height: 1.2;
         }
     </style>
 </head>
 <body>
 
+    {{-- Top Decorative Bands --}}
+    <div class="top-band"></div>
+    <div class="top-accent"></div>
+
     @php
         $logoPath = public_path('logo.jpg');
         $logoData = file_exists($logoPath) ? base64_encode(file_get_contents($logoPath)) : '';
         $logoSrc  = $logoData ? 'data:image/jpeg;base64,' . $logoData : '';
-    @endphp
 
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- HEADER                                                             --}}
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    <div class="header-wrap">
-        <table class="header-inner" cellpadding="0" cellspacing="0">
-            <tr>
-                <td class="header-logo">
-                    @if($logoSrc)
-                        <img src="{{ $logoSrc }}" alt="Logo">
-                    @endif
-                </td>
-                <td class="header-name-cell">
-                    <span class="academy-name">Kips School Chunian Campus</span>
-                    <span class="academy-sub">Topper's First Choice</span>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- TEACHER / PAY PERIOD                                               --}}
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    <table class="info-wrap" cellpadding="0" cellspacing="0">
-        <tr>
-            <td style="width:50%;">
-                <span class="info-label">Teacher Name</span>
-                <span class="info-value">{{ $slip->teacher->name }}</span>
-            </td>
-            <td style="width:50%; text-align:right;">
-                <span class="info-label">Pay Period</span>
-                <span class="info-value">{{ $slip->month }}</span>
-            </td>
-        </tr>
-    </table>
-
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- EARNINGS TABLES                                                    --}}
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- Fixed Salary Only --}}
-    <div class="subject-wrap">
-        <div class="subject-header">Earnings</div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th style="width:70%;">Description</th>
-                    <th class="text-right" style="width:30%;">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="width:70%; font-weight:600;">Fixed Salary</td>
-                    <td class="text-right" style="width:30%; font-weight:700; color:#1e3a8a;">
-                        Rs {{ number_format((float)$slip->total_amount, 2) }}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- CALCULATION SUMMARY                                                --}}
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    @php
         $netPayable      = (float) ($slip->payable_salary ?: $slip->total_amount);
         $totalPaid       = (float) ($slip->total_paid ?? 0);
         $balanceOwed     = $netPayable - $totalPaid;
@@ -277,15 +341,90 @@
         $offDeduction    = $extraOffDays > 0 ? ($extraOffDays * ((float) $slip->total_amount / 30)) : 0;
     @endphp
 
-    <div style="border-top: 2px dashed #e2e8f0; margin-top: 18px; padding-top: 14px;">
-        <table class="calc-table" cellpadding="0" cellspacing="0">
+    {{-- Header --}}
+    <table class="header-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td class="header-logo-cell">
+                <div class="header-logo-box">
+                    @if($logoSrc)
+                        <img src="{{ $logoSrc }}" alt="Logo">
+                    @endif
+                </div>
+            </td>
+            <td class="header-divider-cell">
+                <div class="header-divider-line"></div>
+            </td>
+            <td class="header-name-cell">
+                <span class="academy-name">KIPS SCHOOL CHUNIAN CAMPUS</span>
+                <span class="academy-motto-badge">TOPPER'S FIRST CHOICE</span>
+            </td>
+        </tr>
+    </table>
+
+    {{-- Double Rule --}}
+    <div class="rule-thick"></div>
+    <div class="rule-thin"></div>
+
+    {{-- Title Section --}}
+    <table class="title-table" cellpadding="0" cellspacing="0">
+        <tr>
+            <td>
+                <span class="doc-title">Salary Slip</span>
+                <span class="doc-badge">OFFICIAL PAYROLL DOCUMENT</span>
+            </td>
+            <td class="text-right" style="vertical-align:bottom;">
+                <span style="font-size:10px; font-weight:700; color:#586176;">PAYROLL RECORD</span>
+            </td>
+        </tr>
+    </table>
+
+    <div class="sep-line"></div>
+
+    {{-- Employee & Period Card --}}
+    <table class="emp-card" cellpadding="0" cellspacing="0">
+        <tr>
+            <td style="width:50%; border-right:1px solid #ccd3e0;">
+                <span class="emp-label">TEACHER NAME</span>
+                <span class="emp-val">{{ $slip->teacher->name }}</span>
+            </td>
+            <td class="text-right" style="width:50%;">
+                <span class="emp-label">PAY PERIOD</span>
+                <span class="emp-val">{{ $slip->month }}</span>
+            </td>
+        </tr>
+    </table>
+
+    {{-- Earnings Section --}}
+    <div class="earnings-wrap">
+        <div class="earnings-header">EARNINGS</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width:70%;">DESCRIPTION</th>
+                    <th class="text-right" style="width:30%;">AMOUNT</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:600;">Fixed Salary</td>
+                    <td class="text-right" style="font-weight:700; color:#263c83;">
+                        Rs {{ number_format((float)$slip->total_amount, 2) }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    {{-- Calculation Summary Box --}}
+    <div class="summary-box">
+        <table class="summary-table" cellpadding="0" cellspacing="0">
             <tr>
                 <td>Fixed Salary:</td>
-                <td class="text-right" style="font-weight:600;">Rs {{ number_format((float)$slip->total_amount, 2) }}</td>
+                <td class="text-right" style="font-weight:600; color:#19243a;">Rs {{ number_format((float)$slip->total_amount, 2) }}</td>
             </tr>
             @if($offDeduction > 0)
             <tr style="color:#dc2626;">
-                <td>Unpaid Offs Deduction ({{ $extraOffDays }} extra days):</td>
+                <td>Unpaid Offs ({{ $extraOffDays }} extra days):</td>
                 <td class="text-right" style="font-weight:600;">&minus; Rs {{ number_format($offDeduction, 2) }}</td>
             </tr>
             @endif
@@ -302,104 +441,61 @@
             </tr>
             @endif
             @if($advanceDeducted > 0)
-            <tr style="color:#2563eb;">
-                <td>Previous Advance Recovered:</td>
+            <tr style="color:#d97706;">
+                <td>Advance Deducted:</td>
                 <td class="text-right" style="font-weight:600;">&minus; Rs {{ number_format($advanceDeducted, 2) }}</td>
             </tr>
             @endif
-            {{-- Net Payable — small, not the hero --}}
-            <tr class="calc-divider">
-                <td style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#434655;">Net Payable:</td>
-                <td class="text-right" style="font-size:14px; font-weight:700; color:#1e3a8a;">Rs {{ number_format($netPayable, 2) }}</td>
+            <tr>
+                <td style="padding-top:6px; font-size:10px; font-weight:800; text-transform:uppercase; color:#19243a;">
+                    NET PAYABLE:
+                </td>
+                <td class="text-right" style="padding-top:6px;">
+                    <span class="net-badge">Rs {{ number_format($netPayable, 2) }}</span>
+                </td>
             </tr>
         </table>
     </div>
 
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- PAYMENT INSTALLMENTS                                               --}}
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    @if($slip->payments && $slip->payments->count() > 0)
-    <div class="section-label">Payment Installments</div>
-    <table class="data-table" style="font-size:11px; margin-bottom:0;">
-        <thead>
-            <tr>
-                <th style="width:6%;">#</th>
-                <th style="width:26%;">Date</th>
-                <th style="width:20%;">Method</th>
-                <th style="width:32%;">Note</th>
-                <th class="text-right" style="width:16%;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($slip->payments as $i => $pay)
-            <tr>
-                <td>{{ $i + 1 }}</td>
-                <td>{{ \Carbon\Carbon::parse($pay->payment_date)->format('d M Y') }}</td>
-                <td>{{ $pay->payment_method }}</td>
-                <td style="color:#888; font-style:italic;">{{ $pay->notes ?: '—' }}</td>
-                <td class="text-right" style="font-weight:700; color:#15803d;">Rs {{ number_format((float)$pay->amount_paid, 0) }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="4" class="text-right" style="font-size:10px; text-transform:uppercase; color:#434655;">Total Paid</td>
-                <td class="text-right" style="color:#15803d; font-weight:900;">Rs {{ number_format($totalPaid, 0) }}</td>
-            </tr>
-        </tfoot>
-    </table>
-    @endif
-
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- BALANCE CARD — THE HERO                                            --}}
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    @php
-        $isDebt     = $balanceOwed > 0.005;
-        $isAdvance  = $balanceOwed < -0.005;
-        $cardBg     = $isDebt ? '#fff7ed' : ($isAdvance ? '#f0fdf4' : '#f8fafc');
-        $cardBorder = $isDebt ? '#fed7aa' : ($isAdvance ? '#bbf7d0' : '#e2e8f0');
-        $cardColor  = $isDebt ? '#c2410c' : ($isAdvance ? '#15803d' : '#64748b');
-        $cardLabel  = $isDebt ? 'Balance Owed' : ($isAdvance ? 'Advance (Overpaid)' : 'Status');
-    @endphp
-
-    <table class="balance-card" cellpadding="0" cellspacing="0"
-           style="border: 2px solid {{ $cardBorder }}; background: {{ $cardBg }}; border-radius: 8px;">
+    {{-- Balance Owed Hero Card --}}
+    <table class="balance-hero" cellpadding="0" cellspacing="0">
         <tr>
-            <td style="padding:13px 18px; vertical-align:middle;">
-                <span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:{{ $cardColor }};">
-                    {{ $cardLabel }}
-                </span>
-                @if(!$isDebt && !$isAdvance)
-                    <br><span style="font-size:12px; font-weight:600; color:#9ca3af;">Fully Paid &amp; Cleared</span>
-                @endif
+            <td style="width:60%;">
+                <span class="balance-title">BALANCE OWED</span>
+                <span class="balance-sub">Net payable for {{ $slip->month }}</span>
             </td>
-            @if($isDebt || $isAdvance)
-            <td class="text-right" style="padding:13px 18px; vertical-align:middle;">
-                <span style="font-size:20px; font-weight:900; color:{{ $cardColor }};">
-                    Rs {{ number_format(abs($balanceOwed), 0) }}
-                </span>
+            <td style="width:40%;">
+                <div class="balance-amount">
+                    Rs {{ number_format(max(0, $balanceOwed), 0) }}
+                </div>
             </td>
-            @endif
         </tr>
     </table>
 
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
-    {{-- SIGNATURES                                                         --}}
-    {{-- ══════════════════════════════════════════════════════════════════ --}}
+    {{-- Signatures Section --}}
     <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
-            <td style="width:50%; text-align:center; padding:0 24px;">
+            <td style="width:38%; text-align:left; vertical-align:bottom;">
                 <div class="sig-line"></div>
-                <div class="sig-text">Teacher Signature</div>
+                <span class="sig-label">TEACHER SIGNATURE</span>
+                <span class="sig-sub">{{ $slip->teacher->name }}</span>
             </td>
-            <td style="width:50%; text-align:center; padding:0 24px;">
+            <td style="width:24%; text-align:center; vertical-align:middle;">
+                <div class="stamp-box">
+                    <span class="stamp-text">OFFICIAL<br>STAMP</span>
+                </div>
+            </td>
+            <td style="width:38%; text-align:right; vertical-align:bottom;">
                 <div class="sig-line"></div>
-                <div class="sig-text">Admin Signature</div>
+                <span class="sig-label">ADMIN SIGNATURE</span>
+                <span class="sig-sub">Authorized Signatory</span>
             </td>
         </tr>
     </table>
 
-    <div class="doc-footer">Kips School Chunian Campus</div>
+    {{-- Bottom Decorative Bands --}}
+    <div class="bottom-accent"></div>
+    <div class="bottom-band"></div>
 
 </body>
 </html>
