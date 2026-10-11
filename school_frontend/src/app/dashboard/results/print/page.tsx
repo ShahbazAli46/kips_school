@@ -16,17 +16,22 @@ function PrintContent() {
   const sessionId = searchParams.get("session");
   const classId = searchParams.get("class");
   const categoryId = searchParams.get("category");
+  const typeParam = searchParams.get("type");
   const paramCategoryName = searchParams.get("category_name");
   const sessionName = searchParams.get("session_name");
   const roundsParam = searchParams.get("rounds");
-  const selectedRounds = roundsParam ? roundsParam.split(",").map((r) => r.trim()).filter(Boolean) : undefined;
+  const initialSelectedRounds = roundsParam ? roundsParam.split(",").map((r) => r.trim()).filter(Boolean) : undefined;
 
   const [student, setStudent] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [tests, setTests] = useState<any[]>([]);
   const [rounds, setRounds] = useState<any[]>([]);
+  const [resolvedCategoryType, setResolvedCategoryType] = useState<string>(typeParam || "");
   const [resolvedCategoryName, setResolvedCategoryName] = useState<string>(
     paramCategoryName && !/^\d+$/.test(paramCategoryName) ? paramCategoryName : ""
+  );
+  const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>(
+    initialSelectedRounds && initialSelectedRounds.length === 1 ? initialSelectedRounds[0] : ""
   );
   const [loading, setLoading] = useState(true);
 
@@ -60,6 +65,7 @@ function PrintContent() {
           const matchingCat = cats.find((c: any) => String(c.id) === String(categoryId) || c.type === categoryId);
           if (matchingCat) {
             setResolvedCategoryName(matchingCat.name);
+            setResolvedCategoryType(matchingCat.type);
           }
         }
 
@@ -95,6 +101,24 @@ function PrintContent() {
     fetchData();
   }, [studentId, sessionId, classId, categoryId, roundsParam]);
 
+  const availableRoundTitles = React.useMemo(() => {
+    const set = new Set<string>();
+    (rounds || []).forEach((r: any) => { if (r.title) set.add(r.title); });
+    (tests || []).forEach((t: any) => { if (t.test_title) set.add(t.test_title); });
+    return Array.from(set);
+  }, [rounds, tests]);
+
+  // Set default selected round if none chosen yet and rounds are loaded
+  useEffect(() => {
+    if (!selectedRoundFilter && availableRoundTitles.length > 0) {
+      if (initialSelectedRounds && initialSelectedRounds.length > 0) {
+        setSelectedRoundFilter(initialSelectedRounds[0]);
+      } else {
+        setSelectedRoundFilter(availableRoundTitles[0]);
+      }
+    }
+  }, [availableRoundTitles, selectedRoundFilter, initialSelectedRounds]);
+
   if (loading) {
     return <PageLoader text="Preparing Official Result Card..." />;
   }
@@ -107,7 +131,22 @@ function PrintContent() {
     );
   }
 
-  const isRnT = resolvedCategoryName?.toLowerCase().includes("r n t") || resolvedCategoryName?.toLowerCase().includes("r&t");
+  const isRnT =
+    resolvedCategoryType === "rnt" ||
+    typeParam === "rnt" ||
+    categoryId === "rnt" ||
+    resolvedCategoryName?.toLowerCase().includes("r n t") ||
+    resolvedCategoryName?.toLowerCase().includes("r&t") ||
+    resolvedCategoryName?.toLowerCase().includes("rnt") ||
+    resolvedCategoryName?.toLowerCase().includes("revision");
+
+  const effectiveSelectedRounds = selectedRoundFilter
+    ? [selectedRoundFilter]
+    : initialSelectedRounds && initialSelectedRounds.length > 0
+    ? initialSelectedRounds
+    : availableRoundTitles.length > 0
+    ? [availableRoundTitles[0]]
+    : undefined;
 
   return (
     <>
@@ -127,7 +166,7 @@ function PrintContent() {
 
       <div className="min-h-screen bg-slate-100/80 text-slate-900 font-sans p-4 sm:p-8 print:p-0 print:bg-white flex flex-col items-center">
         {/* On-screen Action Toolbar (Hidden during print) */}
-        <div className="w-full max-w-5xl mb-4 flex items-center justify-between no-print bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+        <div className="w-full max-w-5xl mb-4 flex items-center justify-between no-print bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex-wrap gap-2">
           <button
             onClick={() => router.back()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
@@ -136,9 +175,27 @@ function PrintContent() {
             Back to Results
           </button>
 
+          {/* Round Selector for R n T / Evaluation Series */}
+          {availableRoundTitles.length > 0 && (
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Round:</span>
+              <select
+                value={selectedRoundFilter}
+                onChange={(e) => setSelectedRoundFilter(e.target.value)}
+                className="px-2.5 py-1 text-xs font-bold border border-blue-300 rounded-md bg-white text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-2xs"
+              >
+                {availableRoundTitles.map((rTitle) => (
+                  <option key={rTitle} value={rTitle}>
+                    {rTitle}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-500 hidden sm:inline">
-              Exact Excel &apos;Individual&apos; Sheet Design
+              {isRnT ? "Official R n T Result Card" : "Exact Excel 'Individual' Sheet Design"}
             </span>
             <button
               onClick={() => window.print()}
@@ -150,7 +207,7 @@ function PrintContent() {
           </div>
         </div>
 
-        {/* The Exact Excel Result Card */}
+        {/* The Exact Result Card */}
         {isRnT ? (
           <RnTResultCard
             student={student}
@@ -160,7 +217,7 @@ function PrintContent() {
             categoryTitle={resolvedCategoryName || "R n T"}
             sessionTitle={sessionName || student?.session_name || "Session 2026-27"}
             showChart={false}
-            selectedRounds={selectedRounds}
+            selectedRounds={effectiveSelectedRounds}
           />
         ) : (
           <ExcelResultCard
@@ -171,7 +228,7 @@ function PrintContent() {
             categoryTitle={resolvedCategoryName || "First Term"}
             sessionTitle={sessionName || student?.session_name || "Session 2026-27"}
             showChart={false}
-            selectedRounds={selectedRounds}
+            selectedRounds={effectiveSelectedRounds}
           />
         )}
       </div>

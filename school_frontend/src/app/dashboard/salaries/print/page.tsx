@@ -126,25 +126,6 @@ function PrintableSalarySlipContent() {
     );
   }
 
-  // Group percentage items by subject+class+major+section
-  const percentageItems = slip.items.filter(i => i.payment_type === 'percentage');
-  const pctBySubject = percentageItems.reduce((acc, item) => {
-    const s = item.student as any;
-    const className = item.academyClass?.name || s?.academy_class?.name || s?.class_name;
-    const sectionName = item.section?.name || s?.section?.name;
-    const majorName = item.major?.name || s?.major?.name;
-    const classInfo = [className, sectionName, majorName].filter(Boolean).join(" ");
-    
-    const subjectName = item.subject?.name || 'Unknown';
-    const key = classInfo ? `${classInfo} - ${subjectName}` : subjectName;
-    
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {} as Record<string, SalaryItem[]>);
-
-  const fixedItems = slip.items.filter(i => i.payment_type === 'fixed');
-
   return (
     <div className="bg-[#f2f3ff] min-h-screen flex flex-col items-center py-6 px-4 print:p-0 print:bg-white font-sans text-[#131b2e]">
       
@@ -201,84 +182,29 @@ function PrintableSalarySlipContent() {
           </div>
         </section>
 
-        {/* Earnings Tables Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
-          
-          {Object.entries(pctBySubject).map(([subjectName, items]) => {
-            const totalCut = items.reduce((sum, item) => sum + parseFloat(item.teacher_cut), 0);
-            return (
-              <div key={subjectName} className="flex flex-col border border-[#e2e8f0] rounded-lg overflow-hidden break-inside-avoid">
-                <div className="bg-[#1e3a8a] text-white px-4 py-2 print:bg-[#1e3a8a] print:text-white" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                  <h3 className="text-xs uppercase font-bold tracking-widest">{subjectName}</h3>
-                </div>
-                <table className="w-full border-collapse text-xs print:text-[10px]">
-                  <thead className="bg-[#eaedff] text-[#434655] text-[9px] uppercase tracking-wider print:bg-[#eaedff]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                    <tr>
-                      <th className="text-left py-1.5 px-3 border-b border-[#e2e8f0]">Student</th>
-                      <th className="text-right py-1.5 px-3 border-b border-[#e2e8f0]">Fee</th>
-                      <th className="text-center py-1.5 px-3 border-b border-[#e2e8f0]">%</th>
-                      <th className="text-right py-1.5 px-3 border-b border-[#e2e8f0]">Cut</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[#131b2e]">
-                    {items.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-[#f2f3ff] transition-colors border-b border-gray-100 last:border-0">
-                        <td className="py-1.5 px-3">
-                          {item.student?.name}
-                        </td>
-                        <td className="py-1.5 px-3 text-right">Rs {parseFloat(item.student_fee_paid || '0').toLocaleString()}</td>
-                        <td className="py-1.5 px-3 text-center">{parseFloat(item.percentage || '0')}%</td>
-                        <td className="py-1.5 px-3 text-right font-semibold">Rs {parseFloat(item.teacher_cut).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-[#f2f3ff] border-t border-[#1e3a8a] print:bg-[#f2f3ff]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                    <tr>
-                      <td className="text-right py-1.5 px-3 text-[10px] text-[#434655] uppercase font-bold" colSpan={3}>Total</td>
-                      <td className="text-right py-1.5 px-3 font-bold text-[#1e3a8a]">Rs {totalCut.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            );
-          })}
-
-          {fixedItems.length > 0 && (
-            <div className="flex flex-col border border-[#e2e8f0] rounded-lg overflow-hidden break-inside-avoid">
-              <div className="bg-[#1e3a8a] text-white px-4 py-2 print:bg-[#1e3a8a] print:text-white" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                <h3 className="text-xs uppercase font-bold tracking-widest">Fixed Allowances</h3>
-              </div>
-              <table className="w-full border-collapse text-xs print:text-[10px]">
-                <thead className="bg-[#eaedff] text-[#434655] text-[9px] uppercase tracking-wider print:bg-[#eaedff]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                  <tr>
-                    <th className="text-left py-1.5 px-3 border-b border-[#e2e8f0]">Detail</th>
-                    <th className="text-right py-1.5 px-3 border-b border-[#e2e8f0]">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="text-[#131b2e]">
-                  {fixedItems.map((item, idx) => {
-                    const classInfo = [item.academyClass?.name, item.major?.name, item.section?.name].filter(Boolean).join(" ");
-                    const title = `${item.subject?.name || 'Fixed Payment'}${classInfo ? ` (${classInfo})` : ''}`.trim();
-                    return (
-                      <tr key={idx} className="hover:bg-[#f2f3ff] transition-colors border-b border-gray-100 last:border-0">
-                        <td className="py-1.5 px-3">{title}</td>
-                        <td className="py-1.5 px-3 text-right font-semibold">Rs {parseFloat(item.teacher_cut).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-[#f2f3ff] border-t border-[#1e3a8a] print:bg-[#f2f3ff]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                  <tr>
-                    <td className="text-right py-1.5 px-3 text-[10px] text-[#434655] uppercase font-bold">Total</td>
-                    <td className="text-right py-1.5 px-3 font-bold text-[#1e3a8a]">
-                      Rs {fixedItems.reduce((s, i) => s + parseFloat(i.teacher_cut), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+        {/* Earnings Table: Fixed Salary Only */}
+        <section className="w-full">
+          <div className="flex flex-col border border-[#e2e8f0] rounded-lg overflow-hidden break-inside-avoid">
+            <div className="bg-[#1e3a8a] text-white px-4 py-2 print:bg-[#1e3a8a] print:text-white" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+              <h3 className="text-xs uppercase font-bold tracking-widest">Earnings</h3>
             </div>
-          )}
-
+            <table className="w-full border-collapse text-xs print:text-[10px]">
+              <thead className="bg-[#eaedff] text-[#434655] text-[9px] uppercase tracking-wider print:bg-[#eaedff]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                <tr>
+                  <th className="text-left py-2 px-4 border-b border-[#e2e8f0]">Description</th>
+                  <th className="text-right py-2 px-4 border-b border-[#e2e8f0]">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#131b2e]">
+                <tr className="hover:bg-[#f2f3ff] transition-colors border-b border-gray-100 last:border-0">
+                  <td className="py-2.5 px-4 font-semibold">Fixed Salary</td>
+                  <td className="py-2.5 px-4 text-right font-bold text-[#1e3a8a]">
+                    Rs {parseFloat(slip.total_amount || '0').toLocaleString(undefined, {minimumFractionDigits: 2})}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {/* Summary & Divider */}
@@ -286,7 +212,7 @@ function PrintableSalarySlipContent() {
           
           {/* Calculation rows — small, informational */}
           <div className="flex justify-between items-center text-sm text-[#434655]">
-            <span>Base Earned Total:</span>
+            <span>Fixed Salary:</span>
             <span className="font-semibold">Rs {parseFloat(slip.total_amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
           </div>
 

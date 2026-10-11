@@ -242,103 +242,26 @@
     {{-- ══════════════════════════════════════════════════════════════════ --}}
     {{-- EARNINGS TABLES                                                    --}}
     {{-- ══════════════════════════════════════════════════════════════════ --}}
-    @php
-        $percentageItems = $slip->items->filter(fn($i) => $i->payment_type === 'percentage');
-        $pctBySubject = [];
-        foreach ($percentageItems as $item) {
-            $classInfo = trim(
-                ($item->academyClass->name ?? '') . ' ' .
-                ($item->major->name ?? '') . ' ' .
-                ($item->section->name ?? '')
-            );
-            $key = ($item->subject->name ?? 'Unknown') . ($classInfo ? " ($classInfo)" : '');
-            $pctBySubject[$key][] = $item;
-        }
-        $fixedItems = $slip->items->filter(fn($i) => $i->payment_type === 'fixed');
-    @endphp
-
-    {{-- Percentage-based subjects --}}
-    @foreach($pctBySubject as $subjectName => $items)
-        @php $totalCut = array_reduce($items, fn($sum, $i) => $sum + $i->teacher_cut, 0); @endphp
-        <div class="subject-wrap">
-            <div class="subject-header">{{ $subjectName }}</div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width:40%;">Student</th>
-                        <th class="text-right" style="width:22%;">Fee</th>
-                        <th class="text-center" style="width:12%;">%</th>
-                        <th class="text-right" style="width:26%;">Cut</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($items as $item)
-                    <tr>
-                        <td style="width:40%;">
-                            {{ $item->student->name ?? 'N/A' }}
-                            @php
-                                $studentClassInfo = trim(
-                                    ($item->student->academyClass->name ?? '') . ' ' .
-                                    ($item->student->section->name ?? '')
-                                );
-                            @endphp
-                            @if($studentClassInfo)
-                                <span style="font-size:9px; color:#434655; margin-left:4px;">({{ $studentClassInfo }})</span>
-                            @endif
-                        </td>
-                        <td class="text-right" style="width:22%;">Rs {{ number_format($item->student_fee_paid) }}</td>
-                        <td class="text-center" style="width:12%;">{{ (float)$item->percentage }}%</td>
-                        <td class="text-right" style="width:26%; font-weight:600;">Rs {{ number_format($item->teacher_cut, 2) }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="3" class="text-right" style="color:#434655; font-size:10px; text-transform:uppercase;">Total</td>
-                        <td class="text-right" style="color:#1e3a8a;">Rs {{ number_format($totalCut, 2) }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    @endforeach
-
-    {{-- Fixed allowances --}}
-    @if($fixedItems->count() > 0)
-        @php $totalFixed = $fixedItems->sum('teacher_cut'); @endphp
-        <div class="subject-wrap">
-            <div class="subject-header">Fixed Allowances</div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th style="width:70%;">Detail</th>
-                        <th class="text-right" style="width:30%;">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($fixedItems as $item)
-                    @php
-                        $classInfo = trim(
-                            ($item->academyClass->name ?? '') . ' ' .
-                            ($item->major->name ?? '') . ' ' .
-                            ($item->section->name ?? '')
-                        );
-                        $title = ($item->subject->name ?? 'Fixed Payment') . ($classInfo ? " ($classInfo)" : '');
-                    @endphp
-                    <tr>
-                        <td style="width:70%;">{{ $title }}</td>
-                        <td class="text-right" style="width:30%; font-weight:600;">Rs {{ number_format($item->teacher_cut, 2) }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td class="text-right" style="color:#434655; font-size:10px; text-transform:uppercase;">Total</td>
-                        <td class="text-right" style="color:#1e3a8a;">Rs {{ number_format($totalFixed, 2) }}</td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    @endif
+    {{-- Fixed Salary Only --}}
+    <div class="subject-wrap">
+        <div class="subject-header">Earnings</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width:70%;">Description</th>
+                    <th class="text-right" style="width:30%;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="width:70%; font-weight:600;">Fixed Salary</td>
+                    <td class="text-right" style="width:30%; font-weight:700; color:#1e3a8a;">
+                        Rs {{ number_format((float)$slip->total_amount, 2) }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 
     {{-- ══════════════════════════════════════════════════════════════════ --}}
     {{-- CALCULATION SUMMARY                                                --}}
@@ -357,7 +280,7 @@
     <div style="border-top: 2px dashed #e2e8f0; margin-top: 18px; padding-top: 14px;">
         <table class="calc-table" cellpadding="0" cellspacing="0">
             <tr>
-                <td>Base Earned Total:</td>
+                <td>Fixed Salary:</td>
                 <td class="text-right" style="font-weight:600;">Rs {{ number_format((float)$slip->total_amount, 2) }}</td>
             </tr>
             @if($offDeduction > 0)

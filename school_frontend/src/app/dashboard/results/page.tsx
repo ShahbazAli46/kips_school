@@ -82,15 +82,23 @@ function ResultsContent() {
     if (roundsParam) {
       return roundsParam.split(",").map((r) => r.trim()).filter(Boolean);
     }
+    if (selectedType === "rnt" && availableRounds.length > 0) {
+      return activeRounds.length > 0 ? [activeRounds[0]] : [availableRounds[0]];
+    }
     return availableRounds;
-  }, [roundsParam, availableRounds]);
+  }, [roundsParam, availableRounds, selectedType, activeRounds]);
 
   const handleToggleRound = (roundName: string) => {
     let next: string[];
-    if (selectedRounds.includes(roundName)) {
-      next = selectedRounds.filter((r) => r !== roundName);
+    if (selectedType === "rnt") {
+      // In R n T, selecting a round focuses that specific round for the result card
+      next = [roundName];
     } else {
-      next = [...selectedRounds, roundName];
+      if (selectedRounds.includes(roundName)) {
+        next = selectedRounds.filter((r) => r !== roundName);
+      } else {
+        next = [...selectedRounds, roundName];
+      }
     }
     const ordered = availableRounds.filter((r) => next.includes(r));
     updateURL("rounds", ordered.length === 0 ? "none" : ordered.join(","));
@@ -109,18 +117,25 @@ function ResultsContent() {
     updateURL("rounds", "none");
   };
 
-  const roundsQueryString =
+  const effectiveRoundsParam =
     roundsParam === "none"
       ? "none"
       : roundsParam
       ? roundsParam
+      : (selectedType === "rnt" && selectedRounds.length > 0 ? selectedRounds.join(",") : undefined);
+
+  const roundsQueryString =
+    effectiveRoundsParam === "none"
+      ? "none"
+      : effectiveRoundsParam
+      ? effectiveRoundsParam
       : undefined;
 
   const roundsNavQuery =
-    roundsParam === "none"
+    effectiveRoundsParam === "none"
       ? "&rounds=none"
-      : roundsParam
-      ? `&rounds=${encodeURIComponent(roundsParam)}`
+      : effectiveRoundsParam
+      ? `&rounds=${encodeURIComponent(effectiveRoundsParam)}`
       : "";
 
   // 3. Fetch Results via RTK Query
@@ -283,7 +298,7 @@ function ResultsContent() {
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-[#2563eb]" />
                   <span className="text-xs font-bold text-[#0f224a] uppercase tracking-wider">
-                    Evaluation Rounds / Test Series:
+                    {selectedType === "rnt" ? "R n T Round Selection:" : "Evaluation Rounds / Test Series:"}
                   </span>
                   <span className="text-[11px] text-slate-500 font-medium">
                     ({selectedRounds.length} of {availableRounds.length} selected for result cards)
@@ -411,7 +426,7 @@ function ResultsContent() {
               {isBroadcastingWhatsApp ? "Dispatching..." : "Broadcast via WhatsApp"}
             </button>
             <a 
-              href={`/dashboard/results/print-all?session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${selectedSection && selectedSection !== "all" ? "&section=" + selectedSection : ""}&session_name=${sessions.find(s => s.id.toString() === selectedSession.toString())?.name || ''}&class_name=${classes.find(c => c.id.toString() === selectedClass.toString())?.name || ''}${roundsNavQuery}`}
+              href={`/dashboard/results/print-all?session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}&type=${selectedType}${selectedSection && selectedSection !== "all" ? "&section=" + selectedSection : ""}&session_name=${sessions.find(s => s.id.toString() === selectedSession.toString())?.name || ''}&class_name=${classes.find(c => c.id.toString() === selectedClass.toString())?.name || ''}${roundsNavQuery}`}
               target="_blank"
               rel="noopener noreferrer"
               className="bg-[#2563eb] text-white hover:bg-[#1e40af] transition px-4 py-2 rounded-lg shadow-sm font-semibold flex items-center gap-2"
@@ -467,7 +482,7 @@ function ResultsContent() {
           {/* TOP 3 CARDS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {top3.map((r, idx) => (
-              <div key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`)} className={`cursor-pointer hover:scale-[1.02] transition-transform relative p-6 rounded-2xl border-2 flex flex-col items-center text-center shadow-sm overflow-hidden ${
+              <div key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}&type=${selectedType}${roundsNavQuery}`)} className={`cursor-pointer hover:scale-[1.02] transition-transform relative p-6 rounded-2xl border-2 flex flex-col items-center text-center shadow-sm overflow-hidden ${
                 idx === 0 ? "border-amber-400 bg-gradient-to-b from-amber-50 to-white" :
                 idx === 1 ? "border-slate-300 bg-gradient-to-b from-slate-50 to-white" :
                 "border-blue-300 bg-gradient-to-b from-orange-50 to-white"
@@ -528,7 +543,7 @@ function ResultsContent() {
                     </div>
                   </div>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`); }} 
+                    onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}&type=${selectedType}${roundsNavQuery}`); }} 
                     className="mt-1 w-full bg-[#f0f4f8] text-[#2563eb] border border-[#bfdbfe] hover:bg-[#2563eb] hover:text-white transition px-4 py-2 rounded-lg shadow-sm font-bold text-xs"
                   >
                     View Detailed Report
@@ -555,7 +570,7 @@ function ResultsContent() {
                 </thead>
                 <tbody className="divide-y divide-[#dbeafe]">
                   {rest.map((r) => (
-                    <tr key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`)} className="hover:bg-blue-100 cursor-pointer transition-colors">
+                    <tr key={r.student_id} onClick={() => router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}&type=${selectedType}${roundsNavQuery}`)} className="hover:bg-blue-100 cursor-pointer transition-colors">
                       <td className="px-5 py-3 font-bold text-gray-500 text-center">#{r.rank}</td>
                       <td className="px-5 py-3 font-medium text-[#1e3a8a]">
                         <div className="flex items-center gap-3">
@@ -586,13 +601,13 @@ function ResultsContent() {
                       <td className="px-5 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button 
-                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`); }} 
+                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/results/student-detail?id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}&type=${selectedType}${roundsNavQuery}`); }} 
                             className="bg-white border border-[#bfdbfe] text-[#2563eb] hover:bg-[#f0f4f8] transition px-2.5 py-1 rounded-lg shadow-xs text-xs font-bold whitespace-nowrap"
                           >
                             Details
                           </button>
                           <a
-                            href={`/dashboard/results/print?student_id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}${roundsNavQuery}`}
+                            href={`/dashboard/results/print?student_id=${r.student_id}&session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}&type=${selectedType}${roundsNavQuery}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}

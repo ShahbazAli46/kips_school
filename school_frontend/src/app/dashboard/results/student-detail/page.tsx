@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import ExcelResultCard from "@/components/ExcelResultCard";
+import RnTResultCard from "@/components/RnTResultCard";
 import {
   BarChart,
   Bar,
@@ -27,6 +28,7 @@ function StudentResultContent() {
   const sessionParam = searchParams.get("session");
   const classParam = searchParams.get("class");
   const categoryParam = searchParams.get("category");
+  const typeParam = searchParams.get("type");
   const roundsParam = searchParams.get("rounds");
   const selectedRounds = roundsParam ? roundsParam.split(",").map(r => r.trim()).filter(Boolean) : undefined;
 
@@ -37,7 +39,11 @@ function StudentResultContent() {
   const [student, setStudent] = useState<any>(null);
   const [details, setDetails] = useState<any[]>([]);
   const [individualTests, setIndividualTests] = useState<any[]>([]);
+  const [rounds, setRounds] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [selectedRoundFilter, setSelectedRoundFilter] = useState<string>(
+    selectedRounds && selectedRounds.length === 1 ? selectedRounds[0] : ""
+  );
   const [loading, setLoading] = useState(true);
   const [loadingCategory, setLoadingCategory] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -167,9 +173,11 @@ function StudentResultContent() {
           if (detailsData.subjects) {
             setDetails(detailsData.subjects);
             setIndividualTests(detailsData.tests || []);
+            setRounds(detailsData.rounds || []);
           } else {
             setDetails(Array.isArray(detailsData) ? detailsData : []);
             setIndividualTests([]);
+            setRounds([]);
           }
         }
       } catch (err) {
@@ -253,6 +261,23 @@ function StudentResultContent() {
 
   // Unique test titles for the graph filter
   const testTitles = Array.from(new Set(individualTests.map(t => t.test_title)));
+
+  const currentCategoryObj = categories.find((c) => c.id.toString() === category || c.type === category);
+  const isRnT =
+    typeParam === "rnt" ||
+    category === "rnt" ||
+    currentCategoryObj?.type === "rnt" ||
+    currentCategoryObj?.name?.toLowerCase().includes("r n t") ||
+    currentCategoryObj?.name?.toLowerCase().includes("r&t") ||
+    currentCategoryObj?.name?.toLowerCase().includes("rnt") ||
+    currentCategoryObj?.name?.toLowerCase().includes("revision");
+
+  const availableRoundTitles = Array.from(
+    new Set([
+      ...(rounds || []).map((r: any) => r.title).filter(Boolean),
+      ...(individualTests || []).map((t: any) => t.test_title).filter(Boolean),
+    ])
+  );
 
   // Compute chart data based on selected test title
   const chartData = selectedTestTitle === "all"
@@ -363,7 +388,7 @@ function StudentResultContent() {
               {sendingEmail ? "Sending..." : "Email Report"}
             </button>
             <Link 
-              href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}${roundsParam ? `&rounds=${encodeURIComponent(roundsParam)}` : ""}`}
+              href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}&type=${isRnT ? "rnt" : "class_test"}&rounds=${encodeURIComponent(selectedRoundFilter || roundsParam || "")}`}
               target="_blank"
               className="text-white hover:bg-[#1e40af] transition bg-[#2563eb] px-6 py-2.5 rounded-xl shadow-md text-sm font-bold flex items-center justify-center gap-2"
             >
@@ -427,7 +452,7 @@ function StudentResultContent() {
           </div>
 
           <Link
-            href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}${roundsParam ? `&rounds=${encodeURIComponent(roundsParam)}` : ""}`}
+            href={`/dashboard/results/print?student_id=${student.student_id}&session=${session}&class=${academyClass}&category=${category}&type=${isRnT ? "rnt" : "class_test"}&rounds=${encodeURIComponent(selectedRoundFilter || roundsParam || "")}`}
             target="_blank"
             className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-1"
           >
@@ -435,18 +460,60 @@ function StudentResultContent() {
           </Link>
         </div>
 
-        {/* 1. Official Excel Result Card View */}
+        {/* 1. Official Result Card View (Excel or R n T) */}
         {(selectedTestTitle === "result_card" || selectedTestTitle === "all") && !loadingCategory && (
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-[#bfdbfe]">
-            <ExcelResultCard
-              student={student}
-              subjects={details}
-              tests={individualTests}
-              categoryTitle={categories.find((c) => c.id.toString() === category)?.name || "First Term"}
-              sessionTitle={fallbackProfile?.academic_session?.name || "Session 2026-27"}
-              showChart={false}
-              selectedRounds={selectedRounds}
-            />
+            {/* Round Selector for R n T */}
+            {isRnT && availableRoundTitles.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-blue-50/70 border border-blue-200 rounded-xl">
+                <span className="text-xs font-black text-blue-900 uppercase tracking-wider">
+                  Select Round:
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {availableRoundTitles.map((rTitle) => {
+                    const isSel = (selectedRoundFilter || availableRoundTitles[0]) === rTitle;
+                    return (
+                      <button
+                        key={rTitle}
+                        type="button"
+                        onClick={() => setSelectedRoundFilter(rTitle)}
+                        className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                          isSel
+                            ? "bg-blue-700 text-white shadow-sm ring-2 ring-blue-400"
+                            : "bg-white text-blue-800 border border-blue-300 hover:bg-blue-100"
+                        }`}
+                      >
+                        {rTitle}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {isRnT ? (
+              <RnTResultCard
+                student={student}
+                subjects={details}
+                tests={individualTests}
+                rounds={rounds}
+                categoryTitle={currentCategoryObj?.name || "R n T"}
+                sessionTitle={fallbackProfile?.academic_session?.name || "Session 2026-27"}
+                showChart={false}
+                selectedRounds={selectedRoundFilter ? [selectedRoundFilter] : selectedRounds}
+              />
+            ) : (
+              <ExcelResultCard
+                student={student}
+                subjects={details}
+                tests={individualTests}
+                rounds={rounds}
+                categoryTitle={currentCategoryObj?.name || "First Term"}
+                sessionTitle={fallbackProfile?.academic_session?.name || "Session 2026-27"}
+                showChart={false}
+                selectedRounds={selectedRounds}
+              />
+            )}
           </div>
         )}
 

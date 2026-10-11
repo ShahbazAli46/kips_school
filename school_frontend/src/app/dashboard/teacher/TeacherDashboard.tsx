@@ -2155,38 +2155,28 @@ export default function TeacherDashboard() {
               </div>
             </div>
 
-            {/* Itemized Items */}
-            {selectedSlipDetail.items && selectedSlipDetail.items.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider">Itemized Earnings</h4>
-                <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-100 text-slate-700 font-bold border-b">
-                      <tr>
-                        <th className="px-3 py-2">Subject / Class</th>
-                        <th className="px-3 py-2">Type</th>
-                        <th className="px-3 py-2">Student</th>
-                        <th className="px-3 py-2 text-right">Earning (PKR)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {selectedSlipDetail.items.map((item: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="px-3 py-2 font-semibold text-slate-800">
-                            {item.subject?.name || "Flat Monthly"} {item.academy_class ? `(${item.academy_class.name})` : ""}
-                          </td>
-                          <td className="px-3 py-2 capitalize text-slate-500">{item.payment_type}</td>
-                          <td className="px-3 py-2 text-slate-600">{item.student?.name || "—"}</td>
-                          <td className="px-3 py-2 text-right font-bold text-slate-900">
-                            Rs {Number(item.teacher_cut || item.fixed_amount || 0).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            {/* Earnings - Only Fixed Salary */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider">Earnings</h4>
+              <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b">
+                    <tr>
+                      <th className="px-3 py-2">Description</th>
+                      <th className="px-3 py-2 text-right">Amount (PKR)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="hover:bg-slate-50">
+                      <td className="px-3 py-2.5 font-semibold text-slate-800">Fixed Salary</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-slate-900">
+                        Rs {Number(selectedSlipDetail.total_amount || 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            )}
+            </div>
 
             {/* Payments History */}
             {selectedSlipDetail.payments && selectedSlipDetail.payments.length > 0 && (

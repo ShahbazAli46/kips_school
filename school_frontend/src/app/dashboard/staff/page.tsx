@@ -1563,12 +1563,19 @@ export default function ManageStaffPage() {
   // Filtered staff members
   const filtered = useMemo(() => {
     return staffList.filter((s) => {
+      const allAssignments = s.teacher_assignments || (s as any).teacherAssignments || [];
       const matchesSearch =
         s.name.toLowerCase().includes(search.toLowerCase()) ||
         (s.email && s.email.toLowerCase().includes(search.toLowerCase())) ||
         (s.qualification && s.qualification.toLowerCase().includes(search.toLowerCase())) ||
         (s.contact_number && s.contact_number.includes(search)) ||
-        (s.designation?.name && s.designation.name.toLowerCase().includes(search.toLowerCase()));
+        (s.designation?.name && s.designation.name.toLowerCase().includes(search.toLowerCase())) ||
+        allAssignments.some(
+          (a: any) =>
+            Boolean(a.is_class_incharge) &&
+            (a.academy_class?.name?.toLowerCase().includes(search.toLowerCase()) ||
+              a.section?.name?.toLowerCase().includes(search.toLowerCase()))
+        );
 
       if (!matchesSearch) return false;
 
@@ -1587,7 +1594,7 @@ export default function ManageStaffPage() {
       if (statusFilter === "online") return s.is_online;
       if (statusFilter === "signed") return !!s.signature;
       if (statusFilter === "incharge") {
-        return s.teacher_assignments?.some((a) => a.is_class_incharge);
+        return allAssignments.some((a: any) => Boolean(a.is_class_incharge));
       }
 
       return true;
@@ -1599,7 +1606,10 @@ export default function ManageStaffPage() {
   // Metric counts
   const totalCount = summary?.total_teachers ?? staffList.length;
   const signedCount = staffList.filter((s) => !!s.signature).length;
-  const inchargeCount = staffList.filter((s) => s.teacher_assignments?.some((a) => a.is_class_incharge)).length;
+  const inchargeCount = staffList.filter((s) => {
+    const assigns = s.teacher_assignments || (s as any).teacherAssignments || [];
+    return assigns.some((a: any) => Boolean(a.is_class_incharge));
+  }).length;
   const atAcademyCount = summary?.at_academy_today ?? staffList.filter((s) => s.location_telemetry?.presence_status === "inside_academy").length;
   const onlineCount = summary?.online_now ?? staffList.filter((s) => s.is_online).length;
 
@@ -1615,46 +1625,44 @@ export default function ManageStaffPage() {
 
         {/* Header Banner */}
         <div
-          className="rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-xl"
+          className="rounded-2xl py-3.5 px-5 sm:py-4 sm:px-6 text-white relative overflow-hidden shadow-md border border-white/10"
           style={{
             background: "linear-gradient(135deg, #0b1329 0%, #0f224a 55%, #1e3a8a 100%)",
           }}
         >
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 text-blue-200 border border-white/20">
-                  Staff &amp; Faculty Administration
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-white">
+                  Staff Members &amp; Class Incharge
+                </h1>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-blue-200 border border-white/15">
+                  Academic Faculty
                 </span>
-                <span className="text-xs text-blue-200/80">• Academic Roles &amp; Incharge</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                Staff Members, Subjects &amp; Class Incharge
-              </h1>
-              <p className="mt-1.5 text-sm text-blue-100/90 max-w-2xl leading-relaxed">
-                Manage teaching faculty, assign specific subjects to classes &amp; sections, designate official <strong>Class Incharge</strong> roles, and manage digital signatures.
+              <p className="text-xs text-blue-200/80 mt-0.5">
+                Manage faculty, assign teaching subjects, designate Class Incharge roles, and digital signatures.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               <Link
                 href="/dashboard/designations"
-                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/20 text-white transition flex items-center gap-2 backdrop-blur-sm"
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 border border-white/20 text-white transition flex items-center gap-1.5 backdrop-blur-sm"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                Manage Designations
+                <span>Designations</span>
               </Link>
 
               <button
                 onClick={() => fetchData(true)}
                 disabled={refreshing}
-                className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/20 text-white transition flex items-center gap-1.5"
-                title="Refresh staff"
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 border border-white/20 text-white transition flex items-center gap-1.5"
+                title="Refresh staff list"
               >
-                <svg className={`w-4 h-4 ${refreshing ? "animate-spin text-blue-300" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-blue-300" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 <span>{refreshing ? "Syncing..." : "Sync"}</span>
@@ -1666,12 +1674,12 @@ export default function ManageStaffPage() {
                     setModalError("");
                     setShowCreate(true);
                   }}
-                  className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-[#0f224a] hover:bg-blue-50 transition shadow-lg shadow-black/10 flex items-center gap-2 active:scale-95"
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-[#0f224a] hover:bg-blue-50 transition shadow-sm flex items-center gap-1.5 active:scale-95"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-[#2563eb]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                   </svg>
-                  Add Staff Member
+                  <span>Add Staff Member</span>
                 </button>
               )}
             </div>
@@ -1866,8 +1874,8 @@ export default function ManageStaffPage() {
                 <thead>
                   <tr className="bg-[#f0f4f8] text-[#1e3a8a] text-xs font-bold uppercase tracking-wider border-b border-[#bfdbfe]">
                     <th className="py-3.5 px-5">Staff Member</th>
-                    <th className="py-3.5 px-5">Designation</th>
-                    <th className="py-3.5 px-5">Teaching &amp; Class Incharge</th>
+                    <th className="py-3.5 px-5">Designation &amp; Incharge</th>
+                    <th className="py-3.5 px-5">Teaching Assignments</th>
                     <th className="py-3.5 px-5 text-center">Digital Signature</th>
                     <th className="py-3.5 px-5">GPS / Geofence</th>
                     <th className="py-3.5 px-5 text-center">Mobile App</th>
@@ -1885,8 +1893,9 @@ export default function ManageStaffPage() {
                         : `${STORAGE_URL}/${staff.signature}`
                       : null;
 
-                    const inchargeAssignments = staff.teacher_assignments?.filter((a) => a.is_class_incharge) || [];
-                    const totalAssignments = staff.teacher_assignments?.length || 0;
+                    const allAssignments = staff.teacher_assignments || (staff as any).teacherAssignments || [];
+                    const inchargeAssignments = allAssignments.filter((a: any) => Boolean(a.is_class_incharge));
+                    const totalAssignments = allAssignments.length;
 
                     return (
                       <tr key={staff.id} className="hover:bg-blue-50/40 transition-colors group">
@@ -1923,31 +1932,25 @@ export default function ManageStaffPage() {
                           </div>
                         </td>
 
-                        {/* Assigned Designation */}
+                        {/* Assigned Designation & Class Incharge Role */}
                         <td className="py-3.5 px-5">
-                          {staff.designation?.name ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#1e40af] border border-blue-200 shadow-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb]" />
-                              {staff.designation.name}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs text-slate-400 bg-slate-50 border border-slate-200">
-                              Unassigned
-                            </span>
-                          )}
-                          {staff.qualification && (
-                            <p className="text-[11px] text-slate-500 mt-1 truncate max-w-[150px]">
-                              {staff.qualification}
-                            </p>
-                          )}
-                        </td>
+                          <div className="flex flex-col gap-1.5 items-start">
+                            {/* Official Designation */}
+                            {staff.designation?.name ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#1e40af] border border-blue-200 shadow-xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#2563eb]" />
+                                {staff.designation.name}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs text-slate-400 bg-slate-50 border border-slate-200">
+                                Unassigned
+                              </span>
+                            )}
 
-                        {/* Teaching & Class Incharge Role */}
-                        <td className="py-3.5 px-5">
-                          <div className="space-y-1">
-                            {inchargeAssignments.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {inchargeAssignments.map((ia) => (
+                            {/* Class Incharge Badge */}
+                            {inchargeAssignments.length > 0 && (
+                              <div className="flex flex-col gap-1">
+                                {inchargeAssignments.map((ia: any) => (
                                   <span
                                     key={ia.id}
                                     className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs"
@@ -1961,13 +1964,24 @@ export default function ManageStaffPage() {
                                   </span>
                                 ))}
                               </div>
-                            ) : null}
+                            )}
 
+                            {staff.qualification && (
+                              <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[170px]">
+                                {staff.qualification}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Teaching Assignments */}
+                        <td className="py-3.5 px-5">
+                          <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               {totalAssignments > 0 ? (
                                 <button
                                   onClick={() => setAssignmentTarget(staff)}
-                                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563eb] hover:text-[#1e3a8a] hover:underline"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-[#2563eb] bg-blue-50 hover:bg-blue-100 border border-blue-200 transition"
                                 >
                                   <span>📘 {totalAssignments} Assigned</span>
                                   <span className="text-[10px] text-slate-400">✏️</span>
@@ -1975,7 +1989,7 @@ export default function ManageStaffPage() {
                               ) : (
                                 <button
                                   onClick={() => setAssignmentTarget(staff)}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold text-[#2563eb] bg-blue-50 hover:bg-blue-100 border border-dashed border-blue-300 transition"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-[#2563eb] bg-blue-50 hover:bg-blue-100 border border-dashed border-blue-300 transition"
                                 >
                                   <span>+</span>
                                   <span>Assign Subjects &amp; Incharge</span>

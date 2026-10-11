@@ -3,3 +3,5 @@ kips_live_dump.sql.gz
 *.sql
 *.sql.gz
 .DS_Store
+.idea/
+*.iml

@@ -152,6 +152,7 @@ class TeacherLocationController extends Controller
                 'designation',
                 'teacherAssignments.academyClass',
                 'teacherAssignments.subject',
+                'teacherAssignments.section',
                 'fcmTokens' => function ($q) {
                     $q->orderBy('updated_at', 'desc');
                 }
@@ -198,6 +199,15 @@ class TeacherLocationController extends Controller
                 'contact_number' => $teacher->contact_number,
                 'emergency_contact' => $teacher->emergency_contact,
                 'qualification' => $teacher->qualification,
+                'teaching_exp_year' => $teacher->teaching_exp_year,
+                'monthly_salary' => $teacher->monthly_salary,
+                'bf_percentage' => $teacher->bf_percentage,
+                'joining_date' => $teacher->joining_date,
+                'resignation_date' => $teacher->resignation_date,
+                'resignation_remarks' => $teacher->resignation_remarks,
+                'designation_id' => $teacher->designation_id,
+                'designation' => $teacher->designation,
+                'teacher_assignments' => $teacher->teacherAssignments,
                 'image' => $teacher->image,
                 'signature' => $teacher->signature,
                 'is_online' => $isOnline,

@@ -17,37 +17,73 @@ export default function RnTResultCard({
     let finalRoundsList = [...(rounds || [])];
     if (finalRoundsList.length === 0) {
       if (tests && tests.length > 0) {
-        finalRoundsList = [{ title: tests[0].test_title || "Test 1" }];
+        const uniqueTitles = Array.from(new Set(tests.map(t => t.test_title).filter(Boolean)));
+        finalRoundsList = uniqueTitles.map(t => ({ title: t }));
       } else {
-        finalRoundsList = [{ title: "T1" }];
+        finalRoundsList = [{ title: "Round 1" }];
       }
     }
     
     if (selectedRounds && selectedRounds.length > 0) {
       const selectedSet = new Set(selectedRounds.map(s => s.trim().toLowerCase()));
       const filtered = finalRoundsList.filter(r => selectedSet.has(r.title.trim().toLowerCase()));
-      selectedRounds.forEach(sr => {
-        const trimmed = sr.trim();
-        if (!filtered.some(f => f.title.trim().toLowerCase() === trimmed.toLowerCase())) {
-          filtered.push({ title: trimmed, date: undefined });
-        }
-      });
-      return filtered.length > 0 ? filtered : finalRoundsList;
+      return filtered.length > 0 ? filtered : finalRoundsList.slice(0, 1);
     }
-    return finalRoundsList;
+    
+    // If no specific round was passed, default to the first round so only one round shows
+    return finalRoundsList.length > 0 ? [finalRoundsList[0]] : [{ title: "Round 1" }];
   }, [rounds, tests, selectedRounds]);
 
-  // Aggregate grand totals from subjects to be safe
+  // Compute marks for each subject specifically for the displayed round(s)
+  const subjectStats = useMemo(() => {
+    return subjects.map((sub) => {
+      const matchedTests = (tests || []).filter(
+        t =>
+          (String(t.subject_id) === String(sub.subject_id) || t.subject_name?.toLowerCase() === sub.subject_name?.toLowerCase()) &&
+          finalRounds.some(r => r.title.toLowerCase() === t.test_title?.toLowerCase())
+      );
+
+      let max = 0;
+      let obt = 0;
+      let hasTests = false;
+
+      matchedTests.forEach(t => {
+        hasTests = true;
+        max += Number(t.total_marks || 0);
+        if (!t.is_absent) {
+          obt += Number(t.obtained_marks || 0);
+        }
+      });
+
+      if (!hasTests) {
+        max = Number(sub.total_max || 0);
+        obt = Number(sub.total_obtained || 0);
+      }
+
+      const pct = max > 0 ? Math.round((obt / max) * 100) : 0;
+
+      return {
+        ...sub,
+        computed_max: max,
+        computed_obtained: obt,
+        computed_percentage: pct,
+      };
+    });
+  }, [subjects, tests, finalRounds]);
+
+  // Aggregate grand totals from subjectStats
   const grandTotalMax = useMemo(() => {
-    return subjects.reduce((sum, s) => sum + Number(s.total_max || 0), 0);
-  }, [subjects]);
+    return subjectStats.reduce((sum, s) => sum + s.computed_max, 0);
+  }, [subjectStats]);
 
   const grandTotalObtained = useMemo(() => {
-    return subjects.reduce((sum, s) => sum + Number(s.total_obtained || 0), 0);
-  }, [subjects]);
+    return subjectStats.reduce((sum, s) => sum + s.computed_obtained, 0);
+  }, [subjectStats]);
 
   const grandPercentage = grandTotalMax > 0 ? Math.round((grandTotalObtained / grandTotalMax) * 100) : 0;
   const grandGrade = calculateGrade(grandPercentage);
+
+  const roundTitleSuffix = finalRounds.length === 1 ? ` (${finalRounds[0].title.toUpperCase()})` : '';
 
   return (
     <div className="w-full max-w-[297mm] mx-auto bg-white text-black p-2 print:p-0 print:m-0" style={{ fontFamily: "Arial, sans-serif" }}>
@@ -61,7 +97,7 @@ export default function RnTResultCard({
           NAME: <span className="ml-2 font-normal border-b border-black inline-block min-w-[150px]">{student.name}</span>
         </div>
         <div className="text-center text-[12px] font-extrabold whitespace-nowrap self-center">
-          STUDENT PROGRESS REPORT IN {categoryTitle?.toUpperCase() || "REVISION & TEST"} - SESSION {sessionTitle}
+          STUDENT PROGRESS REPORT IN {categoryTitle?.toUpperCase() || "REVISION & TEST"}{roundTitleSuffix} - SESSION {sessionTitle}
         </div>
         <div className="text-right flex justify-end items-center">
           REG NO. <span className="ml-2 font-normal border-b border-black inline-block min-w-[60px] text-center">{student.roll_number}</span>
@@ -96,7 +132,7 @@ export default function RnTResultCard({
                 {subjects.map((sub, sIdx) => {
                   const matchingTest = (tests || []).find(
                     t =>
-                      (t.subject_id == sub.subject_id || t.subject_name?.toLowerCase() === sub.subject_name?.toLowerCase()) &&
+                      (String(t.subject_id) === String(sub.subject_id) || t.subject_name?.toLowerCase() === sub.subject_name?.toLowerCase()) &&
                       t.test_title?.toLowerCase() === round.title.toLowerCase()
                   );
 
@@ -126,21 +162,21 @@ export default function RnTResultCard({
 
             {/* Total Marks Row */}
             <tr className="font-bold bg-gray-100 print:bg-transparent">
-              {subjects.map((sub, idx) => (
+              {subjectStats.map((sub, idx) => (
                 <React.Fragment key={`tm-${idx}`}>
                   <td colSpan={2} className="border border-black p-1 text-right pr-2">Total Marks</td>
-                  <td className="border border-black p-1 text-center">{sub.total_max || 0}</td>
-                  <td className="border border-black p-1 text-center">{sub.total_obtained || 0}</td>
+                  <td className="border border-black p-1 text-center">{sub.computed_max}</td>
+                  <td className="border border-black p-1 text-center">{sub.computed_obtained}</td>
                 </React.Fragment>
               ))}
             </tr>
 
             {/* Percentage Row */}
             <tr className="font-bold bg-gray-100 print:bg-transparent">
-              {subjects.map((sub, idx) => (
+              {subjectStats.map((sub, idx) => (
                 <React.Fragment key={`pct-${idx}`}>
                   <td colSpan={2} className="border border-black p-1 text-right pr-2">Percentage</td>
-                  <td colSpan={2} className="border border-black p-1 text-center">{sub.percentage || 0}%</td>
+                  <td colSpan={2} className="border border-black p-1 text-center">{sub.computed_percentage}%</td>
                 </React.Fragment>
               ))}
             </tr>

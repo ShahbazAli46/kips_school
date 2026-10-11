@@ -47,23 +47,36 @@ class ResultController extends Controller
             ->values()
             ->toArray();
 
-        // Also build standard template round names matching Excel (up to 5 rounds)
+        // Also build standard template round names matching Excel (up to 5 rounds for regular tests)
         $categoryName = null;
+        $categoryType = null;
         if (is_numeric($validated['test_category_id'])) {
-            $categoryName = DB::table('test_categories')->where('id', $validated['test_category_id'])->value('name');
+            $catRecord = DB::table('test_categories')->where('id', $validated['test_category_id'])->first();
+            $categoryName = $catRecord ? $catRecord->name : null;
+            $categoryType = $catRecord ? $catRecord->type : null;
+        } else {
+            $categoryType = $validated['test_category_id'];
         }
-        $defaultRoundNames = [
-            $categoryName ?: "First Term",
-            "Round 2",
-            "Round 3",
-            "Round 4",
-            "Round 5"
-        ];
 
-        $rounds = $dbTitles;
-        while (count($rounds) < 5) {
-            $nextIdx = count($rounds);
-            $rounds[] = $defaultRoundNames[$nextIdx] ?? ("Round " . ($nextIdx + 1));
+        $isRnt = ($categoryType === 'rnt' || 
+                  ($categoryName && (stripos($categoryName, 'r n t') !== false || stripos($categoryName, 'r&t') !== false)));
+
+        if ($isRnt) {
+            $rounds = $dbTitles;
+        } else {
+            $defaultRoundNames = [
+                $categoryName ?: "First Term",
+                "Round 2",
+                "Round 3",
+                "Round 4",
+                "Round 5"
+            ];
+
+            $rounds = $dbTitles;
+            while (count($rounds) < 5) {
+                $nextIdx = count($rounds);
+                $rounds[] = $defaultRoundNames[$nextIdx] ?? ("Round " . ($nextIdx + 1));
+            }
         }
 
         $classId = $validated['academy_class_id'];
