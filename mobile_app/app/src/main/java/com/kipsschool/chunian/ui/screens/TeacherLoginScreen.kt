@@ -2,10 +2,8 @@ package com.kipsschool.chunian.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -56,7 +54,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kipsschool.chunian.data.local.SessionManager
@@ -66,15 +63,28 @@ import com.kipsschool.chunian.ui.components.AnimatedGlassCard
 import com.kipsschool.chunian.ui.components.AnimatedOtpInput
 import com.kipsschool.chunian.ui.components.GlowingKipsLogo
 import com.kipsschool.chunian.ui.theme.AuraGold
-import com.kipsschool.chunian.ui.theme.CobaltBlue
-import com.kipsschool.chunian.ui.theme.CoralError
-import com.kipsschool.chunian.ui.theme.EmeraldSuccess
-import com.kipsschool.chunian.ui.theme.MidnightNavy
+import com.kipsschool.chunian.ui.theme.BannerErrorBg
+import com.kipsschool.chunian.ui.theme.BannerErrorBorder
+import com.kipsschool.chunian.ui.theme.BannerErrorText
+import com.kipsschool.chunian.ui.theme.BannerSuccessBg
+import com.kipsschool.chunian.ui.theme.BannerSuccessBorder
+import com.kipsschool.chunian.ui.theme.BannerSuccessText
+import com.kipsschool.chunian.ui.theme.Brand900
+import com.kipsschool.chunian.ui.theme.ButtonBorderSky
+import com.kipsschool.chunian.ui.theme.ButtonGradientEnd
+import com.kipsschool.chunian.ui.theme.ButtonGradientMid
+import com.kipsschool.chunian.ui.theme.ButtonGradientStart
+import com.kipsschool.chunian.ui.theme.InputBg
+import com.kipsschool.chunian.ui.theme.InputBgFocus
+import com.kipsschool.chunian.ui.theme.InputBorderFocus
+import com.kipsschool.chunian.ui.theme.InputBorderIdle
+import com.kipsschool.chunian.ui.theme.InputPlaceholder
 import com.kipsschool.chunian.ui.theme.SkyGlow
-import com.kipsschool.chunian.ui.theme.SkyPrimary
-import com.kipsschool.chunian.ui.theme.TextSkyMuted
-import com.kipsschool.chunian.ui.theme.TextSlate
-import com.kipsschool.chunian.ui.theme.TextWhite
+import com.kipsschool.chunian.ui.theme.TextHeading
+import com.kipsschool.chunian.ui.theme.TextLabel
+import com.kipsschool.chunian.ui.theme.TextMuted
+import com.kipsschool.chunian.ui.theme.TextSubheading
+import com.kipsschool.chunian.ui.theme.WebBackground
 import com.kipsschool.chunian.viewmodel.TeacherLoginViewModel
 
 @Composable
@@ -96,7 +106,6 @@ fun TeacherLoginScreen(
     val focusManager = LocalFocusManager.current
     var showServerDialog by remember { mutableStateOf(false) }
 
-    // If authenticated, show Teacher Welcome Screen
     if (screenState is AuthScreenState.Authenticated) {
         val user = (screenState as AuthScreenState.Authenticated).user
         TeacherWelcomeScreen(
@@ -109,29 +118,28 @@ fun TeacherLoginScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MidnightNavy)
+            .background(WebBackground)
     ) {
-        // Layer 0: Bioluminescent Fireflies Field Animation
+        // Layer 0: Bioluminescent Fireflies Field with web-exact colors & blooms
         AnimatedFireflyField(particleCount = 38)
 
-        // Main Scrollable Container
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .imePadding()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Animated Floating KIPS Logo & Faculty Header
+            // Animated Floating KIPS Logo & Header
             GlowingKipsLogo()
 
-            Spacer(modifier = Modifier.height(26.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Animated Crystal Glass Card
+            // Crystal Glass Card
             AnimatedGlassCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -139,7 +147,7 @@ fun TeacherLoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Feedback Messages (Animated Error & Success Banners)
+                    // Feedback Banners (exact web bg-red-950/40 and bg-emerald-950/40)
                     AnimatedVisibility(
                         visible = errorMessage != null,
                         enter = fadeIn() + expandVertically(),
@@ -151,8 +159,8 @@ fun TeacherLoginScreen(
                                     .fillMaxWidth()
                                     .padding(bottom = 14.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(CoralError.copy(alpha = 0.15f))
-                                    .border(1.dp, CoralError.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                    .background(BannerErrorBg)
+                                    .border(1.dp, BannerErrorBorder, RoundedCornerShape(12.dp))
                                     .padding(12.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -160,9 +168,9 @@ fun TeacherLoginScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = msg,
-                                        color = Color(0xFFFCA5A5),
+                                        color = BannerErrorText,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -180,8 +188,8 @@ fun TeacherLoginScreen(
                                     .fillMaxWidth()
                                     .padding(bottom = 14.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(EmeraldSuccess.copy(alpha = 0.15f))
-                                    .border(1.dp, EmeraldSuccess.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                    .background(BannerSuccessBg)
+                                    .border(1.dp, BannerSuccessBorder, RoundedCornerShape(12.dp))
                                     .padding(12.dp)
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -189,9 +197,9 @@ fun TeacherLoginScreen(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = msg,
-                                        color = Color(0xFF6EE7B7),
+                                        color = BannerSuccessText,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -265,10 +273,26 @@ fun TeacherLoginScreen(
                             }
                         }
                     }
+
+                    // Exact Web Footer Note (page.tsx line 850)
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color(0x1AFFFFFF))
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Powered by KIPS Management System",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Bottom Server Environment Switcher Pill
             Row(
@@ -284,12 +308,12 @@ fun TeacherLoginScreen(
                     modifier = Modifier
                         .size(7.dp)
                         .clip(CircleShape)
-                        .background(if (serverUrl.contains("kips.usachunian.com")) AuraGold else EmeraldSuccess)
+                        .background(if (serverUrl.contains("kips.usachunian.com")) AuraGold else BannerSuccessText)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = if (serverUrl.contains("kips.usachunian.com")) "Server: Live VPS" else "Server: Local (${serverUrl.substringAfter("://").substringBefore("/")})",
-                    color = TextSkyMuted,
+                    color = TextSubheading,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -303,13 +327,13 @@ fun TeacherLoginScreen(
                     modifier = Modifier
                         .padding(top = 10.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xEE0B132B))
-                        .border(1.dp, SkyGlow.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                        .background(Brand900.copy(alpha = 0.95f))
+                        .border(1.dp, SkyGlow.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
                         .padding(12.dp)
                 ) {
                     Text(
                         text = "Select Backend Endpoint",
-                        color = TextWhite,
+                        color = TextHeading,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -350,20 +374,20 @@ private fun ServerOption(title: String, selected: Boolean, onClick: () -> Unit) 
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) SkyPrimary.copy(alpha = 0.25f) else Color.Transparent)
+            .background(if (selected) Color(0x3338BDF8) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = if (selected) "✓" else "•",
-            color = if (selected) SkyGlow else TextSlate,
+            color = if (selected) SkyGlow else TextMuted,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.width(18.dp)
         )
         Text(
             text = title,
-            color = if (selected) TextWhite else TextSkyMuted,
+            color = if (selected) TextHeading else TextSubheading,
             fontSize = 12.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
         )
@@ -383,25 +407,25 @@ private fun StageIdentifier(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Official Faculty Sign In",
-            color = TextWhite,
+            color = TextHeading,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
             text = "Enter your registered email address or phone",
-            color = TextSkyMuted.copy(alpha = 0.8f),
+            color = TextSubheading,
             fontSize = 12.sp
         )
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // Identifier input
+        // Web exact input tokens: bg-white/[0.04], border-white/15, focus:border-sky-400
         OutlinedTextField(
             value = identifier,
             onValueChange = onIdentifierChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Email or Mobile Number", color = TextSkyMuted) },
-            placeholder = { Text("teacher@example.com or 03001234567", color = TextSlate) },
+            label = { Text("Email or Mobile Number", color = TextLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+            placeholder = { Text("teacher@example.com or 03001234567", color = InputPlaceholder, fontSize = 13.sp) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Email,
@@ -409,17 +433,16 @@ private fun StageIdentifier(
             ),
             keyboardActions = KeyboardActions(onDone = { onSubmit() }),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = TextWhite,
-                unfocusedTextColor = TextWhite,
-                focusedBorderColor = SkyGlow,
-                unfocusedBorderColor = Color(0x3338BDF8),
-                focusedContainerColor = Color(0x0EFFFFFF),
-                unfocusedContainerColor = Color(0x06FFFFFF)
+                focusedTextColor = TextHeading,
+                unfocusedTextColor = TextHeading,
+                focusedBorderColor = InputBorderFocus,
+                unfocusedBorderColor = InputBorderIdle,
+                focusedContainerColor = InputBgFocus,
+                unfocusedContainerColor = InputBg
             ),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(12.dp)
         )
 
-        // Smooth Animated Expand for Password when Phone Number entered
         AnimatedVisibility(
             visible = isPhone,
             enter = expandVertically(spring(dampingRatio = 0.6f, stiffness = 300f)) + fadeIn(),
@@ -431,8 +454,8 @@ private fun StageIdentifier(
                     value = password,
                     onValueChange = onPasswordChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Account Password / ID", color = TextSkyMuted) },
-                    placeholder = { Text("Enter your password", color = TextSlate) },
+                    label = { Text("Account Password / ID", color = TextLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                    placeholder = { Text("Enter your account password/ID", color = InputPlaceholder, fontSize = 13.sp) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(
@@ -441,23 +464,23 @@ private fun StageIdentifier(
                     ),
                     keyboardActions = KeyboardActions(onDone = { onSubmit() }),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = SkyGlow,
-                        unfocusedBorderColor = Color(0x3338BDF8),
-                        focusedContainerColor = Color(0x0EFFFFFF),
-                        unfocusedContainerColor = Color(0x06FFFFFF)
+                        focusedTextColor = TextHeading,
+                        unfocusedTextColor = TextHeading,
+                        focusedBorderColor = InputBorderFocus,
+                        unfocusedBorderColor = InputBorderIdle,
+                        focusedContainerColor = InputBgFocus,
+                        unfocusedContainerColor = InputBg
                     ),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Animated Radiant Action Button
+        // Web exact button gradient: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #1d4ed8 100%)
         AnimatedGradientButton(
-            text = if (isPhone) "Sign In to Portal" else "Send Verification Code",
+            text = if (isPhone) "Sign In to Portal" else "Send OTP Code",
             isLoading = isLoading,
             onClick = onSubmit
         )
@@ -481,8 +504,8 @@ private fun StageOtp(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Enter Verification Code",
-            color = TextWhite,
+            text = "Verify Code",
+            color = TextHeading,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
@@ -490,14 +513,13 @@ private fun StageOtp(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "We sent a 6-digit OTP code to",
-            color = TextSkyMuted,
+            text = "We sent a 6-digit verification code to",
+            color = TextSubheading,
             fontSize = 12.sp
         )
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Email pill
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
@@ -515,7 +537,6 @@ private fun StageOtp(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Animated 6-box OTP input
         AnimatedOtpInput(
             otpValue = otp,
             onOtpChange = onOtpChange,
@@ -525,9 +546,8 @@ private fun StageOtp(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Verify button
         AnimatedGradientButton(
-            text = "Verify & Access Portal",
+            text = "Verify & Sign In",
             isLoading = isLoading,
             enabled = otp.length == 6,
             onClick = onSubmit
@@ -535,7 +555,6 @@ private fun StageOtp(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Resend Timer Row
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
@@ -543,7 +562,7 @@ private fun StageOtp(
             if (resendCountdown > 0) {
                 Text(
                     text = "Resend code in ${resendCountdown}s",
-                    color = TextSlate,
+                    color = TextMuted,
                     fontSize = 12.sp
                 )
             } else {
@@ -560,8 +579,8 @@ private fun StageOtp(
 
         TextButton(onClick = onBack) {
             Text(
-                text = "← Use Different Account",
-                color = TextSkyMuted.copy(alpha = 0.8f),
+                text = "← Start Over with Different Account",
+                color = TextSubheading,
                 fontSize = 12.sp
             )
         }
@@ -579,13 +598,13 @@ private fun StageMigrateEmail(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Account Security Setup",
-            color = TextWhite,
+            color = TextHeading,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Please link your official email address to proceed.",
-            color = TextSkyMuted,
+            text = "Please link your email address to continue securely.",
+            color = TextSubheading,
             fontSize = 12.sp
         )
 
@@ -595,26 +614,26 @@ private fun StageMigrateEmail(
             value = migrateEmail,
             onValueChange = onMigrateEmailChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("New Email Address", color = TextSkyMuted) },
-            placeholder = { Text("your.email@example.com", color = TextSlate) },
+            label = { Text("New Email Address", color = TextLabel, fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+            placeholder = { Text("you@example.com", color = InputPlaceholder, fontSize = 13.sp) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { onSubmit() }),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = TextWhite,
-                unfocusedTextColor = TextWhite,
-                focusedBorderColor = SkyGlow,
-                unfocusedBorderColor = Color(0x3338BDF8),
-                focusedContainerColor = Color(0x0EFFFFFF),
-                unfocusedContainerColor = Color(0x06FFFFFF)
+                focusedTextColor = TextHeading,
+                unfocusedTextColor = TextHeading,
+                focusedBorderColor = InputBorderFocus,
+                unfocusedBorderColor = InputBorderIdle,
+                focusedContainerColor = InputBgFocus,
+                unfocusedContainerColor = InputBg
             ),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(12.dp)
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         AnimatedGradientButton(
-            text = "Link Email & Send Code",
+            text = "Link Email & Send OTP",
             isLoading = isLoading,
             onClick = onSubmit
         )
@@ -627,7 +646,7 @@ private fun StageMigrateEmail(
         ) {
             Text(
                 text = "← Back to Login",
-                color = TextSkyMuted,
+                color = TextSubheading,
                 fontSize = 12.sp
             )
         }
@@ -645,7 +664,7 @@ private fun AnimatedGradientButton(
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        animationSpec = spring(),
         label = "btn_scale"
     )
 
@@ -655,25 +674,25 @@ private fun AnimatedGradientButton(
             .fillMaxWidth()
             .height(52.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
+            // Exact web button: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #1d4ed8 100%)
             .background(
                 brush = Brush.horizontalGradient(
                     colors = if (enabled) listOf(
-                        SkyPrimary,
-                        CobaltBlue,
-                        SkyPrimary
+                        ButtonGradientStart,
+                        ButtonGradientMid,
+                        ButtonGradientEnd
                     ) else listOf(
                         Color(0xFF334155),
                         Color(0xFF1E293B)
                     )
                 )
             )
+            // Exact web button border: border-sky-400/40
             .border(
                 width = 1.dp,
-                brush = Brush.horizontalGradient(
-                    listOf(SkyGlow.copy(alpha = 0.8f), AuraGold.copy(alpha = 0.5f))
-                ),
-                shape = RoundedCornerShape(14.dp)
+                color = if (enabled) ButtonBorderSky else Color(0x33FFFFFF),
+                shape = RoundedCornerShape(12.dp)
             )
             .clickable(enabled = enabled && !isLoading) {
                 isPressed = true
@@ -683,7 +702,7 @@ private fun AnimatedGradientButton(
     ) {
         if (isLoading) {
             CircularProgressIndicator(
-                color = TextWhite,
+                color = TextHeading,
                 strokeWidth = 2.5.dp,
                 modifier = Modifier.size(24.dp)
             )
@@ -691,7 +710,7 @@ private fun AnimatedGradientButton(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = text,
-                    color = if (enabled) TextWhite else TextSlate,
+                    color = if (enabled) TextHeading else TextMuted,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
@@ -699,8 +718,8 @@ private fun AnimatedGradientButton(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "→",
-                    color = if (enabled) AuraGold else TextSlate,
-                    fontSize = 16.sp,
+                    color = if (enabled) TextSubheading else TextMuted,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
             }

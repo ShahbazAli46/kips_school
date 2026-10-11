@@ -43,13 +43,17 @@ import com.kipsschool.chunian.data.model.UserProfile
 import com.kipsschool.chunian.ui.components.AnimatedFireflyField
 import com.kipsschool.chunian.ui.components.AnimatedGlassCard
 import com.kipsschool.chunian.ui.theme.AuraGold
+import com.kipsschool.chunian.ui.theme.BannerErrorBg
+import com.kipsschool.chunian.ui.theme.BannerErrorBorder
+import com.kipsschool.chunian.ui.theme.BannerErrorText
+import com.kipsschool.chunian.ui.theme.Brand900
+import com.kipsschool.chunian.ui.theme.ButtonGradientStart
 import com.kipsschool.chunian.ui.theme.EmeraldSuccess
-import com.kipsschool.chunian.ui.theme.MidnightNavy
 import com.kipsschool.chunian.ui.theme.SkyGlow
-import com.kipsschool.chunian.ui.theme.SkyPrimary
-import com.kipsschool.chunian.ui.theme.TextSkyMuted
-import com.kipsschool.chunian.ui.theme.TextSlate
-import com.kipsschool.chunian.ui.theme.TextWhite
+import com.kipsschool.chunian.ui.theme.TextHeading
+import com.kipsschool.chunian.ui.theme.TextMuted
+import com.kipsschool.chunian.ui.theme.TextSubheading
+import com.kipsschool.chunian.ui.theme.WebBackground
 
 @Composable
 fun TeacherWelcomeScreen(
@@ -66,9 +70,8 @@ fun TeacherWelcomeScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MidnightNavy)
+            .background(WebBackground)
     ) {
-        // Living bioluminescent background
         AnimatedFireflyField(particleCount = 28)
 
         LazyColumn(
@@ -93,7 +96,6 @@ fun TeacherWelcomeScreen(
                             )
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        // Avatar Badge with Initials
                         val initials = user.name.split(" ")
                             .filter { it.isNotBlank() }
                             .take(2)
@@ -114,14 +116,14 @@ fun TeacherWelcomeScreen(
                                 .clip(CircleShape)
                                 .background(
                                     Brush.linearGradient(
-                                        listOf(SkyPrimary, AuraGold)
+                                        listOf(ButtonGradientStart, Brand900)
                                     )
                                 )
                                 .border(2.5.dp, SkyGlow, CircleShape)
                         ) {
                             Text(
                                 text = initials,
-                                color = TextWhite,
+                                color = TextHeading,
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.Black
                             )
@@ -129,7 +131,6 @@ fun TeacherWelcomeScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Verified Faculty Pill
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -158,14 +159,14 @@ fun TeacherWelcomeScreen(
 
                         Text(
                             text = "Welcome, ${user.name}",
-                            color = TextWhite,
+                            color = TextHeading,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold
                         )
 
                         Text(
                             text = "KIPS School Chunian — Teacher Portal",
-                            color = TextSkyMuted,
+                            color = TextSubheading,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -208,7 +209,6 @@ fun TeacherWelcomeScreen(
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Ready notice
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -219,7 +219,7 @@ fun TeacherWelcomeScreen(
                             ) {
                                 Text(
                                     text = "✨ Login session verified successfully! Next teacher modules (Attendance, Salary Slips, Diaries, Leaves) are ready to be connected.",
-                                    color = TextSkyMuted,
+                                    color = TextSubheading,
                                     fontSize = 12.sp,
                                     lineHeight = 17.sp
                                 )
@@ -260,17 +260,17 @@ fun TeacherWelcomeScreen(
                 Button(
                     onClick = onLogout,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0x26EF4444)
+                        containerColor = BannerErrorBg
                     ),
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp)
-                        .border(1.dp, Color(0x66EF4444), RoundedCornerShape(14.dp))
+                        .border(1.dp, BannerErrorBorder, RoundedCornerShape(14.dp))
                 ) {
                     Text(
                         text = "Sign Out from Teacher Portal",
-                        color = Color(0xFFFCA5A5),
+                        color = BannerErrorText,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
@@ -292,13 +292,13 @@ private fun ProfileRow(label: String, value: String) {
     ) {
         Text(
             text = label,
-            color = TextSlate,
+            color = TextMuted,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
         )
         Text(
             text = value,
-            color = TextWhite,
+            color = TextHeading,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )
@@ -321,13 +321,13 @@ private fun ModuleTeaserItem(icon: String, title: String, desc: String) {
         Column {
             Text(
                 text = title,
-                color = TextWhite,
+                color = TextHeading,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = desc,
-                color = TextSlate,
+                color = TextMuted,
                 fontSize = 11.sp
             )
         }

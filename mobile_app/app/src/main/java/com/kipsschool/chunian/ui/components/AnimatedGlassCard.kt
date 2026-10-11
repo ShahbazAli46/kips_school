@@ -14,7 +14,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.kipsschool.chunian.ui.theme.SkyGlow
+import com.kipsschool.chunian.ui.theme.WebGlassBorder
+import com.kipsschool.chunian.ui.theme.WebGlassBottom
+import com.kipsschool.chunian.ui.theme.WebGlassGlow
+import com.kipsschool.chunian.ui.theme.WebGlassSpecular
+import com.kipsschool.chunian.ui.theme.WebGlassTop
 
 @Composable
 fun AnimatedGlassCard(
@@ -26,29 +30,31 @@ fun AnimatedGlassCard(
 
     Box(
         modifier = modifier
+            // Exact web shadow: 0 30px 60px -12px rgba(0,0,0,0.65) and 0 0 40px rgba(56,189,248,0.15)
             .shadow(
-                elevation = 28.dp,
+                elevation = 26.dp,
                 shape = shape,
-                ambientColor = SkyGlow.copy(alpha = 0.25f),
-                spotColor = SkyGlow.copy(alpha = 0.25f)
+                ambientColor = WebGlassGlow,
+                spotColor = WebGlassGlow
             )
             .clip(shape)
+            // Exact web card gradient: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(15,23,42,0.28) 100%)
             .background(
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color(0x18FFFFFF),
-                        Color(0x100E1A38),
-                        Color(0x1C132247)
+                        WebGlassTop,
+                        WebGlassBottom
                     )
                 )
             )
+            // Exact web card border: 1px solid rgba(56, 189, 248, 0.28) with top specular highlight
             .border(
-                width = 1.2.dp,
+                width = 1.dp,
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        SkyGlow.copy(alpha = 0.55f),
-                        Color(0x1FFFFFFF),
-                        SkyGlow.copy(alpha = 0.25f)
+                        WebGlassSpecular,
+                        WebGlassBorder,
+                        WebGlassBorder.copy(alpha = 0.15f)
                     )
                 ),
                 shape = shape

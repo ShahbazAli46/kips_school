@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,8 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kipsschool.chunian.R
 import com.kipsschool.chunian.ui.theme.AuraGold
+import com.kipsschool.chunian.ui.theme.Brand900
 import com.kipsschool.chunian.ui.theme.SkyGlow
-import com.kipsschool.chunian.ui.theme.TextSkyMuted
+import com.kipsschool.chunian.ui.theme.TextSubheading
 import com.kipsschool.chunian.ui.theme.TextWhite
 
 @Composable
@@ -46,7 +48,6 @@ fun GlowingKipsLogo(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "logo_anim")
 
-    // Subtle floating breathing scale
     val scale by infiniteTransition.animateFloat(
         initialValue = 0.98f,
         targetValue = 1.03f,
@@ -57,10 +58,9 @@ fun GlowingKipsLogo(
         label = "logo_scale"
     )
 
-    // Pulsing halo alpha
     val haloAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.65f,
+        initialValue = 0.20f,
+        targetValue = 0.50f,
         animationSpec = infiniteRepeatable(
             animation = tween(2400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -76,18 +76,18 @@ fun GlowingKipsLogo(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(110.dp)
+                .size(105.dp)
                 .scale(scale)
         ) {
-            // Radiant Aura Background
+            // Ambient Radial Glow (matching web 0 10px 25px rgba(56,189,248,0.35))
             Box(
                 modifier = Modifier
-                    .size(96.dp)
+                    .size(95.dp)
                     .background(
                         brush = Brush.radialGradient(
                             colors = listOf(
                                 SkyGlow.copy(alpha = haloAlpha),
-                                AuraGold.copy(alpha = haloAlpha * 0.4f),
+                                AuraGold.copy(alpha = haloAlpha * 0.35f),
                                 Color.Transparent
                             )
                         ),
@@ -95,28 +95,23 @@ fun GlowingKipsLogo(
                     )
             )
 
-            // Glass/White Badge Housing the Emblem
+            // Web White/95 Rounded Badge (bg-white/95 rounded-2xl border border-sky-400/45)
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(80.dp)
                     .shadow(
-                        elevation = 20.dp,
-                        shape = RoundedCornerShape(22.dp),
-                        ambientColor = SkyGlow,
-                        spotColor = SkyGlow
+                        elevation = 18.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        ambientColor = SkyGlow.copy(alpha = 0.4f),
+                        spotColor = SkyGlow.copy(alpha = 0.4f)
                     )
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.White.copy(alpha = 0.95f))
                     .border(
                         width = 1.5.dp,
-                        brush = Brush.linearGradient(
-                            listOf(
-                                SkyGlow.copy(alpha = 0.9f),
-                                AuraGold.copy(alpha = 0.6f)
-                            )
-                        ),
-                        shape = RoundedCornerShape(22.dp)
+                        color = Color(0x7338BDF8), // rgba(56, 189, 248, 0.45)
+                        shape = RoundedCornerShape(20.dp)
                     )
                     .padding(8.dp)
             ) {
@@ -128,7 +123,7 @@ fun GlowingKipsLogo(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Faculty Badge Pill
         Box(
@@ -137,8 +132,8 @@ fun GlowingKipsLogo(
                 .background(
                     Brush.horizontalGradient(
                         listOf(
-                            SkyGlow.copy(alpha = 0.15f),
-                            AuraGold.copy(alpha = 0.15f)
+                            Brand900.copy(alpha = 0.45f),
+                            SkyGlow.copy(alpha = 0.15f)
                         )
                     )
                 )
@@ -146,8 +141,8 @@ fun GlowingKipsLogo(
                     width = 1.dp,
                     brush = Brush.horizontalGradient(
                         listOf(
-                            SkyGlow.copy(alpha = 0.6f),
-                            AuraGold.copy(alpha = 0.5f)
+                            SkyGlow.copy(alpha = 0.65f),
+                            AuraGold.copy(alpha = 0.50f)
                         )
                     ),
                     shape = RoundedCornerShape(100.dp)
@@ -155,7 +150,6 @@ fun GlowingKipsLogo(
                 .padding(horizontal = 14.dp, vertical = 4.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Little glowing dot
                 Box(
                     modifier = Modifier
                         .size(6.dp)
@@ -173,22 +167,23 @@ fun GlowingKipsLogo(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Title
+        // Exact web heading text
         Text(
-            text = "Welcome, Faculty",
+            text = "Welcome Back",
             color = TextWhite,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(3.dp))
 
+        // Exact web subtitle text & color (text-sky-200/80)
         Text(
-            text = "KIPS School Chunian Campus",
-            color = TextSkyMuted.copy(alpha = 0.85f),
+            text = "KIPS School Portal",
+            color = TextSubheading,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center

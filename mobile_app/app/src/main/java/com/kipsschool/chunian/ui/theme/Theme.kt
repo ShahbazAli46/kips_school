@@ -11,19 +11,19 @@ import androidx.core.view.WindowCompat
 
 private val KipsDarkColorScheme = darkColorScheme(
     primary = SkyGlow,
-    onPrimary = MidnightNavy,
-    primaryContainer = CobaltBlue,
-    onPrimaryContainer = TextWhite,
-    secondary = AuraGold,
-    onSecondary = MidnightNavy,
-    background = MidnightNavy,
-    onBackground = TextWhite,
-    surface = SurfaceCard,
-    onSurface = TextWhite,
-    surfaceVariant = SurfaceCardElevated,
-    onSurfaceVariant = TextSkyMuted,
+    onPrimary = WebBackground,
+    primaryContainer = Brand900,
+    onPrimaryContainer = TextHeading,
+    secondary = FireflyGoldAura,
+    onSecondary = WebBackground,
+    background = WebBackground,
+    onBackground = TextHeading,
+    surface = Brand950,
+    onSurface = TextHeading,
+    surfaceVariant = Brand900,
+    onSurfaceVariant = TextSubheading,
     error = CoralError,
-    onError = TextWhite
+    onError = TextHeading
 )
 
 @Composable
@@ -35,8 +35,9 @@ fun KipsSchoolTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                window.statusBarColor = MidnightNavy.toArgb()
-                window.navigationBarColor = MidnightNavy.toArgb()
+                // Match exact web dark background for status bar & navigation bar
+                window.statusBarColor = WebBackground.toArgb()
+                window.navigationBarColor = WebBackground.toArgb()
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
                 WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
             }

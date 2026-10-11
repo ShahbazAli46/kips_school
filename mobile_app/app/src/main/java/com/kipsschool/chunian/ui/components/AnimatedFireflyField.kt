@@ -20,10 +20,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.kipsschool.chunian.ui.theme.MidnightNavy
+import com.kipsschool.chunian.ui.theme.FireflyAmberAura
+import com.kipsschool.chunian.ui.theme.FireflyAmberCore
+import com.kipsschool.chunian.ui.theme.FireflyCyanAura
+import com.kipsschool.chunian.ui.theme.FireflyCyanCore
+import com.kipsschool.chunian.ui.theme.FireflyGoldAura
+import com.kipsschool.chunian.ui.theme.FireflyGoldCore
+import com.kipsschool.chunian.ui.theme.FireflyLimeAura
+import com.kipsschool.chunian.ui.theme.FireflyLimeCore
+import com.kipsschool.chunian.ui.theme.WebBackground
+import com.kipsschool.chunian.ui.theme.WebBgCyanCircle
+import com.kipsschool.chunian.ui.theme.WebBgEllipse
+import com.kipsschool.chunian.ui.theme.WebBloomBlue
+import com.kipsschool.chunian.ui.theme.WebBloomSky
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.random.Random
+
+private class FireflyColorPair(
+    val coreColor: Color,
+    val auraColor: Color
+)
 
 private class Firefly(
     var x: Float,
@@ -32,7 +49,7 @@ private class Firefly(
     var vy: Float,
     val baseRadius: Float,
     val maxGlowRadius: Float,
-    val color: Color,
+    val colorPair: FireflyColorPair,
     val flashPeriod: Float,
     var flashPhase: Float
 )
@@ -40,32 +57,32 @@ private class Firefly(
 @Composable
 fun AnimatedFireflyField(
     modifier: Modifier = Modifier,
-    particleCount: Int = 38
+    particleCount: Int = 40
 ) {
     val fireflies = remember { mutableStateListOf<Firefly>() }
 
-    // Aurora atmospheric breathing animation
+    // Breathing pulse for the atmospheric ambient blooms
     val infiniteTransition = rememberInfiniteTransition(label = "aurora")
-    val auroraAlpha1 by infiniteTransition.animateFloat(
-        initialValue = 0.12f,
-        targetValue = 0.28f,
+    val bloomScale1 by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 1.15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 4200, easing = LinearEasing),
+            animation = tween(durationMillis = 5000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "aurora1"
+        label = "bloom1"
     )
-    val auroraAlpha2 by infiniteTransition.animateFloat(
-        initialValue = 0.08f,
-        targetValue = 0.22f,
+    val bloomScale2 by infiniteTransition.animateFloat(
+        initialValue = 0.90f,
+        targetValue = 1.10f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 5600, easing = LinearEasing),
+            animation = tween(durationMillis = 6500, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "aurora2"
+        label = "bloom2"
     )
 
-    // Continuous 60fps particle loop
+    // 60fps smooth physics loop
     LaunchedEffect(Unit) {
         var lastTime = 0L
         while (true) {
@@ -78,11 +95,11 @@ fun AnimatedFireflyField(
                     f.x += f.vx
                     f.y += f.vy
 
-                    // Gentle drift direction change
-                    f.vx += (Random.nextFloat() - 0.5f) * 0.06f
-                    f.vy += (Random.nextFloat() - 0.5f) * 0.06f
-                    f.vx = f.vx.coerceIn(-1.5f, 1.5f)
-                    f.vy = f.vy.coerceIn(-1.5f, 1.5f)
+                    // Organic drift curvature
+                    f.vx += (Random.nextFloat() - 0.5f) * 0.05f
+                    f.vy += (Random.nextFloat() - 0.5f) * 0.05f
+                    f.vx = f.vx.coerceIn(-1.6f, 1.6f)
+                    f.vy = f.vy.coerceIn(-1.6f, 1.6f)
 
                     f.flashPhase += dt * (2f * PI.toFloat() / f.flashPeriod)
                     if (f.flashPhase > 2f * PI) {
@@ -96,7 +113,7 @@ fun AnimatedFireflyField(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MidnightNavy)
+            .background(WebBackground)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val width = size.width
@@ -104,63 +121,82 @@ fun AnimatedFireflyField(
 
             if (width <= 0f || height <= 0f) return@Canvas
 
-            // Lazy initialize fireflies when Canvas dimensions are known
+            // Lazy initialize fireflies matching the exact web color palette distribution
             if (fireflies.isEmpty()) {
-                val colors = listOf(
-                    Color(0xFF38BDF8), // Cyan glow
-                    Color(0xFFFACC15), // Gold glow
-                    Color(0xFFA3E635), // Lime glow
-                    Color(0xFFFBBF24), // Amber glow
-                    Color(0xFF60A5FA)  // Sky blue glow
+                val colorPairs = listOf(
+                    FireflyColorPair(FireflyGoldCore, FireflyGoldAura),
+                    FireflyColorPair(FireflyGoldCore, FireflyGoldAura),
+                    FireflyColorPair(FireflyLimeCore, FireflyLimeAura),
+                    FireflyColorPair(FireflyCyanCore, FireflyCyanAura),
+                    FireflyColorPair(FireflyGoldCore, FireflyGoldAura),
+                    FireflyColorPair(FireflyAmberCore, FireflyAmberAura),
+                    FireflyColorPair(FireflyLimeCore, FireflyLimeAura)
                 )
+
                 for (i in 0 until particleCount) {
                     val angle = Random.nextFloat() * 2f * PI.toFloat()
-                    val speed = Random.nextFloat() * 0.8f + 0.4f
+                    val speed = Random.nextFloat() * 0.85f + 0.35f
                     fireflies.add(
                         Firefly(
                             x = Random.nextFloat() * width,
                             y = Random.nextFloat() * height,
                             vx = kotlin.math.cos(angle) * speed,
                             vy = kotlin.math.sin(angle) * speed,
-                            baseRadius = Random.nextFloat() * 1.5f + 1.2f,
-                            maxGlowRadius = Random.nextFloat() * 12f + 14f,
-                            color = colors[Random.nextInt(colors.size)],
-                            flashPeriod = Random.nextFloat() * 2.8f + 2.0f,
+                            baseRadius = Random.nextFloat() * 1.4f + 1.2f,
+                            maxGlowRadius = Random.nextFloat() * 14f + 12f,
+                            colorPair = colorPairs[Random.nextInt(colorPairs.size)],
+                            flashPeriod = Random.nextFloat() * 3.0f + 2.0f,
                             flashPhase = Random.nextFloat() * 2f * PI.toFloat()
                         )
                     )
                 }
             }
 
-            // 1. Atmospheric Ambient Radial Blooms
+            // 1. Top Ellipse Gradient (radial-gradient(ellipse at 50% -20%, rgba(30, 58, 138, 0.4), transparent))
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF0284C7).copy(alpha = auroraAlpha1),
-                        Color(0xFF1E3A8A).copy(alpha = auroraAlpha1 * 0.5f),
-                        Color.Transparent
-                    ),
-                    center = Offset(width * 0.25f, height * 0.2f),
-                    radius = width * 0.85f
+                    colors = listOf(WebBgEllipse, Color.Transparent),
+                    center = Offset(width * 0.5f, -height * 0.15f),
+                    radius = width * 1.1f
                 ),
-                radius = width * 0.85f,
-                center = Offset(width * 0.25f, height * 0.2f)
+                radius = width * 1.1f,
+                center = Offset(width * 0.5f, -height * 0.15f)
             )
 
+            // 2. Center-Bottom Cyan Circle Gradient (radial-gradient(circle at 50% 60%, rgba(14, 165, 233, 0.08), transparent))
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF2563EB).copy(alpha = auroraAlpha2),
-                        Color.Transparent
-                    ),
-                    center = Offset(width * 0.8f, height * 0.75f),
-                    radius = width * 0.75f
+                    colors = listOf(WebBgCyanCircle, Color.Transparent),
+                    center = Offset(width * 0.5f, height * 0.6f),
+                    radius = width * 0.7f
                 ),
-                radius = width * 0.75f,
-                center = Offset(width * 0.8f, height * 0.75f)
+                radius = width * 0.7f,
+                center = Offset(width * 0.5f, height * 0.6f)
             )
 
-            // 2. Render each bioluminescent firefly
+            // 3. Ambient Atmospheric Atmospheric Sky Bloom (Top-Left, rgba(56, 189, 248, 0.16))
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(WebBloomSky, Color.Transparent),
+                    center = Offset(width * 0.25f, height * 0.25f),
+                    radius = width * 0.65f * bloomScale1
+                ),
+                radius = width * 0.65f * bloomScale1,
+                center = Offset(width * 0.25f, height * 0.25f)
+            )
+
+            // 4. Ambient Atmospheric Blue Bloom (Bottom-Right, rgba(37, 99, 235, 0.18))
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(WebBloomBlue, Color.Transparent),
+                    center = Offset(width * 0.75f, height * 0.75f),
+                    radius = width * 0.7f * bloomScale2
+                ),
+                radius = width * 0.7f * bloomScale2,
+                center = Offset(width * 0.75f, height * 0.75f)
+            )
+
+            // 5. Render Bioluminescent Firefly Swarm
             for (f in fireflies) {
                 // Screen wrapping
                 if (f.x < -30f) f.x = width + 30f
@@ -168,18 +204,17 @@ fun AnimatedFireflyField(
                 if (f.y < -30f) f.y = height + 30f
                 if (f.y > height + 30f) f.y = -30f
 
-                // Flash sine curve: oscillates between 0.25 and 1.0
+                // Biological sine flash curve (between 0.22 and 1.0)
                 val flash = ((sin(f.flashPhase) + 1f) / 2f).coerceIn(0f, 1f)
-                val intensity = 0.20f + flash * 0.80f
+                val intensity = 0.22f + flash * 0.78f
+                val currentGlow = f.maxGlowRadius * (0.65f + intensity * 0.5f)
 
-                val currentGlow = f.maxGlowRadius * (0.6f + intensity * 0.5f)
-
-                // Soft outer haze
+                // Outer atmospheric haze
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            f.color.copy(alpha = intensity * 0.45f),
-                            f.color.copy(alpha = intensity * 0.12f),
+                            f.colorPair.auraColor.copy(alpha = intensity * 0.45f),
+                            f.colorPair.auraColor.copy(alpha = intensity * 0.12f),
                             Color.Transparent
                         ),
                         center = Offset(f.x, f.y),
@@ -189,17 +224,17 @@ fun AnimatedFireflyField(
                     center = Offset(f.x, f.y)
                 )
 
-                // Radiant bright corona
+                // Radiant Corona
                 drawCircle(
-                    color = f.color.copy(alpha = (intensity * 0.95f).coerceAtMost(1f)),
+                    color = f.colorPair.auraColor.copy(alpha = (intensity * 0.95f).coerceAtMost(1f)),
                     radius = f.baseRadius * 2.2f,
                     center = Offset(f.x, f.y)
                 )
 
-                // Incandescent hot core
+                // Hot Incandescent Insect Light Core
                 drawCircle(
-                    color = Color.White.copy(alpha = (intensity * 1.2f).coerceAtMost(1f)),
-                    radius = f.baseRadius * 0.9f,
+                    color = f.colorPair.coreColor.copy(alpha = (intensity * 1.3f).coerceAtMost(1f)),
+                    radius = f.baseRadius * 0.85f,
                     center = Offset(f.x, f.y)
                 )
             }

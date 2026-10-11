@@ -2,7 +2,6 @@ package com.kipsschool.chunian.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -17,7 +16,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -39,7 +37,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -47,9 +44,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kipsschool.chunian.ui.theme.CoralError
+import com.kipsschool.chunian.ui.theme.BannerErrorBorder
+import com.kipsschool.chunian.ui.theme.InputBorderFocus
 import com.kipsschool.chunian.ui.theme.SkyGlow
-import com.kipsschool.chunian.ui.theme.TextWhite
 import kotlin.math.roundToInt
 
 @Composable
@@ -64,23 +61,20 @@ fun AnimatedOtpInput(
     val focusRequester = remember { FocusRequester() }
     val shakeOffset = remember { Animatable(0f) }
 
-    // Trigger shake on error
     LaunchedEffect(isError) {
         if (isError) {
             for (i in 0..5) {
-                val target = if (i % 2 == 0) -16f else 16f
+                val target = if (i % 2 == 0) -14f else 14f
                 shakeOffset.animateTo(target, tween(40, easing = LinearEasing))
             }
             shakeOffset.animateTo(0f, tween(40, easing = LinearEasing))
         }
     }
 
-    // Auto-focus when mounted
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
-    // Blinking cursor dot animation
     val infiniteTransition = rememberInfiniteTransition(label = "cursor_anim")
     val cursorAlpha by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -98,7 +92,6 @@ fun AnimatedOtpInput(
             .offset { IntOffset(shakeOffset.value.roundToInt(), 0) },
         contentAlignment = Alignment.Center
     ) {
-        // Hidden real text field capturing input
         BasicTextField(
             value = otpValue,
             onValueChange = { input ->
@@ -118,7 +111,6 @@ fun AnimatedOtpInput(
             singleLine = true
         )
 
-        // Visual 6-Box Presentation
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -136,33 +128,33 @@ fun AnimatedOtpInput(
                 val isFocused = otpValue.length == index
                 val isFilled = digit.isNotEmpty()
 
-                // Digit pop scale animation
                 val digitScale = remember { Animatable(1f) }
                 LaunchedEffect(digit) {
                     if (digit.isNotEmpty()) {
-                        digitScale.snapTo(1.25f)
-                        digitScale.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
+                        digitScale.snapTo(1.22f)
+                        digitScale.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 420f))
                     }
                 }
 
+                // Web exact colors: border-sky-500/40, focus:border-sky-400, bg-white/[0.05]
                 val borderColor by animateColorAsState(
                     targetValue = when {
-                        isError -> CoralError
-                        isFocused -> SkyGlow
-                        isFilled -> SkyGlow.copy(alpha = 0.7f)
-                        else -> Color(0x3338BDF8)
+                        isError -> BannerErrorBorder
+                        isFocused -> InputBorderFocus // #38bdf8
+                        isFilled -> Color(0x9938BDF8)
+                        else -> Color(0x660EA5E9) // border-sky-500/40
                     },
-                    animationSpec = tween(250),
+                    animationSpec = tween(220),
                     label = "border_color"
                 )
 
                 val boxBg by animateColorAsState(
                     targetValue = when {
                         isFocused -> Color(0x1F0284C7)
-                        isFilled -> Color(0x1538BDF8)
-                        else -> Color(0x0CFFFFFF)
+                        isFilled -> Color(0x140EA5E9)
+                        else -> Color(0x0DFFFFFF) // bg-white/[0.05]
                     },
-                    animationSpec = tween(250),
+                    animationSpec = tween(220),
                     label = "box_bg"
                 )
 
@@ -182,14 +174,14 @@ fun AnimatedOtpInput(
                     if (digit.isNotEmpty()) {
                         Text(
                             text = digit,
-                            color = TextWhite,
+                            // Exact web text-sky-300: #7dd3fc
+                            color = Color(0xFF7DD3FC),
                             fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.scale(digitScale.value)
                         )
                     } else if (isFocused) {
-                        // Pulsing cursor dot
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
