@@ -587,6 +587,8 @@ class SalaryController extends Controller
                 'bonus',
                 'previous_arrears',
                 'advance_deducted',
+                'bf_percentage',
+                'bf_deduction',
                 'payable_salary',
                 'total_paid',
                 'payment_status',

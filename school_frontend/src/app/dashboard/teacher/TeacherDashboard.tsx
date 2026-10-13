@@ -31,7 +31,8 @@ import {
   Building2,
   CalendarDays,
   Smartphone,
-  CheckCheck
+  CheckCheck,
+  Printer
 } from "lucide-react";
 import CustomDropdown from "@/components/CustomDropdown";
 
@@ -1477,6 +1478,12 @@ export default function TeacherDashboard() {
                         <span>- Rs {Number(slip.advance_deducted).toLocaleString()}</span>
                       </div>
                     )}
+                    {Number(slip.bf_deduction) > 0 && (
+                      <div className="flex justify-between text-amber-700 font-medium">
+                        <span>Benevolent Fund {slip.bf_percentage ? `(${slip.bf_percentage}%)` : ""}:</span>
+                        <span>- Rs {Number(slip.bf_deduction).toLocaleString()}</span>
+                      </div>
+                    )}
                     {Number(slip.bonus) > 0 && (
                       <div className="flex justify-between text-emerald-600">
                         <span>Bonus Added:</span>
@@ -2128,13 +2135,23 @@ export default function TeacherDashboard() {
             </div>
 
             {/* Slip Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="p-3 rounded-xl bg-slate-50 border text-xs">
                 <span className="text-slate-500 font-semibold">Gross Earning</span>
                 <p className="font-bold text-sm text-slate-800 mt-0.5">
                   Rs {Number(selectedSlipDetail.total_amount).toLocaleString()}
                 </p>
               </div>
+              {Number(selectedSlipDetail.bf_deduction || 0) > 0 && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs">
+                  <span className="text-amber-800 font-semibold">
+                    BF Ded {selectedSlipDetail.bf_percentage ? `(${selectedSlipDetail.bf_percentage}%)` : ""}
+                  </span>
+                  <p className="font-bold text-sm text-amber-900 mt-0.5">
+                    - Rs {Number(selectedSlipDetail.bf_deduction).toLocaleString()}
+                  </p>
+                </div>
+              )}
               <div className="p-3 rounded-xl bg-slate-50 border text-xs">
                 <span className="text-slate-500 font-semibold">Advance Deducted</span>
                 <p className="font-bold text-sm text-rose-600 mt-0.5">
@@ -2209,7 +2226,13 @@ export default function TeacherDashboard() {
               </div>
             )}
 
-            <div className="flex justify-end pt-3 border-t">
+            <div className="flex justify-between items-center pt-3 border-t">
+              <button
+                onClick={() => window.open(`/dashboard/salaries/print?id=${selectedSlipDetail.id}`, "_blank")}
+                className="px-4 py-2 rounded-xl bg-[#1e3a8a] hover:bg-[#152e6f] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print Official Slip
+              </button>
               <button
                 onClick={() => setSelectedSlipDetail(null)}
                 className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition"

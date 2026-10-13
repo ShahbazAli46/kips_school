@@ -90,6 +90,9 @@ export default function RnTResultCard({
       {/* Header Info */}
       <div className="w-full flex justify-between items-end text-[10px] font-bold mb-1 px-1">
         <div>Class / Section: <span className="ml-2 font-normal border-b border-black inline-block min-w-[100px]">{student.class_name} {student.section_name}</span></div>
+        {(student.class_incharge || (student as any).class_incharge_name) && (
+          <div>Class Incharge: <span className="ml-2 font-bold border-b border-black inline-block min-w-[140px] uppercase">{student.class_incharge || (student as any).class_incharge_name}</span></div>
+        )}
       </div>
       
       <div className="w-full grid grid-cols-3 text-[10px] font-bold mb-2 px-1">
@@ -187,12 +190,26 @@ export default function RnTResultCard({
       {/* Summary Section */}
       <div className="w-full flex mt-6 text-[11px] font-bold">
         <div className="w-1/2 flex flex-col justify-end pl-2">
-          <div className="flex items-center gap-2 mb-8">
+          <div className="flex items-center gap-2 mb-6">
             <span>TEACHER'S COMMENTS:</span>
             <div className="border-b border-black w-64 h-4"></div>
           </div>
-          <div className="mt-8">
-            <span>PRINCIPAL</span>
+          <div className="mt-6 flex items-start gap-12">
+            <div>
+              <div className="border-t border-black w-40 pt-1 text-center">
+                <span>CLASS INCHARGE</span>
+                {(student.class_incharge || (student as any).class_incharge_name) && (
+                  <span className="block text-[10px] font-bold text-slate-800 mt-0.5 leading-tight uppercase break-words">
+                    {student.class_incharge || (student as any).class_incharge_name}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="border-t border-black w-36 pt-1 text-center">
+                <span>PRINCIPAL</span>
+              </div>
+            </div>
           </div>
         </div>
         

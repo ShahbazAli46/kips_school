@@ -337,6 +337,8 @@
         $previousArrears = (float) ($slip->previous_arrears ?? 0);
         $advanceDeducted = (float) ($slip->advance_deducted ?? 0);
         $bonus           = (float) ($slip->bonus ?? 0);
+        $bfDeduction     = (float) ($slip->bf_deduction ?? 0);
+        $bfPercentage    = (float) ($slip->bf_percentage ?? 0);
         $extraOffDays    = max(0, $slip->taken_off_days - $slip->permitted_off_days);
         $offDeduction    = $extraOffDays > 0 ? ($extraOffDays * ((float) $slip->total_amount / 30)) : 0;
     @endphp
@@ -426,6 +428,12 @@
             <tr style="color:#dc2626;">
                 <td>Unpaid Offs ({{ $extraOffDays }} extra days):</td>
                 <td class="text-right" style="font-weight:600;">&minus; Rs {{ number_format($offDeduction, 2) }}</td>
+            </tr>
+            @endif
+            @if($bfDeduction > 0)
+            <tr style="color:#b45309;">
+                <td>Benevolent Fund (BF) Deduction{{ $bfPercentage > 0 ? ' (' . rtrim(rtrim(number_format($bfPercentage, 2), '0'), '.') . '%)' : '' }}:</td>
+                <td class="text-right" style="font-weight:600;">&minus; Rs {{ number_format($bfDeduction, 2) }}</td>
             </tr>
             @endif
             @if($bonus > 0)

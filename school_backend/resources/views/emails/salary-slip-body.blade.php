@@ -8,7 +8,7 @@
     
     <p>Please find attached your official Salary Slip for the pay period <strong>{{ $slip->month }}</strong>.</p>
     
-    <p><strong>Total Net Pay:</strong> Rs {{ number_format($slip->total_amount, 2) }}</p>
+    <p><strong>Total Net Pay:</strong> Rs {{ number_format((float)($slip->payable_salary ?? $slip->total_amount), 2) }}</p>
 
     <p>If you have any questions or require further clarification regarding the details, please contact the academy administration.</p>
     

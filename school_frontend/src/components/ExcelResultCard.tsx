@@ -409,19 +409,19 @@ export default function ExcelResultCard({
         </div>
 
         <div className="grid grid-cols-12 text-xs font-bold divide-x divide-black">
-          <div className="col-span-6 px-3 py-1.5 flex items-center gap-2">
-            <span className="text-slate-600 uppercase text-[11px] w-28 shrink-0">Student&apos;s Name:</span>
-            <span className="text-black font-extrabold text-sm uppercase truncate">
+          <div className="col-span-5 px-3 py-1.5 flex items-center gap-2">
+            <span className="text-slate-600 uppercase text-[11px] shrink-0">Student&apos;s Name:</span>
+            <span className="text-black font-extrabold text-sm uppercase truncate" title={`${studentName} ${fatherName ? `S/O ${fatherName}` : ""}`}>
               {studentName} {fatherName ? `S/O ${fatherName}` : ""}
             </span>
           </div>
-          <div className="col-span-3 px-3 py-1.5 flex items-center gap-1.5">
-            <span className="text-slate-600 uppercase text-[11px]">Roll No.:</span>
+          <div className="col-span-2 px-3 py-1.5 flex items-center gap-1.5">
+            <span className="text-slate-600 uppercase text-[11px] shrink-0">Roll No.:</span>
             <span className="text-black font-extrabold">{rollNumber}</span>
           </div>
-          <div className="col-span-3 px-3 py-1.5 flex items-center gap-1.5 bg-slate-100">
-            <span className="text-slate-600 uppercase text-[11px]">Class Incharge:</span>
-            <span className="text-black font-extrabold uppercase truncate">{classIncharge || "—"}</span>
+          <div className="col-span-5 px-3 py-1.5 flex items-center gap-1.5 bg-slate-100 min-w-0">
+            <span className="text-slate-600 uppercase text-[11px] shrink-0">Class Incharge:</span>
+            <span className="text-black font-extrabold uppercase text-[11px] leading-tight break-words">{classIncharge || "—"}</span>
           </div>
         </div>
       </div>
@@ -707,7 +707,7 @@ export default function ExcelResultCard({
       <div className="p-4 sm:p-5 bg-white">
         <div className="grid grid-cols-12 gap-4 items-end">
           {/* Grading Legend & Policy */}
-          <div className="col-span-6 border border-slate-300 rounded p-2 bg-slate-50 text-[10px] space-y-1">
+          <div className="col-span-5 border border-slate-300 rounded p-2 bg-slate-50 text-[10px] space-y-1">
             <span className="block font-black text-slate-800 uppercase tracking-wide">
               Official Grading Scale:
             </span>
@@ -723,8 +723,8 @@ export default function ExcelResultCard({
           </div>
 
           {/* Class Incharge Signature */}
-          <div className="col-span-3 text-center flex flex-col items-center justify-end">
-            <div className="w-4/5 mx-auto mb-1 h-20 flex items-end justify-center">
+          <div className="col-span-4 text-center flex flex-col items-center justify-end">
+            <div className="w-full mx-auto mb-1 h-20 flex items-end justify-center px-1">
               {teacherSignature ? (
                 <img
                   src={(() => {
@@ -741,12 +741,12 @@ export default function ExcelResultCard({
                 <div className="border-b border-black w-full h-8"></div>
               )}
             </div>
-            <div className="border-t border-black w-3/4 mx-auto pt-0.5">
+            <div className="border-t border-black w-11/12 mx-auto pt-0.5">
               <span className="text-xs font-black uppercase text-slate-800 block">
                 Class Incharge
               </span>
               {classIncharge && (
-                <span className="text-[10px] font-bold text-slate-700 block truncate mt-0.5">
+                <span className="text-[10px] font-bold text-slate-700 block mt-0.5 leading-tight break-words">
                   {classIncharge}
                 </span>
               )}

@@ -51,6 +51,8 @@ interface SalarySlip {
   bonus: string;
   previous_arrears: string;
   advance_deducted: string;
+  bf_percentage?: string | number;
+  bf_deduction?: string | number;
   payable_salary: string;
   total_paid: string;
   status: string;
@@ -327,6 +329,21 @@ function PrintableSalarySlipContent() {
                   <span>Unpaid Offs ({slip.taken_off_days - slip.permitted_off_days} days):</span>
                   <span className="font-semibold">
                     − Rs {(((fixedSalary / 30)) * (slip.taken_off_days - slip.permitted_off_days)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+
+              {parseFloat(String(slip.bf_deduction || "0")) > 0 && (
+                <div className="flex justify-between items-center text-xs text-amber-700">
+                  <span>
+                    Benevolent Fund (BF) Deduction
+                    {slip.bf_percentage !== undefined && slip.bf_percentage !== null && parseFloat(String(slip.bf_percentage)) > 0
+                      ? ` (${parseFloat(String(slip.bf_percentage))}%)`
+                      : ""}
+                    :
+                  </span>
+                  <span className="font-semibold text-amber-800">
+                    − Rs {parseFloat(String(slip.bf_deduction)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
