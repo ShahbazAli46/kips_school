@@ -147,3 +147,6 @@ export default function NumberInput({
   );
 }
 
+export const CustomNumberInput = NumberInput;
+
+

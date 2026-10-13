@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import { DatePicker } from "@/components/ui/date-picker";
 import CustomDropdown from "@/components/CustomDropdown";
+import CustomNumberInput from "@/components/CustomNumberInput";
+import {
+  PlusCircle,
+  X,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw,
+  Users,
+  DollarSign,
+  Layers,
+} from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 const STORAGE_URL = process.env.NEXT_PUBLIC_STORAGE_URL || "http://localhost:8000/storage";
@@ -458,6 +469,385 @@ function FeeFollowUpModal({ student, onClose }: { student: Student; onClose: () 
   );
 }
 
+// ─── Extra Charges Modal ──────────────────────────────────────────────────
+function ExtraChargesModal({
+  isOpen,
+  classes,
+  sections,
+  onClose,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  classes: AcademyClass[];
+  sections: Section[];
+  onClose: () => void;
+  onSuccess: (msg?: string) => void;
+}) {
+  const [selectedClassId, setSelectedClassId] = useState<string>("");
+  const [selectedSectionId, setSelectedSectionId] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [category, setCategory] = useState<string>("ad_hoc");
+  const [notes, setNotes] = useState<string>("");
+
+  const [targetStudentCount, setTargetStudentCount] = useState<number | null>(null);
+  const [loadingCount, setLoadingCount] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const commonReasons = [
+    "Paper Charges",
+    "Annual Sports Day",
+    "Picnic / Field Trip",
+    "Science Lab Charges",
+    "Exam / Assessment Charges",
+    "Stationery & Workbook",
+    "Student ID Card / Badge",
+    "Late Fee Fine",
+    "Discipline Fine",
+  ];
+
+  // Derive available sections for selected class
+  const availableSections: Section[] = useMemo(() => {
+    if (!selectedClassId || selectedClassId === "all") {
+      return sections;
+    }
+    const cls = classes.find((c) => String(c.id) === String(selectedClassId));
+    return (cls?.sections && cls.sections.length > 0) ? cls.sections : sections;
+  }, [selectedClassId, classes, sections]);
+
+  // Reset section when class changes
+  const handleClassChange = (newClassId: string) => {
+    setSelectedClassId(newClassId);
+    setSelectedSectionId("");
+  };
+
+  // Real-time target student count
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCount = async () => {
+      setLoadingCount(true);
+      try {
+        const params = new URLSearchParams();
+        if (selectedClassId && selectedClassId !== "all") {
+          params.set("class_id", selectedClassId);
+        } else if (selectedClassId === "all") {
+          params.set("class_id", "all");
+        }
+        if (selectedSectionId && selectedSectionId !== "all") {
+          params.set("section_id", selectedSectionId);
+        }
+
+        const res = await fetch(`${API}/extra-charges/target-count?${params.toString()}`, {
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) setTargetStudentCount(data.count ?? 0);
+        }
+      } catch (err) {
+        console.error("Count fetch failed", err);
+      } finally {
+        if (isMounted) setLoadingCount(false);
+      }
+    };
+
+    fetchCount();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedClassId, selectedSectionId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClassId) {
+      setError("Please select a class (or choose 'All Classes').");
+      return;
+    }
+    const numAmount = parseFloat(amount);
+    if (!amount || isNaN(numAmount) || numAmount <= 0) {
+      setError("Please enter a valid amount (must be greater than 0).");
+      return;
+    }
+    if (!description.trim()) {
+      setError("Please enter a description / reason for this extra charge.");
+      return;
+    }
+    if (targetStudentCount === 0) {
+      setError("No active students found in the selected class / section.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const payload: any = {
+        class_id: selectedClassId,
+        section_id: (selectedSectionId && selectedSectionId !== "all") ? selectedSectionId : undefined,
+        title: description.trim(),
+        unit_price: numAmount,
+        quantity: 1,
+        payment_option: "bill_to_voucher",
+        payment_method: "voucher",
+        category: category || "ad_hoc",
+        notes: notes.trim() || undefined,
+      };
+
+      const res = await fetch(`${API}/extra-charges/issue`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        onSuccess(
+          `Extra charge "${description.trim()}" (Rs. ${numAmount.toLocaleString()}) successfully added to ${data.count || targetStudentCount} student vouchers!`
+        );
+        onClose();
+      } else {
+        setError(data.message || (data.errors ? Object.values(data.errors).flat().join(" ") : "Failed to record extra charges."));
+      }
+    } catch (err: any) {
+      setError(err.message || "Network error occurred.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const parsedAmount = parseFloat(amount) || 0;
+  const totalBilled = parsedAmount * (targetStudentCount || 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+        {/* Modal Header */}
+        <div className="p-4 bg-gradient-to-r from-[#0f224a] to-[#1e3a8a] text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+              <PlusCircle className="w-4 h-4 text-sky-300" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm">Add Extra Charges to Vouchers</h3>
+              <p className="text-[11px] text-sky-200">
+                Add one-time fee or activity charges directly into student vouchers
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-white/80 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal Body Form */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+          {error && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span className="font-semibold">{error}</span>
+            </div>
+          )}
+
+          {/* Class & Section Selection */}
+          <div className="space-y-2">
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700">
+              1. Select Target Class & Section <span className="text-rose-500">*</span>
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Class *</label>
+                <CustomDropdown
+                  name="modal_class_id"
+                  value={selectedClassId}
+                  onChange={(_, val) => handleClassChange(String(val || ""))}
+                  placeholder="Select Class"
+                  options={[
+                    { label: "All Classes", value: "all" },
+                    ...classes.map((c) => ({ label: c.name, value: String(c.id) })),
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Section</label>
+                <CustomDropdown
+                  name="modal_section_id"
+                  value={selectedSectionId}
+                  onChange={(_, val) => setSelectedSectionId(String(val || ""))}
+                  placeholder="All Sections"
+                  options={[
+                    { label: "All Sections", value: "all" },
+                    ...availableSections.map((s) => ({ label: s.name, value: String(s.id) })),
+                  ]}
+                  disabled={selectedClassId === "all"}
+                />
+              </div>
+            </div>
+
+            {/* Target Audience Pill */}
+            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 flex items-center justify-between mt-2">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="text-slate-700 font-semibold">
+                  {loadingCount ? (
+                    <span className="flex items-center gap-1.5 text-blue-600">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Counting target students...
+                    </span>
+                  ) : targetStudentCount !== null ? (
+                    <>
+                      Will be added to{" "}
+                      <strong className="text-blue-700 font-black">{targetStudentCount}</strong>{" "}
+                      student voucher{targetStudentCount === 1 ? "" : "s"}
+                    </>
+                  ) : (
+                    "Select class and section to view student count"
+                  )}
+                </span>
+              </div>
+
+              {parsedAmount > 0 && targetStudentCount !== null && targetStudentCount > 0 && (
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-500 block">Total Billed</span>
+                  <span className="font-black text-emerald-700 text-xs">
+                    Rs. {totalBilled.toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Amount Input */}
+          <div className="pt-1">
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1">
+              2. Amount Per Student (Rs.) <span className="text-rose-500">*</span>
+            </label>
+            <CustomNumberInput
+              value={amount}
+              onChange={setAmount}
+              placeholder="0.00"
+              prefix="Rs."
+              min={1}
+            />
+          </div>
+
+          {/* Description / Purpose */}
+          <div className="pt-1">
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1">
+              3. Reason / Description <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Paper Charges, Annual Sports, Science Project..."
+              required
+              className="w-full h-[40px] px-3 text-xs font-semibold rounded-xl border border-slate-300 focus:outline-none focus:border-blue-600 shadow-2xs text-slate-800"
+            />
+
+            {/* Quick Reason Chips */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {commonReasons.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setDescription(r)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                    description === r
+                      ? "bg-blue-600 text-white font-bold"
+                      : "bg-slate-100 text-slate-600 hover:bg-blue-100 hover:text-blue-800"
+                  }`}
+                >
+                  + {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Category Quick Selector */}
+          <div className="pt-1">
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1">
+              Category
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { id: "ad_hoc", label: "General" },
+                { id: "event", label: "Event" },
+                { id: "trip", label: "Trip" },
+                { id: "fine", label: "Fine" },
+              ].map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCategory(c.id)}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border text-center transition-all ${
+                    category === c.id
+                      ? "bg-blue-50 border-blue-600 text-blue-700"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Optional Notes */}
+          <div className="pt-1">
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Internal Remarks (Optional)
+            </label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Approved by Principal for term exams"
+              className="w-full h-[36px] px-3 text-xs font-medium rounded-xl border border-slate-200 focus:outline-none focus:border-blue-600 text-slate-700"
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !selectedClassId || !amount || !description || targetStudentCount === 0}
+              className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-[#0f224a] hover:bg-[#1e3a8a] shadow-md shadow-blue-950/20 flex items-center gap-1.5 disabled:opacity-50 transition-all active:scale-95"
+            >
+              {submitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Adding to Vouchers...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-sky-300" />
+                  <span>
+                    Add to Vouchers
+                    {targetStudentCount ? ` (${targetStudentCount})` : ""}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 const formatWhatsApp = (number: string) => {
   if (!number) return '';
@@ -503,6 +893,9 @@ export default function FeesPage() {
   const [confirmReceiveTarget, setConfirmReceiveTarget] = useState<{student: any, amount: number} | null>(null);
   const [isReceivingFull, setIsReceivingFull] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+
+  const [isExtraChargesModalOpen, setIsExtraChargesModalOpen] = useState(false);
+  const [extraChargesSuccessToast, setExtraChargesSuccessToast] = useState<string | null>(null);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -721,7 +1114,7 @@ export default function FeesPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "#0f224a" }}>Fee Collection</h1>
             <button onClick={() => router.push('/dashboard/fees/defaulters')} className="px-3.5 py-2 rounded-lg text-xs font-bold border transition shadow-sm bg-red-50 text-red-700 hover:bg-red-100 flex items-center gap-1.5" style={{ borderColor: '#fecaca' }}>
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -729,6 +1122,13 @@ export default function FeesPage() {
             </button>
             <button onClick={() => router.push('/dashboard/fee-follow-ups')} className="px-3.5 py-2 rounded-lg text-xs font-bold border transition shadow-sm hover:bg-[#f0f4f8]" style={{ borderColor: '#bfdbfe', color: '#2563eb' }}>
               View Follow Ups
+            </button>
+            <button
+              onClick={() => setIsExtraChargesModalOpen(true)}
+              className="px-3.5 py-2 rounded-lg text-xs font-bold transition shadow-sm bg-[#0f224a] hover:bg-[#1e3a8a] text-white flex items-center gap-1.5 active:scale-95 cursor-pointer"
+            >
+              <PlusCircle className="w-3.5 h-3.5 text-sky-300" />
+              Extra Charges
             </button>
           </div>
           <p className="mt-1 text-sm font-medium" style={{ color: "#38bdf8" }}>Track and collect monthly fees.</p>
@@ -745,6 +1145,21 @@ export default function FeesPage() {
           />
         </div>
       </div>
+
+      {extraChargesSuccessToast && (
+        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{extraChargesSuccessToast}</span>
+          </div>
+          <button
+            onClick={() => setExtraChargesSuccessToast(null)}
+            className="text-emerald-700 hover:text-emerald-900 font-bold ml-3"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1402,6 +1817,19 @@ export default function FeesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {isExtraChargesModalOpen && (
+        <ExtraChargesModal
+          isOpen={isExtraChargesModalOpen}
+          classes={classes}
+          sections={sections}
+          onClose={() => setIsExtraChargesModalOpen(false)}
+          onSuccess={(msg) => {
+            setExtraChargesSuccessToast(msg || "Extra charges billed to vouchers successfully!");
+            fetchData();
+          }}
+        />
       )}
 
     </DashboardLayout>

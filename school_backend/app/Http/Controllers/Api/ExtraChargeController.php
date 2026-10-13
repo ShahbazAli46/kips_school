@@ -206,20 +206,39 @@ class ExtraChargeController extends Controller
     }
 
     /**
-     * Point-of-Sale / Issue Extra Charge to Student(s).
+     * Get count of students for a class and optional section.
+     */
+    public function getTargetCount(Request $request)
+    {
+        $query = User::where('role_id', 3)->where('is_active', true);
+        if ($request->filled('class_id') && $request->class_id !== 'all') {
+            $query->where('class_id', $request->class_id);
+        }
+        if ($request->filled('section_id') && $request->section_id !== 'all') {
+            $query->where('section_id', $request->section_id);
+        }
+        return response()->json([
+            'count' => $query->count()
+        ]);
+    }
+
+    /**
+     * Point-of-Sale / Issue Extra Charge to Student(s), Class, or Section.
      */
     public function issueCharge(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'student_ids' => 'required|array|min:1',
+            'student_ids' => 'nullable|array',
             'student_ids.*' => 'exists:users,id',
+            'class_id' => 'nullable',
+            'section_id' => 'nullable',
             'extra_charge_item_id' => 'nullable|exists:extra_charge_items,id',
             'title' => 'required|string|max:200',
-            'category' => 'required|string|max:50',
-            'charge_type' => 'required|in:stock_based,ad_hoc',
+            'category' => 'nullable|string|max:50',
+            'charge_type' => 'nullable|in:stock_based,ad_hoc',
             'unit_price' => 'required|numeric|min:0',
-            'quantity' => 'required|integer|min:1',
-            'payment_option' => 'required|in:pay_now,bill_to_voucher',
+            'quantity' => 'nullable|integer|min:1',
+            'payment_option' => 'nullable|in:pay_now,bill_to_voucher',
             'payment_method' => 'nullable|in:cash,voucher,online,bank,waived',
             'notes' => 'nullable|string|max:500',
         ]);
@@ -228,17 +247,34 @@ class ExtraChargeController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $studentIds = $request->input('student_ids');
+        $studentIds = $request->input('student_ids', []);
+        if (empty($studentIds) && $request->filled('class_id')) {
+            $studentQuery = User::where('role_id', 3)->where('is_active', true);
+            if ($request->class_id !== 'all') {
+                $studentQuery->where('class_id', $request->class_id);
+            }
+            if ($request->filled('section_id') && $request->section_id !== 'all') {
+                $studentQuery->where('section_id', $request->section_id);
+            }
+            $studentIds = $studentQuery->pluck('id')->toArray();
+        }
+
+        if (empty($studentIds)) {
+            return response()->json([
+                'message' => 'No active students found in the selected class/section.',
+            ], 422);
+        }
+
         $studentsCount = count($studentIds);
         $chargeItemId = $request->input('extra_charge_item_id');
-        $chargeType = $request->input('charge_type');
+        $chargeType = $request->input('charge_type', 'ad_hoc');
         $quantity = (int)$request->input('quantity', 1);
         $unitPrice = (float)$request->input('unit_price', 0);
         $totalAmountPerStudent = $unitPrice * $quantity;
-        $paymentOption = $request->input('payment_option');
+        $paymentOption = $request->input('payment_option', 'bill_to_voucher');
         $paymentMethod = $paymentOption === 'pay_now' ? ($request->input('payment_method') ?: 'cash') : 'voucher';
         $title = trim($request->input('title'));
-        $category = $request->input('category');
+        $category = $request->input('category', 'ad_hoc');
         $notes = $request->input('notes');
 
         $catalogItem = null;
@@ -346,7 +382,7 @@ class ExtraChargeController extends Controller
                     $feeItem = StudentFeeItem::create([
                         'student_id' => $student->id,
                         'academic_session_id' => $activeSession?->id,
-                        'head_key' => 'extra_charge_' . time() . '_' . rand(100, 999),
+                        'head_key' => 'extra_charge_' . time() . '_' . $student->id . '_' . rand(100, 999),
                         'head_name' => $title . ($quantity > 1 ? " (Qty: {$quantity})" : ""),
                         'head_type' => $category === 'fine' ? 'fine' : 'one_time',
                         'actual_amount' => $totalAmountPerStudent,

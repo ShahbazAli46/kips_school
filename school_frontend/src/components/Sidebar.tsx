@@ -45,12 +45,18 @@ export const adminMenu: NavItem[] = [
     icon: icon("M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"),
     subItems: [
       { label: "Receivings", href: "/dashboard/receivings" },
+      { label: "Staff Received Amounts", href: "/dashboard/staff-received-amounts" },
       { label: "Expenses", href: "/dashboard/expenses" },
       { label: "Salaries", href: "/dashboard/salaries" },
       { label: "Advance Salaries", href: "/dashboard/advance-salaries" },
       { label: "Master Ledger", href: "/dashboard/ledger" },
       { label: "Financial Report", href: "/dashboard/ledger/financial-report" },
     ],
+  },
+  {
+    label: "Staff Received Amounts",
+    href: "/dashboard/staff-received-amounts",
+    icon: icon("M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"),
   },
   // {
   //   label: "Masjid & Madrasa",
@@ -169,6 +175,7 @@ export const accountantMenu: NavItem[] = [
     icon: icon("M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"),
     subItems: [
       { label: "Daily Receivings", href: "/dashboard/receivings" },
+      { label: "Staff Received Amounts", href: "/dashboard/staff-received-amounts" },
       { label: "Expenses", href: "/dashboard/expenses" },
       { label: "Salaries", href: "/dashboard/salaries" },
       { label: "Advance Salaries", href: "/dashboard/advance-salaries" },

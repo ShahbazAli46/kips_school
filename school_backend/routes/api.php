@@ -105,6 +105,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Teacher Profile & Signature routes
     Route::post('/teacher/signature', [\App\Http\Controllers\Api\TeacherController::class, 'updateMySignature']);
     Route::delete('/teacher/signature', [\App\Http\Controllers\Api\TeacherController::class, 'deleteMySignature']);
+
+    // Staff Student Receivings, Handover & Parent WhatsApp Notification
+    Route::get('staff-receivings/students-search', [\App\Http\Controllers\Api\StaffStudentReceivingController::class, 'studentsSearch']);
+    Route::get('staff-receivings/staff-list', [\App\Http\Controllers\Api\StaffStudentReceivingController::class, 'staffList']);
+    Route::post('staff-receivings/batch-receive', [\App\Http\Controllers\Api\StaffStudentReceivingController::class, 'batchReceive']);
+    Route::get('staff-receivings', [\App\Http\Controllers\Api\StaffStudentReceivingController::class, 'index']);
+    Route::post('staff-receivings', [\App\Http\Controllers\Api\StaffStudentReceivingController::class, 'store']);
+    Route::post('staff-receivings/{id}/receive', [\App\Http\Controllers\Api\StaffStudentReceivingController::class, 'receive']);
+    Route::post('staff-receivings/{id}/resend-whatsapp', [\App\Http\Controllers\Api\StaffStudentReceivingController::class, 'resendWhatsApp']);
     
     // Admin routes (Teacher Attendance, Leaves)
     Route::middleware('role:1,5,6,7')->group(function () {
@@ -215,6 +224,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('staff/{id}/bf-settlement', [\App\Http\Controllers\Api\StaffLedgerController::class, 'storeBfSettlement']);
         Route::delete('staff/{id}/bf-settlement/{settlement}', [\App\Http\Controllers\Api\StaffLedgerController::class, 'deleteBfSettlement']);
 
+
         // Teacher Live Presence & GPS Telemetry
         Route::get('admin/teachers/live-presence', [\App\Http\Controllers\Api\TeacherLocationController::class, 'getLivePresence']);
         Route::get('admin/teachers/{teacher}/location-trail', [\App\Http\Controllers\Api\TeacherLocationController::class, 'getLocationTrail']);
@@ -275,6 +285,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Extra Charges POS, Sales & Payments (Accountant & Super Admin can sell and collect)
         Route::get('/extra-charges/stats', [\App\Http\Controllers\Api\ExtraChargeController::class, 'getStats']);
         Route::get('/extra-charges/items', [\App\Http\Controllers\Api\ExtraChargeController::class, 'getItems']);
+        Route::get('/extra-charges/target-count', [\App\Http\Controllers\Api\ExtraChargeController::class, 'getTargetCount']);
         Route::post('/extra-charges/issue', [\App\Http\Controllers\Api\ExtraChargeController::class, 'issueCharge']);
         Route::get('/extra-charges/sales', [\App\Http\Controllers\Api\ExtraChargeController::class, 'getSalesLog']);
         Route::post('/extra-charges/{id}/collect', [\App\Http\Controllers\Api\ExtraChargeController::class, 'collectChargePayment']);

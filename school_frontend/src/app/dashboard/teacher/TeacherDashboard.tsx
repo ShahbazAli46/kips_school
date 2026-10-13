@@ -32,9 +32,14 @@ import {
   CalendarDays,
   Smartphone,
   CheckCheck,
-  Printer
+  Printer,
+  Search,
+  Receipt,
+  ArrowDownToLine,
 } from "lucide-react";
 import CustomDropdown from "@/components/CustomDropdown";
+import CustomDatePicker from "@/components/CustomDatePicker";
+import CustomNumberInput from "@/components/CustomNumberInput";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -54,8 +59,29 @@ export default function TeacherDashboard() {
 
   // ─── Active Tab State ──────────────────────────────────────
   const [activeTab, setActiveTab] = useState<
-    "overview" | "assignments" | "subject_attendance" | "class_diary" | "my_attendance" | "salaries" | "advance" | "leaves" | "profile"
+    "overview" | "assignments" | "subject_attendance" | "class_diary" | "my_attendance" | "student_receivings" | "salaries" | "advance" | "leaves" | "profile"
   >("overview");
+
+  // ─── Student Receivings (Cash Collections) State ──────────
+  const [teacherReceivings, setTeacherReceivings] = useState<any[]>([]);
+  const [loadingTeacherReceivings, setLoadingTeacherReceivings] = useState(false);
+  const [teacherReceivingsStats, setTeacherReceivingsStats] = useState<{
+    total_pending_amount: number;
+    pending_count: number;
+    total_cleared: number;
+    total_all_time: number;
+  }>({
+    total_pending_amount: 0,
+    pending_count: 0,
+    total_cleared: 0,
+    total_all_time: 0,
+  });
+  const [showTeacherCollectModal, setShowTeacherCollectModal] = useState(false);
+  const [showTeacherReceiptModal, setShowTeacherReceiptModal] = useState(false);
+  const [teacherActiveReceipt, setTeacherActiveReceipt] = useState<any | null>(null);
+  const [teacherReceivingSearch, setTeacherReceivingSearch] = useState("");
+  const [teacherStatusFilter, setTeacherStatusFilter] = useState<"all" | "pending_handover" | "received_by_admin">("all");
+  const [allSchoolClasses, setAllSchoolClasses] = useState<{ id: number; name: string }[]>([]);
 
   // ─── User Profile State ────────────────────────────────────
   const [teacher, setTeacher] = useState<any>(null);
@@ -143,6 +169,8 @@ export default function TeacherDashboard() {
     fetchAdvanceData(selectedMonth);
     fetchLeaves();
     fetchDiaries(diaryDateFilter);
+    fetchTeacherReceivings();
+    fetchAllSchoolClasses();
   }, []);
 
   // ─── API Fetchers ──────────────────────────────────────────
@@ -580,6 +608,136 @@ export default function TeacherDashboard() {
     }
   };
 
+  // ─── Student Receivings Fetchers & Slip Generator ──────────
+  const fetchTeacherReceivings = async () => {
+    setLoadingTeacherReceivings(true);
+    try {
+      const res = await fetch(`${API}/staff-receivings`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTeacherReceivings(Array.isArray(json.data) ? json.data : []);
+        if (json.stats) {
+          setTeacherReceivingsStats({
+            total_pending_amount: Number(json.stats.total_pending_amount || 0),
+            pending_count: Number(json.stats.pending_count || 0),
+            total_cleared: Number(json.stats.total_cleared || 0),
+            total_all_time: Number(json.stats.total_all_time || 0),
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch teacher student receivings", err);
+    } finally {
+      setLoadingTeacherReceivings(false);
+    }
+  };
+
+  const fetchAllSchoolClasses = async () => {
+    try {
+      const res = await fetch(`${API}/classes`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAllSchoolClasses(Array.isArray(data) ? data : (data.data || []));
+      }
+    } catch (err) {
+      console.error("Failed to load classes", err);
+    }
+  };
+
+  const triggerTeacherPrintSlip = (item: any) => {
+    const formattedDate = new Date(item.received_date || new Date()).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const studentName = item.student?.name || "Student";
+    const fatherName = item.student?.father_name || "";
+    const rollNo = item.student?.roll_number || `#${item.student?.id || ""}`;
+    const className = item.student?.academyClass?.name || item.student?.academy_class?.name || "N/A";
+    const sectionName = item.student?.section?.name || "";
+    const staffName = item.staff?.name || teacher?.name || "Teacher";
+    const amountNum = parseFloat(String(item.amount) || "0").toLocaleString();
+    const adminClearStatus =
+      item.status === "received_by_admin"
+        ? `Deposited to School Accounts (${item.adminReceiver?.name || item.admin_receiver?.name || "Admin"})`
+        : "Pending Handover (Cash with Teacher)";
+
+    const printHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Receipt - ${item.receipt_no}</title>
+          <style>
+            @page { size: 80mm auto; margin: 4mm; }
+            @media print {
+              html, body { width: 100%; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+            }
+            * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+            body { background: #fff; color: #0f172a; padding: 8px; display: flex; justify-content: center; }
+            .slip { width: 100%; max-width: 320px; border: 1px dashed #64748b; border-radius: 8px; padding: 14px; }
+            .center { text-align: center; }
+            .school-title { font-size: 16px; font-weight: 900; text-transform: uppercase; color: #0f224a; }
+            .sub-title { font-size: 10px; color: #64748b; margin-top: 2px; }
+            .divider { border-top: 1px dashed #cbd5e1; margin: 10px 0; }
+            .receipt-no { font-family: monospace; font-size: 12px; font-weight: 800; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+            .row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; }
+            .label { color: #64748b; }
+            .value { font-weight: 700; color: #0f172a; text-align: right; }
+            .amount-box { background: #f8fafc; border: 1.5px solid #0f224a; border-radius: 6px; padding: 10px; margin: 10px 0; text-align: center; }
+            .amount-val { font-size: 20px; font-weight: 900; color: #0f224a; font-family: monospace; }
+            .desc-box { font-size: 11px; background: #eff6ff; border-radius: 4px; padding: 6px 8px; margin-bottom: 10px; color: #1e3a8a; }
+            .footer-note { font-size: 9px; color: #94a3b8; text-align: center; margin-top: 12px; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 25px; padding-top: 10px; font-size: 10px; color: #475569; }
+            .sig-line { border-top: 1px solid #94a3b8; width: 45%; text-align: center; padding-top: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="slip">
+            <div class="center">
+              <div class="school-title">KIPS SCHOOL</div>
+              <div class="sub-title">Student Payment Receipt</div>
+              <div style="margin-top: 6px;">
+                <span class="receipt-no">${item.receipt_no}</span>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="row"><span class="label">Date:</span><span class="value">${formattedDate}</span></div>
+            <div class="row"><span class="label">Student:</span><span class="value">${studentName}</span></div>
+            ${fatherName ? `<div class="row"><span class="label">Father:</span><span class="value">${fatherName}</span></div>` : ""}
+            <div class="row"><span class="label">Class & Roll:</span><span class="value">${className} ${sectionName ? `(${sectionName})` : ""} • #${rollNo}</span></div>
+            <div class="row"><span class="label">Received By:</span><span class="value">${staffName}</span></div>
+            <div class="row"><span class="label">Method:</span><span class="value">${(item.payment_method || "cash").toUpperCase()}</span></div>
+            <div class="desc-box"><strong>Purpose:</strong> ${item.description}</div>
+            <div class="amount-box">
+              <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase;">Amount Paid</div>
+              <div class="amount-val">Rs. ${amountNum}</div>
+            </div>
+            <div class="row" style="margin-top: 6px;">
+              <span class="label">Status:</span>
+              <span class="value" style="color: ${item.status === "received_by_admin" ? "#059669" : "#d97706"}">
+                ${adminClearStatus}
+              </span>
+            </div>
+            <div class="signatures">
+              <div class="sig-line">Teacher Signature</div>
+              <div class="sig-line">Parent / Student</div>
+            </div>
+          </div>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `;
+    const printWin = window.open("", "_blank", "width=420,height=600");
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(printHtml);
+      printWin.document.close();
+    }
+  };
+
   // ─── Profile Image Upload ──────────────────────────────────
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -827,6 +985,15 @@ export default function TeacherDashboard() {
           { id: "subject_attendance", label: "Mark Subject Attendance", icon: CheckCircle2 },
           { id: "class_diary", label: "Class Diary", icon: FileText, badge: diaries.length },
           { id: "my_attendance", label: "My Attendance", icon: Calendar },
+          {
+            id: "student_receivings",
+            label: "Student Receivings",
+            icon: DollarSign,
+            badge: teacherReceivingsStats.pending_count > 0 ? teacherReceivingsStats.pending_count : undefined,
+          },
+          { id: "salaries", label: "My Salary", icon: CreditCard },
+          { id: "advance", label: "Advance Salary", icon: DollarSign },
+          { id: "leaves", label: "Leaves", icon: Clock },
           { id: "profile", label: "Profile & Settings", icon: User },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -861,7 +1028,7 @@ export default function TeacherDashboard() {
       {activeTab === "overview" && (
         <div className="space-y-6">
           {/* Quick Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
                 <BookOpen className="w-6 h-6" />
@@ -894,6 +1061,25 @@ export default function TeacherDashboard() {
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Class Diaries</p>
                 <h3 className="text-2xl font-black text-[#0f224a]">{diaries.length}</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">Recorded homework entries</p>
+              </div>
+            </div>
+
+            {/* Cash With Me (Student Collections) */}
+            <div
+              onClick={() => setActiveTab("student_receivings")}
+              className="bg-white p-5 rounded-2xl border border-amber-200/90 shadow-sm flex items-center gap-4 cursor-pointer hover:border-amber-400 hover:shadow-md transition bg-gradient-to-br from-amber-50/50 to-white group"
+            >
+              <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Cash With Me</p>
+                <h3 className="text-2xl font-black text-amber-950">
+                  Rs. {Number(teacherReceivingsStats.total_pending_amount || 0).toLocaleString()}
+                </h3>
+                <p className="text-[11px] text-amber-700/80 font-medium mt-0.5">
+                  {teacherReceivingsStats.pending_count} pending handover to admin
+                </p>
               </div>
             </div>
           </div>
@@ -984,6 +1170,22 @@ export default function TeacherDashboard() {
                   <Sparkles className="w-4 h-4 text-blue-600" /> Quick Teacher Actions
                 </h3>
                 <div className="space-y-2">
+                  <button
+                    onClick={() => setShowTeacherCollectModal(true)}
+                    className="w-full p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200/80 hover:border-emerald-300 transition flex items-center justify-between text-left group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                        <DollarSign className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#0f224a] group-hover:text-emerald-700">Receive from Student</p>
+                        <p className="text-[11px] text-slate-500">Collect fees/charges & send WhatsApp</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600" />
+                  </button>
+
                   <button
                     onClick={() => router.push("/dashboard/marks-entry")}
                     className="w-full p-3 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200/80 hover:border-blue-300 transition flex items-center justify-between text-left group"
@@ -1428,6 +1630,285 @@ export default function TeacherDashboard() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── TAB: STUDENT RECEIVINGS (CASH COLLECTIONS) ─────────── */}
+      {activeTab === "student_receivings" && (
+        <div className="space-y-6">
+          {/* Header & Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 className="text-lg font-bold text-[#0f224a] flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-amber-600" />
+                Student Receivings & Handover
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Collect payments from any student across all classes. Hand over cash to Super Admin to clear your balance.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchTeacherReceivings}
+                disabled={loadingTeacherReceivings}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 transition flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingTeacherReceivings ? "animate-spin text-blue-600" : "text-slate-500"}`} />
+                <span>Refresh</span>
+              </button>
+              <button
+                onClick={() => setShowTeacherCollectModal(true)}
+                className="px-4 py-2 rounded-xl text-xs font-extrabold text-white bg-[#0f224a] hover:bg-[#1e3a8a] shadow-md shadow-blue-950/20 transition flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4 text-sky-300" />
+                <span>+ Collect from Student</span>
+              </button>
+            </div>
+          </div>
+
+          {/* KPI Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Card 1: Cash in Hand (Pending Handover) */}
+            <div className="p-5 rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-500/10 via-amber-50 to-white shadow-2xs relative overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-amber-800">
+                  Cash In Hand (With You)
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                  <Clock className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-amber-950">
+                Rs. {Number(teacherReceivingsStats.total_pending_amount || 0).toLocaleString()}
+              </div>
+              <div className="mt-2 text-[11px] font-bold text-amber-800 flex items-center gap-1">
+                <span>{teacherReceivingsStats.pending_count} collections</span>
+                <span>• Pay to Admin to clear</span>
+              </div>
+            </div>
+
+            {/* Card 2: Handed Over to Admin */}
+            <div className="p-5 rounded-2xl border border-emerald-300/80 bg-gradient-to-br from-emerald-500/10 via-emerald-50 to-white shadow-2xs relative overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">
+                  Handed Over to Admin
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <CheckCheck className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-emerald-950">
+                Rs. {Number(teacherReceivingsStats.total_cleared || 0).toLocaleString()}
+              </div>
+              <div className="mt-2 text-[11px] font-semibold text-emerald-700">
+                Cleared & deposited into School Receivings
+              </div>
+            </div>
+
+            {/* Card 3: Total Collections Volume */}
+            <div className="p-5 rounded-2xl border border-blue-300/80 bg-gradient-to-br from-blue-500/10 via-blue-50 to-white shadow-2xs relative overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black uppercase tracking-wider text-blue-800">
+                  Total Collected (All-Time)
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-blue-950">
+                Rs. {Number(teacherReceivingsStats.total_all_time || 0).toLocaleString()}
+              </div>
+              <div className="mt-2 text-[11px] font-semibold text-blue-700">
+                Overall student payment volume collected
+              </div>
+            </div>
+          </div>
+
+          {/* Filter & Search Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+              <button
+                onClick={() => setTeacherStatusFilter("all")}
+                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  teacherStatusFilter === "all" ? "bg-white text-[#0f224a] shadow-2xs" : "text-slate-600"
+                }`}
+              >
+                All ({teacherReceivings.length})
+              </button>
+              <button
+                onClick={() => setTeacherStatusFilter("pending_handover")}
+                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  teacherStatusFilter === "pending_handover"
+                    ? "bg-amber-500 text-white shadow-2xs"
+                    : "text-amber-700"
+                }`}
+              >
+                Pending Handover ({teacherReceivings.filter((r) => r.status === "pending_handover").length})
+              </button>
+              <button
+                onClick={() => setTeacherStatusFilter("received_by_admin")}
+                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  teacherStatusFilter === "received_by_admin"
+                    ? "bg-emerald-600 text-white shadow-2xs"
+                    : "text-emerald-700"
+                }`}
+              >
+                Cleared by Admin ({teacherReceivings.filter((r) => r.status === "received_by_admin").length})
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-72">
+              <input
+                type="text"
+                placeholder="Search student, receipt # or reason..."
+                value={teacherReceivingSearch}
+                onChange={(e) => setTeacherReceivingSearch(e.target.value)}
+                className="w-full h-[36px] pl-8 pr-3 text-xs font-semibold rounded-lg border border-slate-300 focus:outline-none focus:border-blue-600"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            </div>
+          </div>
+
+          {/* Collections Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Receipt #</th>
+                    <th className="py-3 px-4">Student</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4">Reason / Purpose</th>
+                    <th className="py-3 px-4 text-center">WhatsApp Receipt</th>
+                    <th className="py-3 px-4 text-center">Admin Handover</th>
+                    <th className="py-3 px-4 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingTeacherReceivings ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                        <RefreshCw className="w-4 h-4 animate-spin inline-block mr-1 text-blue-600" />
+                        Loading collections...
+                      </td>
+                    </tr>
+                  ) : teacherReceivings.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                        <div className="space-y-2">
+                          <DollarSign className="w-8 h-8 text-slate-300 mx-auto" />
+                          <div className="font-bold text-slate-700">No student collections recorded yet</div>
+                          <p className="text-[11px] text-slate-500">
+                            Click &ldquo;+ Collect from Student&rdquo; to record a payment.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    teacherReceivings
+                      .filter((item) => {
+                        if (teacherStatusFilter !== "all" && item.status !== teacherStatusFilter) return false;
+                        if (!teacherReceivingSearch.trim()) return true;
+                        const q = teacherReceivingSearch.toLowerCase();
+                        return (
+                          item.receipt_no?.toLowerCase().includes(q) ||
+                          item.description?.toLowerCase().includes(q) ||
+                          item.student?.name?.toLowerCase().includes(q) ||
+                          String(item.student?.roll_number || "").includes(q)
+                        );
+                      })
+                      .map((item) => {
+                        const isPending = item.status === "pending_handover";
+                        const studentClass =
+                          item.student?.academyClass?.name || item.student?.academy_class?.name || "N/A";
+                        const studentSec = item.student?.section?.name || "";
+
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-50 transition">
+                            {/* Receipt # & Date */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span className="font-mono font-bold text-slate-900">{item.receipt_no}</span>
+                              <div className="text-[10px] text-slate-400 mt-0.5">{item.received_date}</div>
+                            </td>
+
+                            {/* Student */}
+                            <td className="py-3 px-4">
+                              <div className="font-bold text-slate-900">{item.student?.name}</div>
+                              <div className="text-[10px] text-slate-500">
+                                {studentClass} {studentSec ? `(${studentSec})` : ""} • Roll #{item.student?.roll_number || item.student_id}
+                              </div>
+                            </td>
+
+                            {/* Amount */}
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <span className="font-mono font-black text-sm text-[#0f224a]">
+                                Rs. {parseFloat(String(item.amount)).toLocaleString()}
+                              </span>
+                              <div className="text-[10px] text-slate-400 uppercase">{item.payment_method || "cash"}</div>
+                            </td>
+
+                            {/* Purpose */}
+                            <td className="py-3 px-4 max-w-xs">
+                              <div className="text-slate-700 font-medium line-clamp-2">{item.description}</div>
+                            </td>
+
+                            {/* WhatsApp status */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              {item.whatsapp_status === "sent" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCheck className="w-3 h-3 text-emerald-600" />
+                                  <span>Sent to Parent</span>
+                                </span>
+                              ) : item.whatsapp_status === "pending" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Queued</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                  <AlertCircle className="w-3 h-3 text-rose-600" />
+                                  <span>Pending</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Handover Status */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              {isPending ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                  <span>Pending Handover (Cash with You)</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Cleared by Admin</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Action */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <button
+                                onClick={() => {
+                                  setTeacherActiveReceipt(item);
+                                  setShowTeacherReceiptModal(true);
+                                }}
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
+                                title="Print Receipt Slip"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2243,6 +2724,450 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+
+      {/* ─── MODAL: COLLECT FROM STUDENT ─────────────────────────── */}
+      {showTeacherCollectModal && (
+        <TeacherCollectStudentModal
+          classList={allSchoolClasses}
+          onClose={() => setShowTeacherCollectModal(false)}
+          onSuccess={(newRec) => {
+            setShowTeacherCollectModal(false);
+            fetchTeacherReceivings();
+            if (newRec) {
+              setTeacherActiveReceipt(newRec);
+              setShowTeacherReceiptModal(true);
+            }
+          }}
+        />
+      )}
+
+      {/* ─── MODAL: PRINT RECEIPT PREVIEW ────────────────────────── */}
+      {showTeacherReceiptModal && teacherActiveReceipt && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-amber-400" />
+                <span className="font-extrabold text-xs">Payment Receipt</span>
+              </div>
+              <button
+                onClick={() => setShowTeacherReceiptModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 text-xs space-y-4">
+              <div className="text-center space-y-1">
+                <div className="text-base font-black tracking-wide text-[#0f224a]">KIPS SCHOOL</div>
+                <div className="text-[10px] text-slate-500">Official Student Collection Receipt</div>
+                <div className="inline-block px-3 py-1 bg-slate-100 font-mono font-bold text-slate-800 rounded-md mt-1">
+                  {teacherActiveReceipt.receipt_no}
+                </div>
+              </div>
+
+              <div className="space-y-2 border-y border-dashed border-slate-200 py-3 text-[11px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-medium">Date:</span>
+                  <span className="font-semibold text-slate-800">{teacherActiveReceipt.received_date}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-medium">Student:</span>
+                  <span className="font-bold text-slate-900">{teacherActiveReceipt.student?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-medium">Class & Roll:</span>
+                  <span className="font-medium text-slate-800">
+                    {teacherActiveReceipt.student?.academyClass?.name || teacherActiveReceipt.student?.academy_class?.name || "N/A"} • #{teacherActiveReceipt.student?.roll_number || teacherActiveReceipt.student_id}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-medium">Purpose:</span>
+                  <span className="font-semibold text-blue-900">{teacherActiveReceipt.description}</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center">
+                <div className="text-[10px] uppercase font-bold text-slate-500">Amount Received</div>
+                <div className="text-2xl font-black font-mono text-[#0f224a] mt-0.5">
+                  Rs. {parseFloat(String(teacherActiveReceipt.amount)).toLocaleString()}
+                </div>
+                <div className="text-[10px] font-semibold text-slate-400 uppercase mt-0.5">
+                  Method: {teacherActiveReceipt.payment_method || "cash"}
+                </div>
+              </div>
+
+              <div className="text-center text-[10px]">
+                {teacherActiveReceipt.status === "received_by_admin" ? (
+                  <span className="text-emerald-700 font-bold">✓ Handed Over & Cleared by Admin</span>
+                ) : (
+                  <span className="text-amber-700 font-bold">⚠️ Cash in your possession — Please hand over to Admin</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTeacherReceiptModal(false)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200 hover:bg-slate-50"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => triggerTeacherPrintSlip(teacherActiveReceipt)}
+                  className="flex-1 py-2 rounded-xl text-xs font-black text-white bg-[#0f224a] hover:bg-[#1e3a8a] flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5 text-sky-300" />
+                  <span>Print Slip</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sub-Component: Teacher Collect Student Receiving Modal ───────
+function TeacherCollectStudentModal({
+  classList,
+  onClose,
+  onSuccess,
+}: {
+  classList: { id: number; name: string }[];
+  onClose: () => void;
+  onSuccess: (rec: any) => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState<string>("all");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchingStudents, setSearchingStudents] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [receivedDate, setReceivedDate] = useState(() => new Date().toISOString().split("T")[0]);
+
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const commonReasons = [
+    "Picnic / Field Trip",
+    "Annual Sports Day",
+    "Uniform Fee",
+    "Student ID Card / Badge",
+    "Science Lab Charges",
+    "Stationery / Workbook",
+    "Discipline Fine",
+    "Late Fee Fine",
+    "Special Coaching",
+  ];
+
+  // Real-time student search
+  useEffect(() => {
+    if (!searchQuery.trim() && selectedClassId === "all") {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchingStudents(true);
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery.trim()) params.set("q", searchQuery.trim());
+        if (selectedClassId !== "all") params.set("class_id", selectedClassId);
+
+        const res = await fetch(`${API}/staff-receivings/students-search?${params.toString()}`, {
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const list = await res.json();
+          setSearchResults(Array.isArray(list) ? list : []);
+        }
+      } catch (err) {
+        console.error("Student search error", err);
+      } finally {
+        setSearchingStudents(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedClassId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent) {
+      setErrorMsg("Please select a student first.");
+      return;
+    }
+    if (!amount || parseFloat(amount) <= 0) {
+      setErrorMsg("Please enter a valid amount.");
+      return;
+    }
+    if (!description.trim()) {
+      setErrorMsg("Please enter the reason / purpose for receiving this amount.");
+      return;
+    }
+
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API}/staff-receivings`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          student_id: selectedStudent.id,
+          amount: parseFloat(amount),
+          description: description.trim(),
+          payment_method: paymentMethod,
+          received_date: receivedDate,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        onSuccess(data.receiving);
+      } else {
+        setErrorMsg(data.message || "Failed to record payment.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Network error occurred.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const parentPhone =
+    selectedStudent?.contact_number ||
+    selectedStudent?.emergency_contact ||
+    selectedStudent?.father_cell ||
+    "Not registered";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="p-4 bg-gradient-to-r from-[#0f224a] to-[#1e3a8a] text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+              <Plus className="w-4 h-4 text-sky-300" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-sm">Receive Amount from Student</h3>
+              <p className="text-[11px] text-sky-200">
+                Collect amount for any school reason & send instant WhatsApp receipt to parent
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/80 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Scrollable Form */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span className="font-semibold">{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Student Selector */}
+          <div className="space-y-2">
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700">
+              1. Select Student <span className="text-rose-500">*</span>
+            </label>
+
+            {selectedStudent ? (
+              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="font-black text-slate-900 text-sm">{selectedStudent.name}</div>
+                  <div className="text-[11px] text-slate-600 flex items-center gap-2 mt-0.5">
+                    <span className="font-bold text-blue-700">
+                      {selectedStudent.academyClass?.name || selectedStudent.academy_class?.name || "Class"}
+                    </span>
+                    <span>• Roll #{selectedStudent.roll_number || selectedStudent.id}</span>
+                    {selectedStudent.father_name && <span>• S/O {selectedStudent.father_name}</span>}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2 relative">
+                    <input
+                      type="text"
+                      placeholder="Type student name, roll # or phone..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full h-[38px] pl-8 pr-8 text-xs font-semibold rounded-lg border border-slate-300 focus:outline-none focus:border-blue-600 placeholder:text-slate-400"
+                    />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" />
+                    {searchingStudents && (
+                      <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin absolute right-2.5 top-3" />
+                    )}
+                  </div>
+                  <div>
+                    <CustomDropdown
+                      options={[
+                        { label: "All Classes", value: "all" },
+                        ...classList.map((c) => ({ label: c.name, value: c.id })),
+                      ]}
+                      value={selectedClassId}
+                      onChange={(_, val) => setSelectedClassId(String(val))}
+                      placeholder="Class Filter"
+                      name="classSearchFilter"
+                    />
+                  </div>
+                </div>
+
+                {/* Search Results Dropdown List */}
+                {searchingStudents && searchResults.length === 0 ? (
+                  <div className="p-3 text-center text-slate-500 font-semibold bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                    <span>Searching students...</span>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 shadow-md bg-white">
+                    {searchResults.map((st) => (
+                      <div
+                        key={st.id}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSelectedStudent(st);
+                          setSearchResults([]);
+                          setSearchQuery("");
+                        }}
+                        onClick={() => {
+                          setSelectedStudent(st);
+                          setSearchResults([]);
+                          setSearchQuery("");
+                        }}
+                        className="p-3 hover:bg-blue-50/80 cursor-pointer transition-all flex items-center justify-between border-l-2 border-transparent hover:border-blue-600 group"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                            {st.name}
+                          </div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">
+                            <span className="font-semibold text-blue-600">
+                              {st.academyClass?.name || st.academy_class?.name || "Class"}
+                            </span>
+                            {st.section?.name && <span> • Sec {st.section.name}</span>}
+                            <span> • Roll #{st.roll_number || st.id}</span>
+                            {st.father_name && <span> • S/O {st.father_name}</span>}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-blue-700 bg-blue-100 group-hover:bg-blue-600 group-hover:text-white px-2.5 py-1 rounded-lg transition-colors shrink-0">
+                          Select
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : !searchingStudents && searchQuery.trim().length >= 2 ? (
+                  <div className="p-3 text-center text-slate-500 font-medium bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    No active students found matching &ldquo;{searchQuery}&rdquo;.
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* Amount & Date */}
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Amount (Rs.) <span className="text-rose-500">*</span>
+              </label>
+              <CustomNumberInput
+                value={amount}
+                onChange={(val) => setAmount(val)}
+                placeholder="0.00"
+                prefix="Rs."
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">Payment Date</label>
+              <CustomDatePicker
+                value={receivedDate}
+                onChange={(date) => setReceivedDate(date)}
+                placeholder="Select Date"
+              />
+            </div>
+          </div>
+
+          {/* Description / Purpose */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+              Reason / Purpose <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Annual Picnic, Science Project, Uniform..."
+              required
+              className="w-full h-[38px] px-3 text-xs font-semibold rounded-lg border border-slate-300 focus:outline-none focus:border-blue-600"
+            />
+            {/* Chips */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {commonReasons.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setDescription(r)}
+                  className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-blue-100 hover:text-blue-800 text-[10px] font-semibold text-slate-600 transition-colors"
+                >
+                  + {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !selectedStudent || !amount}
+              className="px-5 py-2 rounded-xl text-xs font-black text-white bg-[#0f224a] hover:bg-[#1e3a8a] shadow-md shadow-blue-950/20 flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving Receipt...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-sky-300" />
+                  <span>Save Receipt</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

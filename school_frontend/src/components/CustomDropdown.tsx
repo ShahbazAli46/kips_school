@@ -8,6 +8,7 @@ export default function CustomDropdown({
   name,
   className = "",
   size = "md",
+  disabled = false,
 }: {
   options: { label: string; value: string | number }[];
   value: string | number;
@@ -16,6 +17,7 @@ export default function CustomDropdown({
   name: string;
   className?: string;
   size?: "sm" | "md";
+  disabled?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,14 +45,18 @@ export default function CustomDropdown({
       <div
         className={`w-full ${
           isSmall ? "h-[30px] px-2.5 py-1 text-xs rounded-md" : "h-[38px] px-3.5 py-2 text-xs rounded-lg"
-        } border outline-none transition-all cursor-pointer font-semibold flex items-center justify-between shadow-2xs hover:border-slate-400`}
+        } border outline-none transition-all font-semibold flex items-center justify-between shadow-2xs ${
+          disabled
+            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+            : "cursor-pointer hover:border-slate-400"
+        }`}
         style={{
-          borderColor: isOpen ? "#2563eb" : "#cbd5e1",
-          background: "#fff",
-          color: value && value !== "" && value !== "all" ? "#0f172a" : "#64748b",
+          borderColor: disabled ? "#e2e8f0" : isOpen ? "#2563eb" : "#cbd5e1",
+          background: disabled ? "#f8fafc" : "#fff",
+          color: disabled ? "#94a3b8" : value && value !== "" && value !== "all" ? "#0f172a" : "#64748b",
           boxShadow: isOpen ? "0 0 0 2px rgba(37, 99, 235, 0.2)" : "none",
         }}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
       >
         <span className="truncate pr-1.5 font-semibold">
           {selectedOption ? selectedOption.label : placeholder}
