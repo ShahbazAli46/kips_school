@@ -16,4 +16,9 @@ class TestCategory extends Model
     {
         return $this->hasMany(TestSeries::class);
     }
+
+    public function tests()
+    {
+        return $this->hasMany(Test::class);
+    }
 }

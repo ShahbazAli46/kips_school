@@ -10,7 +10,9 @@ class TestCategoryController extends Controller
 {
     public function index()
     {
-        return response()->json(TestCategory::all());
+        return response()->json(
+            TestCategory::withCount(['tests', 'testSeries'])->orderBy('id')->get()
+        );
     }
 
     public function store(Request $request)
@@ -23,12 +25,12 @@ class TestCategoryController extends Controller
         $validated['short_name'] = $validated['name'];
 
         $category = TestCategory::create($validated);
-        return response()->json($category, 201);
+        return response()->json($category->loadCount(['tests', 'testSeries']), 201);
     }
 
     public function show(TestCategory $testCategory)
     {
-        return response()->json($testCategory);
+        return response()->json($testCategory->loadCount(['tests', 'testSeries']));
     }
 
     public function update(Request $request, TestCategory $testCategory)
@@ -43,12 +45,25 @@ class TestCategoryController extends Controller
         }
 
         $testCategory->update($validated);
-        return response()->json($testCategory);
+        return response()->json($testCategory->loadCount(['tests', 'testSeries']));
     }
 
-    public function destroy(TestCategory $testCategory)
+    public function destroy(Request $request, TestCategory $testCategory)
     {
+        $testsCount = $testCategory->tests()->count();
+        $seriesCount = $testCategory->testSeries()->count();
+        $totalLinked = $testsCount + $seriesCount;
+
+        if ($totalLinked > 0 && !$request->boolean('force')) {
+            return response()->json([
+                'message' => "Category '{$testCategory->name}' is linked to {$testsCount} test(s) and {$seriesCount} test series. Deleting it will also remove those tests and their marks. Are you sure you want to proceed?",
+                'tests_count' => $testsCount,
+                'series_count' => $seriesCount,
+                'requires_confirmation' => true,
+            ], 422);
+        }
+
         $testCategory->delete();
-        return response()->json(null, 204);
+        return response()->json(['message' => 'Test category deleted successfully']);
     }
 }
