@@ -14,6 +14,11 @@ class Subject extends Model
         return $this->belongsToMany(Major::class, 'major_subject')->withTimestamps();
     }
 
+    public function classes(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(AcademyClass::class, 'class_subject', 'subject_id', 'class_id')->withTimestamps();
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

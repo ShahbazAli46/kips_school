@@ -16,6 +16,11 @@ class AcademyClass extends Model
         return $this->belongsToMany(Section::class, 'class_section', 'class_id', 'section_id');
     }
 
+    public function subjects(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Subject::class, 'class_subject', 'class_id', 'subject_id')->withTimestamps();
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

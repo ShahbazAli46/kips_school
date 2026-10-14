@@ -171,7 +171,7 @@ class DashboardAttentionSeekerController extends Controller
         // 2. Filter by category
         $filtered = array_filter($allEvaluations, function ($s) use ($category) {
             if ($category === 'all') {
-                return count($s['categories']) > 0;
+                return true;
             }
             if ($category === 'attention_seeker' || $category === 'at_risk') {
                 return in_array('attention_seeker', $s['categories'], true) || in_array('at_risk', $s['categories'], true);
@@ -191,6 +191,14 @@ class DashboardAttentionSeekerController extends Controller
 
         // Sort based on category priority
         usort($filtered, function ($a, $b) use ($category) {
+            if ($category === 'all') {
+                if ($a['tests_taken'] > 0 && $b['tests_taken'] === 0) return -1;
+                if ($a['tests_taken'] === 0 && $b['tests_taken'] > 0) return 1;
+                if ($a['avg_percentage'] !== $b['avg_percentage']) {
+                    return $b['avg_percentage'] <=> $a['avg_percentage'];
+                }
+                return ($a['roll_number'] ?? $a['id']) <=> ($b['roll_number'] ?? $b['id']);
+            }
             if (in_array($category, ['attention_seeker', 'at_risk', 'declining', 'double_trouble'])) {
                 return $a['avg_percentage'] <=> $b['avg_percentage'];
             }
@@ -237,10 +245,6 @@ class DashboardAttentionSeekerController extends Controller
         $marksQuery = DB::table('test_marks')
             ->join('tests', 'test_marks.test_id', '=', 'tests.id')
             ->join('users as students', 'test_marks.student_id', '=', 'students.id')
-            ->join('major_subject', function ($join) {
-                $join->on('students.major_id', '=', 'major_subject.major_id')
-                    ->on('tests.subject_id', '=', 'major_subject.subject_id');
-            })
             ->join('subjects', 'tests.subject_id', '=', 'subjects.id')
             ->leftJoin('classes', 'students.class_id', '=', 'classes.id')
             ->leftJoin('sections', 'students.section_id', '=', 'sections.id')
@@ -251,7 +255,10 @@ class DashboardAttentionSeekerController extends Controller
             ->where('tests.academic_session_id', $sessionId);
 
         if ($classId && $classId !== 'all') {
-            $marksQuery->where('tests.academy_class_id', $classId);
+            $marksQuery->where(function ($q) use ($classId) {
+                $q->where('tests.academy_class_id', $classId)
+                    ->orWhere('students.class_id', $classId);
+            });
         }
 
         if ($sectionId && $sectionId !== 'all') {
@@ -289,39 +296,7 @@ class DashboardAttentionSeekerController extends Controller
             ->orderBy('tests.date', 'asc')
             ->get();
 
-        // 2. Fetch daily attendance rates for students scoped to session date range
-        $studentIds = $records->pluck('student_id')->unique()->filter()->values()->all();
-        $attendanceMap = [];
-        if (!empty($studentIds)) {
-            $sessionObj = DB::table('academic_sessions')->where('id', $sessionId)->first(['start_date', 'end_date']);
-            $attQuery = DB::table('attendances')->whereIn('student_id', $studentIds);
-
-            if ($sessionObj) {
-                if (!empty($sessionObj->start_date)) {
-                    $attQuery->where('date', '>=', $sessionObj->start_date);
-                }
-                if (!empty($sessionObj->end_date)) {
-                    $attQuery->where('date', '<=', $sessionObj->end_date);
-                }
-            }
-
-            $attRows = $attQuery
-                ->select(
-                    'student_id',
-                    DB::raw('COUNT(*) as total_days'),
-                    DB::raw('SUM(CASE WHEN status = "present" THEN 1 ELSE 0 END) as present_days')
-                )
-                ->groupBy('student_id')
-                ->get();
-
-            foreach ($attRows as $row) {
-                $attendanceMap[$row->student_id] = $row->total_days > 0
-                    ? round(($row->present_days / $row->total_days) * 100, 1)
-                    : null;
-            }
-        }
-
-        // 3. Group and compute per-student statistics
+        // 2. Group test marks per student
         $students = [];
         foreach ($records as $row) {
             $sid = $row->student_id;
@@ -376,6 +351,96 @@ class DashboardAttentionSeekerController extends Controller
             }
         }
 
+        // Include all enrolled students when not filtered by a specific subject
+        if (!$subjectId || $subjectId === 'all') {
+            $enrolledQuery = DB::table('users as students')
+                ->leftJoin('classes', 'students.class_id', '=', 'classes.id')
+                ->leftJoin('sections', 'students.section_id', '=', 'sections.id')
+                ->leftJoin('majors', 'students.major_id', '=', 'majors.id')
+                ->whereNull('students.deleted_at')
+                ->where('students.is_active', 1)
+                ->where('students.role_id', 3)
+                ->where('students.academic_session_id', $sessionId);
+
+            if ($classId && $classId !== 'all') {
+                $enrolledQuery->where('students.class_id', $classId);
+            }
+
+            if ($sectionId && $sectionId !== 'all') {
+                $enrolledQuery->where('students.section_id', $sectionId);
+            }
+
+            $enrolledStudents = $enrolledQuery->select(
+                'students.id as student_id',
+                'students.name',
+                'students.father_name',
+                'students.roll_number',
+                'students.image',
+                'students.contact_number',
+                'students.emergency_contact',
+                'students.class_id',
+                'students.section_id',
+                'classes.name as class_name',
+                'sections.name as section_name',
+                'majors.name as major_name'
+            )->orderBy('students.roll_number')->get();
+
+            foreach ($enrolledStudents as $enrolled) {
+                $sid = $enrolled->student_id;
+                if (!isset($students[$sid])) {
+                    $students[$sid] = [
+                        'id' => $sid,
+                        'name' => $enrolled->name,
+                        'father_name' => $enrolled->father_name,
+                        'roll_number' => $enrolled->roll_number,
+                        'image' => $enrolled->image,
+                        'contact_number' => $enrolled->contact_number,
+                        'emergency_contact' => $enrolled->emergency_contact,
+                        'class_id' => $enrolled->class_id,
+                        'section_id' => $enrolled->section_id,
+                        'test_category_id' => null,
+                        'class_name' => $enrolled->class_name,
+                        'section_name' => $enrolled->section_name,
+                        'major_name' => $enrolled->major_name,
+                        'tests' => [],
+                        'subjects' => [],
+                    ];
+                }
+            }
+        }
+
+        // 3. Fetch daily attendance rates for students scoped to session date range
+        $studentIds = array_keys($students);
+        $attendanceMap = [];
+        if (!empty($studentIds)) {
+            $sessionObj = DB::table('academic_sessions')->where('id', $sessionId)->first(['start_date', 'end_date']);
+            $attQuery = DB::table('attendances')->whereIn('student_id', $studentIds);
+
+            if ($sessionObj) {
+                if (!empty($sessionObj->start_date)) {
+                    $attQuery->where('date', '>=', $sessionObj->start_date);
+                }
+                if (!empty($sessionObj->end_date)) {
+                    $attQuery->where('date', '<=', $sessionObj->end_date);
+                }
+            }
+
+            $attRows = $attQuery
+                ->select(
+                    'student_id',
+                    DB::raw('COUNT(*) as total_days'),
+                    DB::raw('SUM(CASE WHEN status = "present" THEN 1 ELSE 0 END) as present_days')
+                )
+                ->groupBy('student_id')
+                ->get();
+
+            foreach ($attRows as $row) {
+                $attendanceMap[$row->student_id] = $row->total_days > 0
+                    ? round(($row->present_days / $row->total_days) * 100, 1)
+                    : null;
+            }
+        }
+
         // 4. Calculate diagnostic metrics & categorize
         $evaluated = [];
         foreach ($students as $sid => $data) {
@@ -405,7 +470,6 @@ class DashboardAttentionSeekerController extends Controller
             // Trend Delta (Early vs Recent tests)
             $trendDelta = 0;
             if ($testsTaken >= 3) {
-                // Split taken tests chronologically
                 $takenTests = array_values(array_filter($tests, fn($t) => !$t['is_absent']));
                 $half = (int) floor(count($takenTests) / 2);
                 $firstHalf = array_slice($takenTests, 0, $half);
@@ -437,12 +501,15 @@ class DashboardAttentionSeekerController extends Controller
             }
 
             // Grade
-            $grade = 'F';
-            if ($avgPct >= 80) $grade = 'A+';
-            elseif ($avgPct >= 70) $grade = 'A';
-            elseif ($avgPct >= 60) $grade = 'B';
-            elseif ($avgPct >= 50) $grade = 'C';
-            elseif ($avgPct >= 40) $grade = 'D';
+            $grade = '—';
+            if ($testsTaken >= 1) {
+                if ($avgPct >= 80) $grade = 'A+';
+                elseif ($avgPct >= 70) $grade = 'A';
+                elseif ($avgPct >= 60) $grade = 'B';
+                elseif ($avgPct >= 50) $grade = 'C';
+                elseif ($avgPct >= 40) $grade = 'D';
+                else $grade = 'F';
+            }
 
             $attendanceRate = $attendanceMap[$sid] ?? null;
 
@@ -543,6 +610,9 @@ class DashboardAttentionSeekerController extends Controller
      */
     private function generateDiagnosticNote($categories, $avg, $delta, $weakest, $strongest, $absent, $total, $topThreshold = 75.0, $attentionThreshold = 50.0)
     {
+        if ($total == 0) {
+            return "Enrolled student (No test evaluations recorded yet).";
+        }
         if (in_array('double_trouble', $categories)) {
             return "Critical: Poor exam marks ({$avg}%) compounded with irregular attendance.";
         }

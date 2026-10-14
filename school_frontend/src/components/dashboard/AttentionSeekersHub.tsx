@@ -187,6 +187,10 @@ export default function AttentionSeekersHub() {
     if (selectedClass === "all") {
       return sections;
     }
+    const foundClass = classes.find((c: any) => String(c.id) === String(selectedClass));
+    if (foundClass?.sections && foundClass.sections.length > 0) {
+      return foundClass.sections;
+    }
     if (sectionsForSelectedClass.length > 0) {
       return sectionsForSelectedClass.map((s: any) => ({
         id: s.section_id,
@@ -194,7 +198,7 @@ export default function AttentionSeekersHub() {
       }));
     }
     return sections;
-  }, [selectedClass, sectionsForSelectedClass, sections]);
+  }, [selectedClass, classes, sectionsForSelectedClass, sections]);
 
   // Options for CustomDropdown
   const classOptions = useMemo(() => [
@@ -399,6 +403,30 @@ export default function AttentionSeekersHub() {
 
         {/* Filter Controls */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Class Dropdown */}
+          <div className="w-36 sm:w-44">
+            <CustomDropdown
+              name="classFilter"
+              options={classOptions}
+              value={selectedClass}
+              onChange={(_, val) => handleClassChange(String(val))}
+              placeholder="All Classes"
+              size="sm"
+            />
+          </div>
+
+          {/* Section Dropdown */}
+          <div className="w-36 sm:w-44">
+            <CustomDropdown
+              name="sectionFilter"
+              options={sectionOptions}
+              value={selectedSection}
+              onChange={(_, val) => handleSectionChange(String(val))}
+              placeholder="All Sections"
+              size="sm"
+            />
+          </div>
+
           {/* Search Input */}
           <div className="relative">
             <input
@@ -409,7 +437,7 @@ export default function AttentionSeekersHub() {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="py-2 pl-8 pr-3 rounded-lg border text-xs w-40 sm:w-48 transition focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]"
+              className="py-1.5 pl-8 pr-3 rounded-lg border text-xs w-36 sm:w-44 transition focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]"
               style={{
                 background: "#f0f4f8",
                 color: "#1e3a8a",

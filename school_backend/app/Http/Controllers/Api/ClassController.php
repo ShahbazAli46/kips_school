@@ -15,7 +15,7 @@ class ClassController extends Controller
     public function index()
     {
         $classes = \Illuminate\Support\Facades\Cache::rememberForever('api_classes', function () {
-            return AcademyClass::with(['sections:id,name', 'createdBy:id,name', 'updatedBy:id,name'])
+            return AcademyClass::with(['sections:id,name', 'subjects:id,name', 'createdBy:id,name', 'updatedBy:id,name'])
                 ->orderBy('name')
                 ->get()
                 ->toArray();
@@ -33,6 +33,8 @@ class ClassController extends Controller
             'name' => 'required|string|max:100|unique:classes,name',
             'section_ids' => 'nullable|array',
             'section_ids.*' => 'exists:sections,id',
+            'subject_ids' => 'nullable|array',
+            'subject_ids.*' => 'exists:subjects,id',
         ]);
 
         $class = AcademyClass::create([
@@ -45,9 +47,13 @@ class ClassController extends Controller
             $class->sections()->sync($request->section_ids);
         }
 
+        if ($request->has('subject_ids')) {
+            $class->subjects()->sync($request->subject_ids);
+        }
+
         \Illuminate\Support\Facades\Cache::forget('api_classes');
 
-        return response()->json($class->load(['sections:id,name', 'createdBy:id,name', 'updatedBy:id,name']), 201);
+        return response()->json($class->load(['sections:id,name', 'subjects:id,name', 'createdBy:id,name', 'updatedBy:id,name']), 201);
     }
 
     /**
@@ -59,6 +65,8 @@ class ClassController extends Controller
             'name' => 'required|string|max:100|unique:classes,name,' . $class->id,
             'section_ids' => 'nullable|array',
             'section_ids.*' => 'exists:sections,id',
+            'subject_ids' => 'nullable|array',
+            'subject_ids.*' => 'exists:subjects,id',
         ]);
 
         $class->update([
@@ -70,9 +78,13 @@ class ClassController extends Controller
             $class->sections()->sync($request->section_ids);
         }
 
+        if ($request->has('subject_ids')) {
+            $class->subjects()->sync($request->subject_ids);
+        }
+
         \Illuminate\Support\Facades\Cache::forget('api_classes');
 
-        return response()->json($class->load(['sections:id,name', 'createdBy:id,name', 'updatedBy:id,name']));
+        return response()->json($class->load(['sections:id,name', 'subjects:id,name', 'createdBy:id,name', 'updatedBy:id,name']));
     }
 
     /**
@@ -91,17 +103,24 @@ class ClassController extends Controller
      */
     public function subjects(AcademyClass $class)
     {
+        // 1. Direct class-to-subject assignment (Highest priority)
+        $classSubjects = $class->subjects()->orderBy('name')->get();
+        if ($classSubjects->isNotEmpty()) {
+            return response()->json($classSubjects);
+        }
+
+        // 2. Fallback to teacher assignments if not explicitly assigned
         $subjectIds = \App\Models\TeacherAssignment::where('class_id', $class->id)
             ->pluck('subject_id')
             ->unique()
             ->values();
 
-        if ($subjectIds->isEmpty()) {
-            $subjects = \App\Models\Subject::orderBy('name')->get();
-        } else {
+        if ($subjectIds->isNotEmpty()) {
             $subjects = \App\Models\Subject::whereIn('id', $subjectIds)->orderBy('name')->get();
+            return response()->json($subjects);
         }
 
-        return response()->json($subjects);
+        // 3. Fallback to all subjects if none configured
+        return response()->json(\App\Models\Subject::orderBy('name')->get());
     }
 }
