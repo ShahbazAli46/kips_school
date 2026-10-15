@@ -62,21 +62,27 @@ class ResultController extends Controller
                   ($categoryName && (stripos($categoryName, 'r n t') !== false || stripos($categoryName, 'r&t') !== false)));
 
         if ($isRnt) {
-            $rounds = $dbTitles;
+            $rounds = array_values(array_unique($dbTitles));
         } else {
             $defaultRoundNames = [
-                $categoryName ?: "First Term",
+                "Round 1",
                 "Round 2",
                 "Round 3",
                 "Round 4",
                 "Round 5"
             ];
-
-            $rounds = $dbTitles;
-            while (count($rounds) < 5) {
-                $nextIdx = count($rounds);
-                $rounds[] = $defaultRoundNames[$nextIdx] ?? ("Round " . ($nextIdx + 1));
+            if ($categoryName && !in_array($categoryName, $defaultRoundNames)) {
+                array_unshift($defaultRoundNames, $categoryName);
             }
+
+            $rounds = array_values(array_unique($dbTitles));
+            foreach ($defaultRoundNames as $defName) {
+                if (count($rounds) >= 5) break;
+                if (!in_array($defName, $rounds)) {
+                    $rounds[] = $defName;
+                }
+            }
+            $rounds = array_values(array_unique($rounds));
         }
 
         $classId = $validated['academy_class_id'];
@@ -222,10 +228,10 @@ class ResultController extends Controller
         }
 
         return response()->json([
-            'rounds' => $rounds,
-            'active_rounds' => $activeRounds,
-            'completed_rounds' => $completedRounds,
-            'partial_rounds' => $partialRounds,
+            'rounds' => array_values(array_unique($rounds)),
+            'active_rounds' => array_values(array_unique($activeRounds)),
+            'completed_rounds' => array_values(array_unique($completedRounds)),
+            'partial_rounds' => array_values(array_unique($partialRounds)),
             'round_statuses' => $roundStatuses,
         ]);
     }
@@ -366,6 +372,500 @@ class ResultController extends Controller
         });
 
         return response()->json($results);
+    }
+
+    public function getSummarySheetResults(Request $request)
+    {
+        $validated = $request->validate([
+            'academic_session_id' => 'required|exists:academic_sessions,id',
+            'academy_class_id' => 'required|exists:classes,id',
+            'test_category_id' => 'required',
+            'section_id' => 'nullable',
+        ]);
+
+        $session = DB::table('academic_sessions')->where('id', $validated['academic_session_id'])->first();
+        $class = DB::table('classes')->where('id', $validated['academy_class_id'])->first();
+        $section = (!empty($validated['section_id']) && $validated['section_id'] !== 'all')
+            ? DB::table('sections')->where('id', $validated['section_id'])->first()
+            : null;
+
+        // Base query for tests
+        $testQuery = DB::table('tests')
+            ->where('academic_session_id', $validated['academic_session_id'])
+            ->where('academy_class_id', $validated['academy_class_id']);
+
+        if (!empty($validated['section_id']) && $validated['section_id'] !== 'all') {
+            $testQuery->where(function($q) use ($validated) {
+                $q->where('section_id', $validated['section_id'])
+                  ->orWhereNull('section_id');
+            });
+        }
+
+        $categoryName = null;
+        $categoryType = null;
+        if ($validated['test_category_id'] !== 'all') {
+            if (is_numeric($validated['test_category_id'])) {
+                $testQuery->where('test_category_id', $validated['test_category_id']);
+                $catRecord = DB::table('test_categories')->where('id', $validated['test_category_id'])->first();
+                $categoryName = $catRecord ? $catRecord->name : null;
+                $categoryType = $catRecord ? $catRecord->type : null;
+            } else {
+                $categoryType = $validated['test_category_id'];
+                $testQuery->whereIn('test_category_id', function($q) use ($validated) {
+                    $q->select('id')->from('test_categories')->where('type', $validated['test_category_id']);
+                });
+            }
+        }
+
+        $allTests = $testQuery->whereNotNull('title')->orderBy('date', 'asc')->get();
+
+        // Distinct rounds from database
+        $dbRounds = $allTests->pluck('title')->filter()->unique()->values()->toArray();
+
+        // Check if rounds are filtered via request parameter
+        $requestedRounds = null;
+        if ($request->filled('rounds') && $request->rounds !== 'none') {
+            $requestedRounds = is_array($request->rounds) ? $request->rounds : explode(',', $request->rounds);
+            $requestedRounds = array_filter(array_map('trim', $requestedRounds));
+        }
+
+        $isRnt = ($categoryType === 'rnt' || 
+                  ($categoryName && (stripos($categoryName, 'r n t') !== false || stripos($categoryName, 'r&t') !== false)));
+
+        if (!empty($requestedRounds)) {
+            $rounds = array_values(array_unique($requestedRounds));
+        } elseif ($isRnt) {
+            $rounds = array_values(array_unique($dbRounds));
+        } else {
+            // Standard 5 rounds padding matching Excel Summary Sheet template
+            $defaultRoundNames = [
+                "Round 1",
+                "Round 2",
+                "Round 3",
+                "Round 4",
+                "Round 5"
+            ];
+            if ($categoryName && !in_array($categoryName, $defaultRoundNames)) {
+                array_unshift($defaultRoundNames, $categoryName);
+            }
+
+            $rounds = array_values(array_unique($dbRounds));
+            foreach ($defaultRoundNames as $defName) {
+                if (count($rounds) >= 5) break;
+                if (!in_array($defName, $rounds)) {
+                    $rounds[] = $defName;
+                }
+            }
+            $rounds = array_values(array_unique($rounds));
+        }
+
+        // Subjects: find all subjects that have tests or belong to class
+        $subjectIds = $allTests->pluck('subject_id')->unique()->values();
+        $classSubjectIds = DB::table('class_subject')->where('class_id', $validated['academy_class_id'])->pluck('subject_id');
+        $allSubjectIds = $subjectIds->merge($classSubjectIds)->unique()->values();
+
+        $subjectOrder = [
+            'english' => 1,
+            'urdu' => 2,
+            'nazra' => 3,
+            'islamiyat' => 4,
+            'islamiat' => 4,
+            'mathematics' => 5,
+            'math' => 5,
+            'maths' => 5,
+            'social studies' => 6,
+            'pak studies' => 6,
+            'general science' => 7,
+            'science' => 7,
+            'amazing world' => 8,
+            'general knowledge' => 8,
+            'computer' => 9,
+            'biology' => 10,
+            'chemistry' => 11,
+            'physics' => 12,
+        ];
+
+        $subjects = DB::table('subjects')
+            ->whereIn('id', $allSubjectIds)
+            ->get()
+            ->sortBy(function($sub) use ($subjectOrder) {
+                $nameLower = strtolower(trim($sub->name));
+                return $subjectOrder[$nameLower] ?? (100 + $sub->id);
+            })
+            ->values();
+
+        // If no subjects from tests, fetch all subjects for class
+        if ($subjects->isEmpty()) {
+            $subjects = DB::table('subjects')
+                ->get()
+                ->sortBy(function($sub) use ($subjectOrder) {
+                    $nameLower = strtolower(trim($sub->name));
+                    return $subjectOrder[$nameLower] ?? (100 + $sub->id);
+                })
+                ->values()
+                ->take(8);
+        }
+
+        // Active students in class / section
+        $studentsQuery = DB::table('users as students')
+            ->leftJoin('sections', 'students.section_id', '=', 'sections.id')
+            ->leftJoin('majors', 'students.major_id', '=', 'majors.id')
+            ->where('students.class_id', $validated['academy_class_id'])
+            ->whereNull('students.deleted_at')
+            ->where('students.is_active', 1);
+
+        if (!empty($validated['section_id']) && $validated['section_id'] !== 'all') {
+            $studentsQuery->where('students.section_id', $validated['section_id']);
+        }
+
+        $students = $studentsQuery->select(
+                'students.id',
+                'students.name',
+                'students.father_name',
+                'students.roll_number',
+                'students.section_id',
+                'students.major_id',
+                'sections.name as section_name',
+                'majors.name as major_name'
+            )
+            ->orderByRaw('CAST(students.roll_number AS UNSIGNED) ASC, students.roll_number ASC')
+            ->get();
+
+        // Major subjects mapping
+        $majorIds = $students->pluck('major_id')->filter()->unique();
+        $majorSubjects = [];
+        if ($majorIds->isNotEmpty()) {
+            $msRows = DB::table('major_subject')->whereIn('major_id', $majorIds)->get();
+            foreach ($msRows as $row) {
+                $majorSubjects[$row->major_id][] = $row->subject_id;
+            }
+        }
+
+        // Pre-fetch all marks
+        $allTestIds = $allTests->pluck('id');
+        $marksByStudentAndTest = [];
+        if ($allTestIds->isNotEmpty() && $students->isNotEmpty()) {
+            $marksRows = DB::table('test_marks')
+                ->whereIn('test_id', $allTestIds)
+                ->whereIn('student_id', $students->pluck('id'))
+                ->select('test_id', 'student_id', 'obtained_marks', 'is_absent')
+                ->get();
+
+            foreach ($marksRows as $m) {
+                $marksByStudentAndTest[$m->student_id][$m->test_id] = [
+                    'obtained_marks' => $m->obtained_marks !== null ? (float) $m->obtained_marks : null,
+                    'is_absent' => (bool) $m->is_absent,
+                ];
+            }
+        }
+
+        // Map tests by subject_id and title (round title)
+        $testsBySubjectAndRound = [];
+        foreach ($allTests as $t) {
+            $testsBySubjectAndRound[$t->subject_id][$t->title] = $t;
+        }
+
+        // Build subject metadata (round conduction dates & max marks)
+        $subjectsData = [];
+        $grandTotalMaxMarks = 0;
+
+        foreach ($subjects as $subject) {
+            $subRounds = [];
+            $subTotalMax = 0;
+
+            foreach ($rounds as $rTitle) {
+                $test = $testsBySubjectAndRound[$subject->id][$rTitle] ?? null;
+                $dateFormatted = '';
+                $maxMarks = 0;
+
+                if ($test) {
+                    $maxMarks = (float) $test->total_marks;
+                    $subTotalMax += $maxMarks;
+                    if (!empty($test->date)) {
+                        $dateFormatted = date('d/m', strtotime($test->date));
+                    }
+                }
+
+                $subRounds[] = [
+                    'round_title' => $rTitle,
+                    'short_title' => preg_match('/Round\s*(\d+)/i', $rTitle, $m) ? ('R-' . $m[1]) : (str_starts_with($rTitle, 'R-') ? $rTitle : substr($rTitle, 0, 5)),
+                    'date' => $dateFormatted,
+                    'max_marks' => $maxMarks,
+                    'has_test' => (bool) $test,
+                ];
+            }
+
+            $grandTotalMaxMarks += $subTotalMax;
+
+            $subjectsData[] = [
+                'id' => $subject->id,
+                'name' => $subject->name,
+                'rounds' => $subRounds,
+                'total_max_marks' => $subTotalMax,
+            ];
+        }
+
+        // Build Student Results
+        $studentRows = [];
+
+        foreach ($students as $student) {
+            $studentSubjectMarks = [];
+            $grandTotalObtained = 0;
+            $grandStudentMax = 0;
+
+            foreach ($subjectsData as $subMeta) {
+                $subId = $subMeta['id'];
+                $subObtained = 0;
+                $subMax = 0;
+                $roundMarksList = [];
+
+                // Check if this subject applies to student's major
+                $isSubjectApplicable = true;
+                if ($student->major_id && isset($majorSubjects[$student->major_id])) {
+                    if (!in_array($subId, $majorSubjects[$student->major_id])) {
+                        $isSubjectApplicable = false;
+                    }
+                }
+
+                foreach ($rounds as $rTitle) {
+                    $test = $testsBySubjectAndRound[$subId][$rTitle] ?? null;
+                    $obtained = null;
+                    $isAbsent = false;
+
+                    if ($test && $isSubjectApplicable) {
+                        // Check section filter for this test if applicable
+                        if (empty($test->section_id) || empty($student->section_id) || $test->section_id == $student->section_id) {
+                            $subMax += (float) $test->total_marks;
+                            $mInfo = $marksByStudentAndTest[$student->id][$test->id] ?? null;
+                            if ($mInfo) {
+                                if ($mInfo['is_absent']) {
+                                    $isAbsent = true;
+                                    $obtained = 0;
+                                } else if ($mInfo['obtained_marks'] !== null) {
+                                    $obtained = (float) $mInfo['obtained_marks'];
+                                    $subObtained += $obtained;
+                                }
+                            }
+                        }
+                    }
+
+                    $roundMarksList[] = [
+                        'round_title' => $rTitle,
+                        'obtained_marks' => $obtained,
+                        'is_absent' => $isAbsent,
+                    ];
+                }
+
+                $subPercentage = $subMax > 0 ? round(($subObtained / $subMax) * 100, 2) : 0;
+                $subGrade = '-';
+                if ($subMax > 0) {
+                    if ($subPercentage >= 90) $subGrade = 'A+';
+                    elseif ($subPercentage >= 80) $subGrade = 'A';
+                    elseif ($subPercentage >= 70) $subGrade = 'B';
+                    elseif ($subPercentage >= 60) $subGrade = 'C';
+                    elseif ($subPercentage >= 40) $subGrade = 'D';
+                    else $subGrade = 'Fail';
+                }
+
+                $studentSubjectMarks[$subId] = [
+                    'rounds' => $roundMarksList,
+                    'total_obtained' => $subObtained,
+                    'total_max' => $subMax,
+                    'percentage' => $subPercentage,
+                    'grade' => $subGrade,
+                ];
+
+                $grandTotalObtained += $subObtained;
+                $grandStudentMax += $subMax;
+            }
+
+            $effectiveMax = $grandStudentMax > 0 ? $grandStudentMax : $grandTotalMaxMarks;
+            $grandPercentage = $effectiveMax > 0 ? round(($grandTotalObtained / $effectiveMax) * 100, 2) : 0;
+            
+            $grandGrade = 'Fail';
+            if ($effectiveMax > 0) {
+                if ($grandPercentage >= 90) $grandGrade = 'A+';
+                elseif ($grandPercentage >= 80) $grandGrade = 'A';
+                elseif ($grandPercentage >= 70) $grandGrade = 'B';
+                elseif ($grandPercentage >= 60) $grandGrade = 'C';
+                elseif ($grandPercentage >= 40) $grandGrade = 'D';
+                else $grandGrade = 'Fail';
+            }
+
+            $studentRows[] = [
+                'student_id' => $student->id,
+                'student_name' => $student->name,
+                'father_name' => $student->father_name,
+                'roll_number' => $student->roll_number,
+                'section_name' => $student->section_name,
+                'subjects' => $studentSubjectMarks,
+                'grand_total_obtained' => $grandTotalObtained,
+                'grand_total_max' => $effectiveMax,
+                'percentage' => $grandPercentage,
+                'grade' => $grandGrade,
+                'position' => null,
+            ];
+        }
+
+        // Calculate Ranks
+        $rankedList = collect($studentRows)->sortByDesc(function($s) {
+            return $s['percentage'] * 100000 + $s['grand_total_obtained'];
+        })->values();
+
+        $rank = 1;
+        $prevScore = -1;
+        $actualRank = 1;
+        $rankMap = [];
+
+        foreach ($rankedList as $item) {
+            $score = $item['percentage'];
+            if ($prevScore === -1) {
+                $assignedRank = $rank;
+            } elseif ($score == $prevScore) {
+                $assignedRank = $rank;
+            } else {
+                $rank = $actualRank;
+                $assignedRank = $rank;
+            }
+            $prevScore = $score;
+            $actualRank++;
+
+            // Only assign rank if student took at least one test / has score > 0
+            $rankMap[$item['student_id']] = ($item['grand_total_obtained'] > 0 || $item['percentage'] > 0) ? $assignedRank : '-';
+        }
+
+        // Apply ranks back to studentRows in roll number order
+        foreach ($studentRows as &$sRow) {
+            $sRow['position'] = $rankMap[$sRow['student_id']] ?? '-';
+        }
+        unset($sRow);
+
+        // Teacher / Incharge assignment
+        $teacherAssignments = DB::table('teacher_assignments')
+            ->join('users as teachers', 'teacher_assignments.teacher_id', '=', 'teachers.id')
+            ->where('teacher_assignments.class_id', $validated['academy_class_id'])
+            ->whereNull('teachers.deleted_at')
+            ->orderBy('teacher_assignments.is_class_incharge', 'desc')
+            ->select('teacher_assignments.section_id', 'teacher_assignments.is_class_incharge', 'teachers.name')
+            ->get();
+
+        $assigned = $teacherAssignments->first(function($t) use ($validated) {
+            return !empty($validated['section_id']) && $t->section_id == $validated['section_id'] && $t->is_class_incharge;
+        }) ?: $teacherAssignments->first(function($t) {
+            return empty($t->section_id) && $t->is_class_incharge;
+        }) ?: $teacherAssignments->first();
+
+        // -------------------------------------------------------------
+        // Section Summary Analytics & Grade Distribution
+        // -------------------------------------------------------------
+        $appearedStudents = array_filter($studentRows, function($s) {
+            return $s['grand_total_max'] > 0;
+        });
+        $totalAppeared = count($appearedStudents);
+
+        $gradeTiers = [
+            ['grade' => 'A+', 'score_range' => '90% and Above', 'min' => 90.0, 'max' => 1000.0],
+            ['grade' => 'A',  'score_range' => '80% to 89.9%',  'min' => 80.0, 'max' => 89.999],
+            ['grade' => 'B',  'score_range' => '70% to 79.9%',  'min' => 70.0, 'max' => 79.999],
+            ['grade' => 'C',  'score_range' => '60% to 69.9%',  'min' => 60.0, 'max' => 69.999],
+            ['grade' => 'D',  'score_range' => '40% to 59.9%',  'min' => 40.0, 'max' => 59.999],
+            ['grade' => 'Fail','score_range' => 'Below 40%',    'min' => -1.0, 'max' => 39.999],
+        ];
+
+        $gradeBreakdown = [];
+        foreach ($gradeTiers as $tier) {
+            $count = 0;
+            foreach ($appearedStudents as $s) {
+                $pct = (float) $s['percentage'];
+                if ($tier['grade'] === 'A+' && $pct >= 90.0) {
+                    $count++;
+                } elseif ($tier['grade'] === 'Fail' && $pct < 40.0) {
+                    $count++;
+                } elseif ($pct >= $tier['min'] && $pct <= $tier['max']) {
+                    $count++;
+                }
+            }
+            $gradeBreakdown[] = [
+                'grade' => $tier['grade'],
+                'score_range' => $tier['score_range'],
+                'count' => $count,
+                'percentage' => $totalAppeared > 0 ? round(($count / $totalAppeared) * 100, 1) : 0,
+            ];
+        }
+        $gradeBreakdown[] = [
+            'grade' => 'Total',
+            'score_range' => 'All Appeared',
+            'count' => $totalAppeared,
+            'percentage' => 100.0,
+        ];
+
+        // Subject-Wise Performance Analysis
+        $subjectPerformance = [];
+        foreach ($subjectsData as $sub) {
+            $subId = $sub['id'];
+            $subTotalMarks = (float) $sub['total_max_marks'];
+            
+            $subAppearedCount = 0;
+            $subPassedCount = 0;
+            $sumObtained = 0.0;
+            $sumPercentages = 0.0;
+            
+            foreach ($studentRows as $s) {
+                $subInfo = $s['subjects'][$subId] ?? null;
+                if ($subInfo && $subInfo['total_max'] > 0) {
+                    $subAppearedCount++;
+                    $sumObtained += (float) $subInfo['total_obtained'];
+                    $sumPercentages += (float) $subInfo['percentage'];
+                    if ($subInfo['percentage'] >= 40.0) {
+                        $subPassedCount++;
+                    }
+                }
+            }
+            
+            $classAvgScore = $subAppearedCount > 0 ? round($sumObtained / $subAppearedCount, 1) : 0;
+            $avgPct = $subTotalMarks > 0 ? round(($classAvgScore / $subTotalMarks) * 100, 1) : ($subAppearedCount > 0 ? round($sumPercentages / $subAppearedCount, 1) : 0);
+            $passRate = $subAppearedCount > 0 ? round(($subPassedCount / $subAppearedCount) * 100, 1) : 0;
+            
+            $subjectPerformance[] = [
+                'subject_id' => $subId,
+                'subject_name' => $sub['name'],
+                'total_marks' => $subTotalMarks,
+                'class_avg_score' => $classAvgScore,
+                'avg_percentage' => $avgPct,
+                'pass_rate' => $passRate,
+                'appeared_count' => $subAppearedCount,
+                'passed_count' => $subPassedCount,
+            ];
+        }
+
+        $analytics = [
+            'grade_breakdown' => $gradeBreakdown,
+            'subject_performance' => $subjectPerformance,
+            'total_appeared' => $totalAppeared,
+        ];
+
+        return response()->json([
+            'session' => [
+                'id' => $session->id,
+                'name' => $session->name,
+            ],
+            'class' => [
+                'id' => $class->id,
+                'name' => $class->name,
+            ],
+            'section' => $section ? [
+                'id' => $section->id,
+                'name' => $section->name,
+            ] : null,
+            'category_type' => $categoryType,
+            'category_name' => $categoryName ?: ($categoryType ? ucwords(str_replace('_', ' ', $categoryType)) : 'All'),
+            'class_incharge' => $assigned ? $assigned->name : null,
+            'rounds' => $rounds,
+            'subjects' => $subjectsData,
+            'grand_total_max' => $grandTotalMaxMarks,
+            'students' => $studentRows,
+            'analytics' => $analytics,
+        ]);
     }
 
     public function getStudentDetailedResults(Request $request, $studentId)

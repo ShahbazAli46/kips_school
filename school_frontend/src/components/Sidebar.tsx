@@ -95,6 +95,7 @@ export const adminMenu: NavItem[] = [
     subItems: [
       { label: "Marks Entry", href: "/dashboard/marks-entry" },
       { label: "Results", href: "/dashboard/results" },
+      { label: "Result Summary", href: "/dashboard/results/summary" },
     ],
   },
   {
@@ -264,6 +265,7 @@ export const coordinatorMenu: NavItem[] = [
       { label: "Setup Tests", href: "/dashboard/tests" },
       { label: "Marks Entry", href: "/dashboard/marks-entry" },
       { label: "Results", href: "/dashboard/results" },
+      { label: "Result Summary", href: "/dashboard/results/summary" },
     ],
   },
   {
@@ -317,6 +319,7 @@ export const menuByRole: Record<string, NavItem[]> = {
         { label: "Setup Tests", href: "/dashboard/tests" },
         { label: "Marks Entry", href: "/dashboard/marks-entry" },
         { label: "View Results", href: "/dashboard/results" },
+        { label: "Result Summary", href: "/dashboard/results/summary" },
       ],
     },
     {
@@ -347,6 +350,7 @@ export const menuByRole: Record<string, NavItem[]> = {
         { label: "Setup Tests", href: "/dashboard/tests" },
         { label: "Marks Entry", href: "/dashboard/marks-entry" },
         { label: "View Results", href: "/dashboard/results" },
+        { label: "Result Summary", href: "/dashboard/results/summary" },
       ],
     },
     {

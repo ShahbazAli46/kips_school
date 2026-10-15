@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef, Suspense } fr
 import { useRouter, useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import CustomDropdown from "@/components/CustomDropdown";
-import { Crown, Medal, Award, Plus, X, Search, FileDown, CheckCircle2, AlertCircle, Mail, Layers } from "lucide-react";
+import { Crown, Medal, Award, Plus, X, Search, FileDown, CheckCircle2, AlertCircle, Mail, Layers, FileSpreadsheet } from "lucide-react";
 import {
   useGetAcademicSessionsQuery,
   useGetClassesQuery,
@@ -192,9 +192,23 @@ function ResultsContent() {
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-[#0f224a]">Series Results</h2>
-        <p className="text-sm mt-1 text-[#2563eb]">Aggregate and view overall results for Class Test, School Test, and R n T.</p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-[#0f224a]">Series Results</h2>
+          <p className="text-sm mt-1 text-[#2563eb]">Aggregate and view overall results for Class Test, School Test, and R n T.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const params = new URLSearchParams(searchParams.toString());
+              router.push(`/dashboard/results/summary?${params.toString()}`);
+            }}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition px-4 py-2.5 rounded-xl shadow-md font-bold text-sm flex items-center gap-2 active:scale-95"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Result Summary
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-5 rounded-xl shadow-sm border border-[#bfdbfe] mb-6 flex flex-wrap gap-4 items-end">
@@ -335,7 +349,7 @@ function ResultsContent() {
 
               {/* Checkbox pills */}
               <div className="flex flex-wrap items-center gap-2.5">
-                {availableRounds.map((round) => {
+                {availableRounds.map((round, rIdx) => {
                   const isChecked = selectedRounds.includes(round);
                   const roundInfo = roundStatuses[round];
                   const status = roundInfo?.status || (activeRounds.includes(round) ? "partial" : "template");
@@ -344,7 +358,7 @@ function ResultsContent() {
 
                   return (
                     <label
-                      key={round}
+                      key={`${round}-${rIdx}`}
                       onClick={(e) => {
                         e.preventDefault();
                         handleToggleRound(round);

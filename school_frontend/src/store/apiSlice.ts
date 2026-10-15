@@ -89,6 +89,19 @@ export const apiSlice = createApi({
       },
       providesTags: (result, error, arg) => [{ type: 'Results', id: `${arg.session}-${arg.classId}-${arg.category}-${arg.section || 'all'}-${arg.rounds || 'all'}` }],
     }),
+    getSummarySheetResults: builder.query<any, { session: string; classId: string; category: string; type?: string; section?: string; rounds?: string }>({
+      query: (args) => {
+        let url = `/results/summary-sheet?academic_session_id=${args.session}&academy_class_id=${args.classId}&test_category_id=${args.category}`;
+        if (args.section && args.section !== 'all') {
+          url += `&section_id=${args.section}`;
+        }
+        if (args.rounds && args.rounds !== 'none') {
+          url += `&rounds=${encodeURIComponent(args.rounds)}`;
+        }
+        return url;
+      },
+      providesTags: (result, error, arg) => [{ type: 'Results', id: `SUMMARY-${arg.session}-${arg.classId}-${arg.category}-${arg.section || 'all'}-${arg.rounds || 'all'}` }],
+    }),
     getAttentionSeekersSummary: builder.query<any, { sessionId?: string | number; classId?: string | number; sectionId?: string | number; subjectId?: string | number; topThreshold?: number; attentionThreshold?: number }>({
       query: (args) => {
         const params = new URLSearchParams();
@@ -169,6 +182,7 @@ export const {
   useGetStudentsQuery,
   useGetAvailableRoundsQuery,
   useGetResultsSeriesQuery,
+  useGetSummarySheetResultsQuery,
   useGetAttentionSeekersSummaryQuery,
   useGetAttentionSeekerStudentsQuery,
   useGetAttentionSeekerThresholdsQuery,

@@ -427,6 +427,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:1,2,3,5,7')->group(function () {
         Route::get('/results/rounds', [\App\Http\Controllers\Api\ResultController::class, 'getAvailableRounds']);
         Route::get('/results/series', [\App\Http\Controllers\Api\ResultController::class, 'getSeriesResults']);
+        Route::get('/results/summary-sheet', [\App\Http\Controllers\Api\ResultController::class, 'getSummarySheetResults']);
         Route::get('/results/series/student/{studentId}', [\App\Http\Controllers\Api\ResultController::class, 'getStudentDetailedResults']);
         Route::post('/results/email/{studentId}', [\App\Http\Controllers\Api\ResultController::class, 'emailResultCard']);
         Route::post('/results/whatsapp/{studentId}', [\App\Http\Controllers\Api\ResultController::class, 'sendWhatsAppResultCard']);
