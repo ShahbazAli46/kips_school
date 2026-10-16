@@ -448,6 +448,15 @@ function ResultsContent() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
               Print Results Sheet
             </a>
+            <a
+              href={`/dashboard/results/print-cards?session=${selectedSession}&class=${selectedClass}&category=${selectedCategory}&type=${selectedType}${selectedSection && selectedSection !== "all" ? "&section=" + selectedSection : ""}&session_name=${sessions.find(s => s.id.toString() === selectedSession.toString())?.name || ''}&class_name=${classes.find(c => c.id.toString() === selectedClass.toString())?.name || ''}${roundsNavQuery}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-indigo-600 text-white hover:bg-indigo-700 transition px-4 py-2 rounded-lg shadow-sm font-semibold flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3" /></svg>
+              Download Class PDF
+            </a>
           </div>
         </div>
 

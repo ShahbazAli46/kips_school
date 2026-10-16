@@ -145,10 +145,19 @@ export default function ExcelResultCard({
       });
     }
 
+    // Deduplicate rounds by title (case-insensitive) to prevent duplicate columns
+    const seenTitles = new Set<string>();
+    const dedupedRounds = finalRounds.filter((r) => {
+      const key = r.title.trim().toLowerCase();
+      if (seenTitles.has(key)) return false;
+      seenTitles.add(key);
+      return true;
+    });
+
     // If selectedRounds is provided and non-empty, only keep the selected rounds!
     if (selectedRounds && selectedRounds.length > 0) {
       const selectedSet = new Set(selectedRounds.map((s) => s.trim().toLowerCase()));
-      const filtered = finalRounds.filter((r) => selectedSet.has(r.title.trim().toLowerCase()));
+      const filtered = dedupedRounds.filter((r) => selectedSet.has(r.title.trim().toLowerCase()));
       selectedRounds.forEach((sr) => {
         const trimmed = sr.trim();
         if (
@@ -157,10 +166,10 @@ export default function ExcelResultCard({
           filtered.push({ title: trimmed, date: undefined });
         }
       });
-      return filtered.length > 0 ? filtered : finalRounds;
+      return filtered.length > 0 ? filtered : dedupedRounds;
     }
 
-    return finalRounds;
+    return dedupedRounds;
   }, [rounds, tests, categoryTitle, selectedRounds]);
 
   // 2. Build structured Matrix for each subject

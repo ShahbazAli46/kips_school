@@ -308,11 +308,24 @@ class ResultController extends Controller
                 DB::raw('SUM(IFNULL(test_marks.obtained_marks, 0)) as total_obtained'),
                 DB::raw('SUM(tests.total_marks) as total_max'),
                 DB::raw('SUM(CASE WHEN test_marks.is_absent = 1 THEN 1 ELSE 0 END) as total_absents'),
-                DB::raw('COUNT(tests.id) as tests_taken')
+                DB::raw('COUNT(tests.id) as tests_taken'),
+                DB::raw('MIN(tests.date) as min_test_date')
             )
-            ->groupBy('students.id', 'students.name', 'students.father_name', 'students.roll_number', 'students.image', 'students.class_id', 'students.section_id', 'classes.name', 'sections.name', 'majors.name')
-            ->orderByRaw('(SUM(IFNULL(test_marks.obtained_marks, 0)) / NULLIF(SUM(tests.total_marks), 0)) DESC')
-            ->get();
+            ->groupBy('students.id', 'students.name', 'students.father_name', 'students.roll_number', 'students.image', 'students.class_id', 'students.section_id', 'classes.name', 'sections.name', 'majors.name');
+
+        // Determine how many rounds are selected. Rank is ALWAYS computed from
+        // percentage order, so the base query is ordered by percentage descending.
+        // If exactly one round is selected, the final list is re-ordered by test
+        // date (oldest first) after ranks are assigned.
+        $selectedRoundsCount = 0;
+        if ($request->filled('rounds')) {
+            $parsedRounds = is_array($request->rounds) ? $request->rounds : explode(',', $request->rounds);
+            $selectedRoundsCount = count(array_filter(array_map('trim', $parsedRounds)));
+        }
+
+        $results->orderByRaw('(SUM(IFNULL(test_marks.obtained_marks, 0)) / NULLIF(SUM(tests.total_marks), 0)) DESC');
+
+        $results = $results->get();
 
         $rank = 1;
         $prevScore = -1;
@@ -370,6 +383,12 @@ class ResultController extends Controller
             
             return $item;
         });
+
+        // If exactly one round is selected, re-order the final list by test date
+        // (oldest first) for display, while keeping the percentage-based ranks.
+        if ($selectedRoundsCount === 1) {
+            $results = $results->sortBy('min_test_date')->values();
+        }
 
         return response()->json($results);
     }
