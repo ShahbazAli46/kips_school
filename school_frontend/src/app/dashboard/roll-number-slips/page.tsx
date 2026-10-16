@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { format } from "date-fns";
+import { buildRollNumberSlips } from "@/lib/rollNumberSlip";
 import {
   FileText,
   Printer,
@@ -112,11 +113,9 @@ export default function RollNumberSlipsPage() {
   const [searchStudentQuery, setSearchStudentQuery] = useState("");
 
   // ─── Exam Metadata State ─────────────────────────────────────────────────
-  const [examTitle, setExamTitle] = useState("First Term Examination 2026-2027");
   const [examCenter, setExamCenter] = useState("Main Examination Hall");
   const [defaultTiming, setDefaultTiming] = useState("08:30 AM - 11:30 AM");
   const [reportingTime, setReportingTime] = useState("08:00 AM Sharp");
-  const [issueDate, setIssueDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
   const helplinePhone = "0300 39 39 581";
 
   // ─── Digital Signatures State ─────────────────────────────────────────────
@@ -453,6 +452,20 @@ export default function RollNumberSlipsPage() {
   };
 
   // ─── Generate & Print 2-Slips-per-A4 PDF ──────────────────────────────────
+  const getSlipOptions = (students: StudentUser[]) => ({
+    students,
+    papers,
+    className: classes.find(c => String(c.id) === String(selectedClassId))?.name || "All Classes",
+    sessionName: sessions.find(session => String(session.id) === String(selectedSessionId))?.name
+      || sessions.find(session => session.is_active)?.name || "2026-2027",
+    examCenter,
+    reportingTime,
+    helpline: helplinePhone,
+    rules,
+    controllerSign,
+    principalSign,
+  });
+
   const handlePrintRollNumberSlips = () => {
     if (targetStudents.length === 0) {
       alert("Please select at least one student to generate Roll Number Slips.");
@@ -464,755 +477,7 @@ export default function RollNumberSlipsPage() {
       return;
     }
 
-    const currentSessionName =
-      sessions.find((s) => String(s.id) === String(selectedSessionId))?.name || "2026-2027";
-    const selectedClassName =
-      classes.find((c) => String(c.id) === String(selectedClassId))?.name || "All Classes";
-    const formattedIssueDate = format(new Date(issueDate), "dd MMM yyyy");
-
-    // Construct Datesheet Rows HTML
-    const datesheetRowsHtml = papers
-      .map((p, idx) => {
-        const formattedPaperDate = p.date ? format(new Date(p.date), "dd-MMM-yyyy") : "—";
-        return `
-          <tr>
-            <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 8px;">${idx + 1}</td>
-            <td style="font-weight: 700; font-size: 8.5px; padding-left: 8px;">${p.subject}</td>
-            <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 8px;">${formattedPaperDate}</td>
-            <td style="text-align: center; font-size: 8px;">${p.day}</td>
-            <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 8px;">${p.timing}</td>
-            <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 8px;">${p.maxMarks}</td>
-            <td style="border-bottom: 1px solid #cbd5e1;"></td>
-          </tr>
-        `;
-      })
-      .join("");
-
-    // Rules List HTML
-    const rulesListHtml = rules
-      .map(
-        (r, i) =>
-          `<li style="margin-bottom: 2px;"><span style="font-weight: 700; color: #0f172a;">${i + 1}.</span> ${r}</li>`
-      )
-      .join("");
-
-    // Build Individual Slip HTML Helper
-    const renderSingleSlip = (student: StudentUser) => {
-      const rollNoDisplay =
-        student.roll_number !== null && student.roll_number !== undefined
-          ? String(student.roll_number).padStart(2, "0")
-          : `ST-${student.id}`;
-      const classNameDisplay = student.academy_class?.name || selectedClassName;
-      const sectionNameDisplay = student.section?.name || "Regular";
-      const majorDisplay = student.major?.name || "General Science / Matric";
-      const studentPhotoUrl = student.image || "";
-
-      return `
-        <div class="slip-card">
-          
-          <!-- Watermark Logo (50% Opacity) -->
-          <div class="watermark-logo">
-            <img src="/logo.jpg" onerror="this.onerror=null; this.src='/logo.png';" alt="KIPS Watermark" />
-          </div>
-
-          <!-- Slip Header -->
-          <div class="slip-header">
-            <div class="header-left">
-              <div class="logo-box">
-                <img src="/logo.jpg" onerror="this.onerror=null; this.src='/logo.png';" alt="KIPS" />
-              </div>
-              <div>
-                <div class="school-brand">KIPS SCHOOL</div>
-                <div class="campus-sub">Chunian Campus</div>
-              </div>
-            </div>
-            <div class="header-center">
-              <div class="exam-title-badge">${examTitle}</div>
-            </div>
-            <div class="header-right"></div>
-          </div>
-
-          <!-- Student Profile Grid -->
-          <div class="student-profile-strip">
-            <div class="photo-container">
-              ${
-                studentPhotoUrl
-                  ? `<img src="${studentPhotoUrl}" alt="Photo" class="student-img" />`
-                  : `
-                  <div class="photo-placeholder">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="#94a3b8">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                    <span>CANDIDATE PHOTO</span>
-                  </div>
-                `
-              }
-            </div>
-
-            <div class="profile-details">
-              <div class="details-grid">
-                <div class="info-cell">
-                  <span class="info-label">Candidate Name</span>
-                  <span class="info-val name-val">${student.name}</span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Father's Name</span>
-                  <span class="info-val">${student.father_name || "—"}</span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Roll Number</span>
-                  <span class="info-val" style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #0f172a;">${rollNoDisplay}</span>
-                </div>
-                <div class="info-cell">
-                  <span class="info-label">Class &amp; Section</span>
-                  <span class="info-val">${classNameDisplay} — (${sectionNameDisplay})</span>
-                </div>
-                ${
-                  examCenter && reportingTime
-                    ? `
-                    <div class="info-cell">
-                      <span class="info-label">Examination Hall</span>
-                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${examCenter}</span>
-                    </div>
-                    <div class="info-cell">
-                      <span class="info-label">Reporting Time</span>
-                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${reportingTime}</span>
-                    </div>
-                    `
-                    : examCenter
-                    ? `
-                    <div class="info-cell full-width">
-                      <span class="info-label">Examination Hall</span>
-                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${examCenter}</span>
-                    </div>
-                    `
-                    : reportingTime
-                    ? `
-                    <div class="info-cell full-width">
-                      <span class="info-label">Reporting Time</span>
-                      <span class="info-val" style="font-weight: 700; color: #0f172a;">${reportingTime}</span>
-                    </div>
-                    `
-                    : ""
-                }
-              </div>
-            </div>
-          </div>
-
-          <!-- Examination Datesheet Table -->
-          <table class="datesheet-table">
-            <thead>
-              <tr>
-                <th style="width: 24px;">#</th>
-                <th style="text-align: left; padding-left: 8px;">Paper / Subject</th>
-                <th style="width: 75px;">Date</th>
-                <th style="width: 65px;">Day</th>
-                <th style="width: 120px;">Paper Timing</th>
-                <th style="width: 55px;">Max Marks</th>
-                <th style="width: 90px;">Invigilator Sign</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${datesheetRowsHtml}
-            </tbody>
-          </table>
-
-          <!-- Fee Dues Warning Notice -->
-          <div class="dues-notice-box">
-            <div class="dues-urdu-line">اہم نوٹ: واجبات کی ادائیگی کے بغیر امتحان میں بیٹھنے کی اجازت نہیں ہے۔</div>
-            <div class="dues-eng-line">IMPORTANT: Students are strictly NOT allowed to appear in the examination without clearance of all outstanding school dues.</div>
-          </div>
-
-          <!-- Important Instructions (Full Width 3 Lines) -->
-          <div class="instructions-section">
-            <div class="rules-head">
-              <span>Important Instructions (</span><span class="urdu-span" dir="rtl">ہدایات برائے طلبہ و طالبات</span><span>):</span>
-            </div>
-            <div class="rules-list">
-              ${rules
-                .map(
-                  (r, i) => `
-                <div class="rule-item">
-                  <span class="rule-num">${i + 1}.</span>
-                  <span class="rule-text">${r}</span>
-                </div>
-              `
-                )
-                .join("")}
-            </div>
-          </div>
-
-          <!-- Dual Signatures Strip -->
-          <div class="signatures-strip">
-            <div class="sig-box">
-              ${
-                controllerSign
-                  ? `<div class="sig-img-container"><img src="${controllerSign}" alt="Controller Signature" class="sig-img" /></div>`
-                  : `<div class="sig-empty-spacer"></div>`
-              }
-              <div class="sig-line"></div>
-              <div class="sig-name">Controller of Exams</div>
-              <div class="sig-dept">KIPS Examination Wing</div>
-            </div>
-            <div class="sig-box">
-              ${
-                principalSign
-                  ? `<div class="sig-img-container"><img src="${principalSign}" alt="Principal Signature" class="sig-img" /></div>`
-                  : `<div class="sig-empty-spacer"></div>`
-              }
-              <div class="sig-line"></div>
-              <div class="sig-name">Campus Principal</div>
-              <div class="sig-dept">Official Stamp &amp; Seal</div>
-            </div>
-          </div>
-
-          <!-- Micro Security Strip -->
-          <div class="security-strip">
-            <span>Issue Date: ${formattedIssueDate} • Computer Generated Official Document</span>
-            <span>Helpline: <strong>${helplinePhone}</strong></span>
-          </div>
-
-        </div>
-      `;
-    };
-
-    // Pair Students 2 per A4 Page
-    let pagesHtml = "";
-    for (let i = 0; i < targetStudents.length; i += 2) {
-      const student1 = targetStudents[i];
-      const student2 = targetStudents[i + 1] || null;
-
-      pagesHtml += `
-        <div class="a4-sheet">
-          ${renderSingleSlip(student1)}
-
-          ${
-            student2
-              ? `
-            <!-- Scissor Cut Line -->
-            <div class="cut-divider">
-              <div class="cut-line"></div>
-              <div class="cut-badge">✂ CUT ALONG DOTTED LINE ✂</div>
-              <div class="cut-line"></div>
-            </div>
-
-            ${renderSingleSlip(student2)}
-          `
-              : `
-            <!-- Blank Second Half if odd count -->
-            <div class="cut-divider" style="opacity: 0.3;">
-              <div class="cut-line"></div>
-              <div class="cut-badge">✂ END OF CLASS BATCH ✂</div>
-              <div class="cut-line"></div>
-            </div>
-            <div style="height: 128mm; border: 1px dashed #cbd5e1; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;">
-              INTENTIONALLY BLANK (ODD STUDENT COUNT)
-            </div>
-          `
-          }
-        </div>
-      `;
-    }
-
-    const fullPrintHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>Roll Number Slips - ${selectedClassName} - KIPS School Chunian</title>
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            @font-face {
-              font-family: 'Jameel Noori Nastaleeq';
-              src: url('/jameel-noori-nastaleeq.ttf') format('truetype');
-              font-weight: normal;
-              font-style: normal;
-              font-display: swap;
-            }
-            .font-urdu {
-              font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Urdu Typesetting', serif !important;
-            }
-
-            @page {
-              size: A4 portrait;
-              margin: 6mm 8mm 6mm 8mm;
-            }
-            @media print {
-              html, body {
-                width: 100%;
-                margin: 0 !important;
-                padding: 0 !important;
-                background: #ffffff !important;
-                color: #0f172a !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .a4-sheet {
-                page-break-after: always !important;
-                break-after: page !important;
-              }
-              .a4-sheet:last-child {
-                page-break-after: avoid !important;
-                break-after: avoid !important;
-              }
-            }
-            * {
-              box-sizing: border-box;
-              margin: 0;
-              padding: 0;
-            }
-            body {
-              background: #ffffff;
-              color: #0f172a;
-              font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              font-size: 9px;
-              line-height: 1.3;
-            }
-
-            .a4-sheet {
-              width: 100%;
-              min-height: 282mm;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              box-sizing: border-box;
-              padding: 2mm 0;
-            }
-
-            /* Single Half-Page Slip Card */
-            .slip-card {
-              position: relative;
-              height: 136mm;
-              border: 1.5px solid #0f172a;
-              border-radius: 8px;
-              padding: 6px 10px;
-              background: #ffffff;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              overflow: hidden;
-            }
-
-            /* Watermark Logo (50% Opacity) */
-            .watermark-logo {
-              position: absolute;
-              top: 50%;
-              left: 50%;
-              transform: translate(-50%, -50%);
-              width: 190px;
-              height: 190px;
-              opacity: 0.5;
-              pointer-events: none;
-              z-index: 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-            .watermark-logo img {
-              width: 100%;
-              height: 100%;
-              object-fit: contain;
-              opacity: 0.5;
-            }
-
-            .slip-top-bar,
-            .slip-header,
-            .student-profile-strip,
-            .datesheet-table,
-            .dues-notice-box,
-            .instructions-section,
-            .signatures-strip,
-            .security-strip {
-              position: relative;
-              z-index: 1;
-            }
-
-            /* Top Tag */
-            .slip-top-bar {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              border-bottom: 1px solid #e2e8f0;
-              padding-bottom: 2px;
-              margin-bottom: 4px;
-            }
-            .top-tag {
-              font-size: 7px;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 0.06em;
-              color: #475569;
-            }
-
-            /* Header */
-            .slip-header {
-              position: relative;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              border-bottom: 1.5px solid #0f172a;
-              padding-bottom: 4px;
-              margin-bottom: 4px;
-            }
-            .header-left {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            .header-center {
-              position: absolute;
-              left: 50%;
-              transform: translateX(-50%);
-              text-align: center;
-              white-space: nowrap;
-            }
-            .logo-box {
-              width: 40px;
-              height: 40px;
-              border: 1px solid #cbd5e1;
-              border-radius: 6px;
-              padding: 2px;
-              background: #ffffff;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-            }
-            .logo-box img {
-              width: 100%;
-              height: 100%;
-              object-fit: contain;
-            }
-            .school-brand {
-              font-size: 15px;
-              font-weight: 800;
-              color: #0f172a;
-              letter-spacing: -0.01em;
-              line-height: 1.1;
-            }
-            .campus-sub {
-              font-size: 8px;
-              font-weight: 700;
-              color: #334155;
-            }
-            .exam-title-badge {
-              display: inline-block;
-              font-size: 9.5px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 0.04em;
-              color: #0f172a;
-              background: #f1f5f9;
-              padding: 2.5px 12px;
-              border-radius: 4px;
-              border: 1px solid #cbd5e1;
-            }
-
-            .header-right {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            .roll-callout {
-              background: #0f172a;
-              color: #ffffff;
-              padding: 3px 10px;
-              border-radius: 6px;
-              text-align: center;
-              min-width: 85px;
-            }
-            .roll-label {
-              font-size: 6.5px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 0.08em;
-              color: #94a3b8;
-            }
-            .roll-number {
-              font-size: 18px;
-              font-weight: 900;
-              font-family: 'JetBrains Mono', monospace;
-              letter-spacing: 0.02em;
-              line-height: 1.1;
-            }
-            .qr-box {
-              border: 1px dashed #94a3b8;
-              border-radius: 4px;
-              padding: 3px 6px;
-              text-align: center;
-              background: #f8fafc;
-            }
-
-            /* Student Profile Strip */
-            .student-profile-strip {
-              display: flex;
-              align-items: stretch;
-              gap: 8px;
-              background: #f8fafc;
-              border: 1px solid #e2e8f0;
-              border-radius: 6px;
-              padding: 4px 6px;
-              margin-bottom: 4px;
-            }
-            .photo-container {
-              width: 58px;
-              height: 58px;
-              border: 1px solid #94a3b8;
-              border-radius: 4px;
-              overflow: hidden;
-              background: #ffffff;
-              flex-shrink: 0;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            }
-            .student-img {
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-            }
-            .photo-placeholder {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              text-align: center;
-              padding: 2px;
-            }
-            .photo-placeholder span {
-              font-size: 5.5px;
-              font-weight: 800;
-              color: #94a3b8;
-              margin-top: 1px;
-            }
-
-            .profile-details {
-              flex: 1;
-            }
-            .details-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              row-gap: 2px;
-              column-gap: 8px;
-            }
-            .info-cell {
-              display: flex;
-              flex-direction: column;
-            }
-            .info-cell.full-width {
-              grid-column: span 2;
-            }
-            .info-label {
-              font-size: 6.5px;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 0.04em;
-              color: #64748b;
-            }
-            .info-val {
-              font-size: 8.5px;
-              font-weight: 700;
-              color: #0f172a;
-            }
-            .info-val.name-val {
-              font-size: 9.5px;
-              color: #0f172a;
-              font-weight: 800;
-            }
-
-            /* Datesheet Table */
-            .datesheet-table {
-              width: 100%;
-              border-collapse: collapse;
-              border: 1px solid #cbd5e1;
-              margin-bottom: 4px;
-            }
-            .datesheet-table th {
-              background: #0f172a !important;
-              color: #ffffff !important;
-              font-size: 7.5px;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 0.05em;
-              padding: 3.5px 4px;
-              border: none;
-              text-align: center;
-            }
-            .datesheet-table td {
-              padding: 2.5px 4px;
-              border: 1px solid #e2e8f0;
-              font-size: 8px;
-              color: #0f172a;
-              vertical-align: middle;
-            }
-            .datesheet-table tr:nth-child(even) {
-              background: #f8fafc;
-            }
-
-            /* Dues Warning Box */
-            .dues-notice-box {
-              background: #fff5f5;
-              border: 1px solid #ef4444;
-              border-radius: 4px;
-              padding: 3px 8px 4px 8px;
-              text-align: center;
-              margin: 3px 0 3px 0;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              gap: 2px;
-            }
-            .dues-urdu-line {
-              font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Urdu Typesetting', serif !important;
-              font-size: 13.5px;
-              font-weight: bold;
-              color: #b91c1c;
-              line-height: 1.5;
-              direction: rtl;
-              text-align: center;
-            }
-            .dues-eng-line {
-              font-size: 6.8px;
-              font-weight: 800;
-              color: #b91c1c;
-              letter-spacing: 0.015em;
-              text-transform: uppercase;
-              text-align: center;
-            }
-
-            /* Important Instructions Full Width */
-            .instructions-section {
-              margin: 2px 0 3px 0;
-            }
-            .rules-head {
-              font-size: 7.5px;
-              font-weight: 800;
-              color: #b91c1c;
-              margin-bottom: 2px;
-              display: flex;
-              align-items: baseline;
-              gap: 2px;
-            }
-            .rules-head .urdu-span {
-              font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Urdu Typesetting', serif !important;
-              font-size: 10.5px;
-              font-weight: bold;
-              direction: rtl;
-              unicode-bidi: isolate;
-              color: #b91c1c;
-            }
-            .rules-list {
-              display: flex;
-              flex-direction: column;
-              gap: 1.5px;
-            }
-            .rule-item {
-              font-size: 7.5px;
-              color: #1e293b;
-              line-height: 1.35;
-              display: flex;
-              align-items: flex-start;
-              gap: 4px;
-            }
-            .rule-num {
-              font-weight: 800;
-              color: #0f172a;
-              flex-shrink: 0;
-            }
-            .rule-text {
-              flex: 1;
-            }
-
-            /* Signatures Strip */
-            .signatures-strip {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-end;
-              padding: 2px 18px 2px 18px;
-              margin-top: 2px;
-            }
-            .sig-box {
-              text-align: center;
-              width: 140px;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: flex-end;
-            }
-            .sig-img-container {
-              height: 28px;
-              display: flex;
-              align-items: flex-end;
-              justify-content: center;
-              margin-bottom: 2px;
-            }
-            .sig-img {
-              max-height: 28px;
-              max-width: 120px;
-              object-fit: contain;
-            }
-            .sig-empty-spacer {
-              height: 28px;
-            }
-            .sig-line {
-              width: 100%;
-              border-top: 1.2px solid #0f172a;
-              margin-bottom: 2px;
-            }
-            .sig-name {
-              font-size: 8px;
-              font-weight: 800;
-              color: #0f172a;
-              text-transform: uppercase;
-              letter-spacing: 0.02em;
-            }
-            .sig-dept {
-              font-size: 6.5px;
-              color: #64748b;
-              font-weight: 600;
-            }
-
-            /* Security Strip */
-            .security-strip {
-              display: flex;
-              justify-content: space-between;
-              border-top: 1px dashed #cbd5e1;
-              padding-top: 2px;
-              margin-top: 2px;
-              font-size: 6.5px;
-              color: #64748b;
-            }
-
-            /* Scissor Cut Line Divider */
-            .cut-divider {
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              margin: 4px 0;
-              gap: 8px;
-            }
-            .cut-line {
-              flex: 1;
-              border-bottom: 1.5px dashed #94a3b8;
-            }
-            .cut-badge {
-              font-size: 7.5px;
-              font-weight: 800;
-              letter-spacing: 0.08em;
-              color: #64748b;
-              background: #ffffff;
-              padding: 0 6px;
-            }
-          </style>
-        </head>
-        <body>
-          ${pagesHtml}
-        </body>
-      </html>
-    `;
+    const fullPrintHtml = buildRollNumberSlips(getSlipOptions(targetStudents));
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
@@ -1224,7 +489,10 @@ export default function RollNumberSlipsPage() {
     document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow?.document;
-    if (!doc) return;
+    if (!doc) {
+      iframe.remove();
+      return;
+    }
 
     doc.open();
     doc.write(fullPrintHtml);
@@ -1240,15 +508,14 @@ export default function RollNumberSlipsPage() {
       }, 1500);
     };
 
-    if (doc.fonts && doc.fonts.ready) {
-      doc.fonts.ready.then(() => {
-        setTimeout(triggerPrint, 350);
-      }).catch(() => {
-        setTimeout(triggerPrint, 400);
+    const imagesReady = Promise.all(Array.from(doc.images).map(image => {
+      if (image.complete) return Promise.resolve();
+      return new Promise<void>(resolve => {
+        image.addEventListener("load", () => resolve(), { once: true });
+        image.addEventListener("error", () => resolve(), { once: true });
       });
-    } else {
-      setTimeout(triggerPrint, 400);
-    }
+    }));
+    Promise.all([doc.fonts?.ready, imagesReady]).then(triggerPrint).catch(triggerPrint);
   };
 
   return (
@@ -1380,19 +647,7 @@ export default function RollNumberSlipsPage() {
             </select>
           </div>
 
-          {/* Issue Date */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: "#1e3a8a" }}>
-              Slip Issue Date
-            </label>
-            <input
-              type="date"
-              value={issueDate}
-              onChange={(e) => setIssueDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold outline-none transition"
-              style={{ borderColor: "#bfdbfe", background: "#f0f4f8", color: "#0f224a" }}
-            />
-          </div>
+
         </div>
       </div>
 
@@ -1413,40 +668,6 @@ export default function RollNumberSlipsPage() {
               </h3>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#1e3a8a" }}>
-                    Exam Title / Header
-                  </label>
-                  <input
-                    type="text"
-                    value={examTitle}
-                    onChange={(e) => setExamTitle(e.target.value)}
-                    placeholder="e.g. First Term Examination 2026-2027"
-                    className="w-full px-3.5 py-2.5 rounded-xl border text-sm font-bold outline-none"
-                    style={{ borderColor: "#bfdbfe", background: "#f0f4f8", color: "#0f224a" }}
-                  />
-                  {/* Preset chips */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {[
-                      "Annual Examination 2026",
-                      "Mid-Term Exams 2026",
-                      "First Term Examination",
-                      "Send-Up Examination",
-                      "Grand Test Series (Session 2026)",
-                    ].map((title) => (
-                      <button
-                        key={title}
-                        type="button"
-                        onClick={() => setExamTitle(title)}
-                        className="text-2xs font-semibold px-2.5 py-1 rounded-lg border transition hover:border-blue-500"
-                        style={{ background: "#f8fafc", borderColor: "#e2e8f0", color: "#334155" }}
-                      >
-                        {title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#1e3a8a" }}>
@@ -1913,7 +1134,7 @@ export default function RollNumberSlipsPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50 border border-blue-200">
             <div className="text-sm font-semibold text-blue-900">
-              Showing Print Preview for <strong>{targetStudents.length} candidate(s)</strong> (Formatted at 2 slips per A4 page).
+              Showing the first {Math.min(targetStudents.length, 4)} of <strong>{targetStudents.length} candidate(s)</strong>. Printing groups two slips per A4 page.
             </div>
             <button
               onClick={handlePrintRollNumberSlips}
@@ -1925,146 +1146,17 @@ export default function RollNumberSlipsPage() {
             </button>
           </div>
 
-          {/* Render Sample Live Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {targetStudents.slice(0, 4).map((st) => (
-              <div
-                key={st.id}
-                className="relative overflow-hidden rounded-xl border-2 border-slate-900 p-4 bg-white shadow-sm flex flex-col justify-between"
-              >
-                {/* 50% Opacity Background Watermark */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                  <img src="/logo.jpg" alt="Watermark" className="w-40 h-40 object-contain opacity-50 grayscale" />
-                </div>
-
-                {/* Header */}
-                <div className="relative z-10 flex justify-between items-center border-b pb-2 mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded border border-gray-300 p-0.5 flex items-center justify-center bg-white">
-                      <img src="/logo.jpg" alt="Logo" className="w-full h-full object-contain" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-black uppercase text-slate-900">KIPS SCHOOL</div>
-                      <div className="text-2xs font-semibold text-slate-600">Chunian Campus</div>
-                    </div>
-                  </div>
-                  <div className="absolute left-1/2 -translate-x-1/2 text-center font-bold text-xs uppercase px-2.5 py-0.5 bg-slate-100 rounded border border-slate-300 text-slate-900 whitespace-nowrap">
-                    {examTitle}
-                  </div>
-                  <div className="w-8"></div>
-                </div>
-
-                {/* Candidate Info */}
-                <div className="relative z-10 grid grid-cols-2 gap-2 bg-slate-50/90 p-2.5 rounded border border-slate-200 text-xs mb-3">
-                  <div>
-                    <span className="text-2xs text-gray-500 uppercase font-bold block">Candidate Name</span>
-                    <span className="font-bold text-slate-900">{st.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-2xs text-gray-500 uppercase font-bold block">Father Name</span>
-                    <span className="font-bold text-slate-900">{st.father_name || "—"}</span>
-                  </div>
-                  <div>
-                    <span className="text-2xs text-gray-500 uppercase font-bold block">Roll Number</span>
-                    <span className="font-bold font-mono text-slate-900">{st.roll_number || st.id}</span>
-                  </div>
-                  <div>
-                    <span className="text-2xs text-gray-500 uppercase font-bold block">Class &amp; Section</span>
-                    <span className="font-bold text-slate-900">
-                      {st.academy_class?.name || "Class"} ({st.section?.name || "Sec"})
-                    </span>
-                  </div>
-                  {examCenter && (
-                    <div className={!reportingTime ? "col-span-2" : ""}>
-                      <span className="text-2xs text-gray-500 uppercase font-bold block">Examination Hall</span>
-                      <span className="font-bold text-slate-900">{examCenter}</span>
-                    </div>
-                  )}
-                  {reportingTime && (
-                    <div className={!examCenter ? "col-span-2" : ""}>
-                      <span className="text-2xs text-gray-500 uppercase font-bold block">Reporting Time</span>
-                      <span className="font-bold text-slate-900">{reportingTime}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Mini Datesheet */}
-                <div className="relative z-10 border border-slate-200 rounded overflow-hidden mb-2 bg-white/95">
-                  <table className="w-full text-2xs text-left">
-                    <thead className="bg-slate-900 text-white font-bold">
-                      <tr>
-                        <th className="p-1.5">Subject</th>
-                        <th className="p-1.5 text-center">Date</th>
-                        <th className="p-1.5 text-center">Timing</th>
-                        <th className="p-1.5 text-center">Marks</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {papers.slice(0, 4).map((p) => (
-                        <tr key={p.id}>
-                          <td className="p-1.5 font-bold">{p.subject}</td>
-                          <td className="p-1.5 text-center font-mono">{p.date}</td>
-                          <td className="p-1.5 text-center font-mono">{p.timing}</td>
-                          <td className="p-1.5 text-center font-bold">{p.maxMarks}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Fee Dues Warning Notice in Preview */}
-                <div className="relative z-10 rounded border border-red-400 bg-red-50/90 px-3 py-2 text-center my-2">
-                  <div
-                    className="text-base font-bold text-red-700 text-center leading-normal"
-                    style={{ fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", direction: "rtl" }}
-                  >
-                    اہم نوٹ: واجبات کی ادائیگی کے بغیر امتحان میں بیٹھنے کی اجازت نہیں ہے۔
-                  </div>
-                  <div className="text-3xs font-extrabold text-red-700 uppercase tracking-tight mt-0.5">
-                    IMPORTANT: Students are strictly NOT allowed to appear in the examination without clearance of all outstanding school dues.
-                  </div>
-                </div>
-
-                {/* Instructions in Preview */}
-                <div className="relative z-10 text-3xs text-gray-700 mb-2">
-                  <div className="font-bold text-red-800 mb-1">
-                    Important Instructions (
-                    <span
-                      className="text-sm font-bold"
-                      style={{ fontFamily: "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif", direction: "rtl" }}
-                    >
-                      ہدایات برائے طلبہ و طالبات
-                    </span>
-                    ):
-                  </div>
-                  <ol className="list-decimal pl-3 space-y-0.5 text-gray-700">
-                    {rules.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ol>
-                </div>
-
-                {/* Signatures */}
-                <div className="relative z-10 flex justify-between items-end text-center pt-2 mt-1">
-                  <div className="w-28 flex flex-col items-center">
-                    {controllerSign ? (
-                      <img src={controllerSign} alt="Controller" className="h-7 max-w-full object-contain mb-1" />
-                    ) : (
-                      <div className="h-7"></div>
-                    )}
-                    <div className="w-full border-t border-slate-800 mb-1"></div>
-                    <span className="text-2xs font-bold text-slate-800">Exam Controller</span>
-                  </div>
-                  <div className="w-28 flex flex-col items-center">
-                    {principalSign ? (
-                      <img src={principalSign} alt="Principal" className="h-7 max-w-full object-contain mb-1" />
-                    ) : (
-                      <div className="h-7"></div>
-                    )}
-                    <div className="w-full border-t border-slate-800 mb-1"></div>
-                    <span className="text-2xs font-bold text-slate-800">Campus Principal</span>
-                  </div>
-                </div>
+          {/* The preview uses the same document renderer as printing. */}
+          <div className="space-y-6">
+            {targetStudents.slice(0, 4).map(student => (
+              <div key={student.id} className="overflow-x-auto rounded-xl border border-blue-200 bg-white p-3">
+                <iframe
+                  title={`Roll number slip preview — ${student.name}`}
+                  srcDoc={buildRollNumberSlips(getSlipOptions([student]), true)}
+                  sandbox="allow-same-origin"
+                  className="block border-0"
+                  style={{ width: "760px", height: `${Math.max(560, 380 + Math.ceil(papers.length / 2) * 40 + rules.length * 25)}px` }}
+                />
               </div>
             ))}
           </div>
