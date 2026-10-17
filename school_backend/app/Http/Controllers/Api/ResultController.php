@@ -946,6 +946,7 @@ class ResultController extends Controller
             }
 
             $student->class_incharge = $assignedTeacher ? $assignedTeacher->name : null;
+            $student->principal_signature = \App\Models\AppSetting::get('voucher_signature_image', null);
             $student->teacher_signature = ($assignedTeacher && $assignedTeacher->signature) 
                 ? (str_starts_with($assignedTeacher->signature, 'http') ? $assignedTeacher->signature : asset('storage/' . $assignedTeacher->signature))
                 : null;
@@ -1238,6 +1239,7 @@ class ResultController extends Controller
         }
 
         $studentSummary->class_incharge = $assignedTeacher ? $assignedTeacher->name : null;
+        $studentSummary->principal_signature = \App\Models\AppSetting::get('voucher_signature_image', null);
         $studentSummary->teacher_signature = ($assignedTeacher && $assignedTeacher->signature)
             ? (str_starts_with($assignedTeacher->signature, 'http') ? $assignedTeacher->signature : asset('storage/' . $assignedTeacher->signature))
             : null;

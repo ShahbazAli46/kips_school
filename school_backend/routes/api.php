@@ -162,6 +162,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/extra-charges/items/{id}/adjust-stock', [\App\Http\Controllers\Api\ExtraChargeController::class, 'adjustStock']);
         Route::delete('/extra-charges/items/{id}', [\App\Http\Controllers\Api\ExtraChargeController::class, 'deleteItem']);
         Route::delete('/extra-charges/{id}/void', [\App\Http\Controllers\Api\ExtraChargeController::class, 'voidCharge']);
+        Route::post('/books', [\App\Http\Controllers\Api\BookController::class, 'storeBook']);
+        Route::post('/books/import/preview', [\App\Http\Controllers\Api\BookImportController::class, 'preview'])->middleware('throttle:10,1');
+        Route::post('/books/import/confirm', [\App\Http\Controllers\Api\BookImportController::class, 'confirm'])->middleware('throttle:30,1');
+        Route::put('/books/{book}', [\App\Http\Controllers\Api\BookController::class, 'updateBook']);
+        Route::post('/books/packages', [\App\Http\Controllers\Api\BookController::class, 'storePackage']);
+        Route::post('/books/{book}/stock-in', [\App\Http\Controllers\Api\BookController::class, 'stockIn']);
     });
 
     // Super Admin, Accountant & Coordinator Management APIs (role: 1, 5, 7)
@@ -289,6 +295,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/extra-charges/issue', [\App\Http\Controllers\Api\ExtraChargeController::class, 'issueCharge']);
         Route::get('/extra-charges/sales', [\App\Http\Controllers\Api\ExtraChargeController::class, 'getSalesLog']);
         Route::post('/extra-charges/{id}/collect', [\App\Http\Controllers\Api\ExtraChargeController::class, 'collectChargePayment']);
+        Route::get('/books/catalog', [\App\Http\Controllers\Api\BookController::class, 'catalog']);
+        Route::get('/books/{book}/movements', [\App\Http\Controllers\Api\BookController::class, 'movements']);
+        Route::post('/books/sell', [\App\Http\Controllers\Api\BookController::class, 'sell']);
 
         Route::apiResource('fee-follow-ups', \App\Http\Controllers\Api\FeeFollowUpController::class);
 

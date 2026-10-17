@@ -530,14 +530,14 @@ function ExecutiveLandscapeSlip({
             <span>Prepared By: <strong>Accounts System Portal</strong></span>
           </div>
           {student.signature_image ? (
-            <div className="flex flex-col items-center">
+            <div className="relative h-10 w-40 shrink-0 overflow-visible">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={student.signature_image}
                 alt="Authorized Signature"
-                className="max-h-7 max-w-[105px] object-contain mb-0.5"
+                className="pointer-events-none absolute bottom-3 left-1/2 z-20 h-16 w-40 max-w-none -translate-x-1/2 object-contain object-bottom"
               />
-              <div className="border-t border-gray-600 pt-0.5 text-center text-[7px] text-gray-800 font-bold">
+              <div className="absolute inset-x-0 bottom-0 z-30 border-t border-gray-600 pt-0.5 text-center text-[7px] text-gray-800 font-bold">
                 Authorized Signature &amp; Stamp
               </div>
             </div>

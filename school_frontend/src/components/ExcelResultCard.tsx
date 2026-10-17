@@ -65,6 +65,7 @@ export interface ExcelResultCardProps {
     class_teacher_signature?: string;
     signature?: string;
     incharge_signature?: string;
+    principal_signature?: string | null;
     rank?: number | string;
   };
   subjects: SubjectSummary[];
@@ -334,6 +335,7 @@ export default function ExcelResultCard({
     student?.class_incharge_name ||
     (student as any)?.incharge ||
     "";
+  const principalSignature = student?.principal_signature || "";
   const teacherSignature =
     student?.teacher_signature ||
     student?.class_teacher_signature ||
@@ -733,7 +735,7 @@ export default function ExcelResultCard({
 
           {/* Class Incharge Signature */}
           <div className="col-span-4 text-center flex flex-col items-center justify-end">
-            <div className="w-full mx-auto mb-1 h-20 flex items-end justify-center px-1">
+            <div className="relative w-full mx-auto mb-1 h-20 flex items-end justify-center overflow-visible px-1">
               {teacherSignature ? (
                 <img
                   src={(() => {
@@ -744,7 +746,7 @@ export default function ExcelResultCard({
                     return `${STORAGE_URL.replace(/\/$/, "")}/${raw}`;
                   })()}
                   alt="Class Incharge Signature"
-                  className="max-h-[76px] max-w-full object-contain filter contrast-125"
+                  className="pointer-events-none absolute bottom-0 left-1/2 z-20 h-[70px] w-full max-w-none -translate-x-1/2 object-contain object-bottom filter contrast-125"
                 />
               ) : (
                 <div className="border-b border-black w-full h-8"></div>
@@ -764,8 +766,22 @@ export default function ExcelResultCard({
 
           {/* Principal Signature */}
           <div className="col-span-3 text-center flex flex-col items-center justify-end">
-            <div className="w-3/4 mx-auto mb-1 h-20 flex items-end justify-center">
-              <div className="border-b border-black w-full h-8"></div>
+            <div className="relative w-3/4 mx-auto mb-1 h-20 flex items-end justify-center overflow-visible">
+              {principalSignature ? (
+                <img
+                  src={(() => {
+                    const raw = principalSignature.trim();
+                    if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:")) return raw;
+                    if (raw.startsWith("/")) return `${STORAGE_URL.replace(/\/storage\/?$/, "")}${raw}`;
+                    if (raw.startsWith("storage/")) return `${STORAGE_URL.replace(/\/storage\/?$/, "")}/${raw}`;
+                    return `${STORAGE_URL.replace(/\/$/, "")}/${raw}`;
+                  })()}
+                  alt="Principal Signature"
+                  className="pointer-events-none absolute bottom-0 left-1/2 z-20 h-[70px] w-full max-w-none -translate-x-1/2 object-contain object-bottom filter contrast-125"
+                />
+              ) : (
+                <div className="border-b border-black w-full h-8"></div>
+              )}
             </div>
             <div className="border-t border-black w-3/4 mx-auto pt-0.5">
               <span className="text-xs font-black uppercase text-slate-800 block">
