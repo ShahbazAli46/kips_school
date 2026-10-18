@@ -17,16 +17,44 @@ class SessionManager(context: Context) {
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_USER_PHONE = "user_phone"
         private const val KEY_ROLE_ID = "role_id"
+        private const val KEY_QUALIFICATION = "qualification"
+        private const val KEY_EMERGENCY_CONTACT = "emergency_contact"
+        private const val KEY_USER_IMAGE = "user_image"
+        private const val KEY_USER_SIGNATURE = "user_signature"
         private const val KEY_REMEMBERED_IDENTIFIER = "remembered_identifier"
         private const val KEY_BASE_URL = "base_url"
 
         // Default URLs
         const val DEFAULT_LOCAL_EMULATOR_URL = "http://10.0.2.2:8000/api"
+        const val DEFAULT_LOCAL_DEVICE_URL = "http://127.0.0.1:8000/api"
         const val DEFAULT_LIVE_SERVER_URL = "https://kips.usachunian.com/api"
+
+        private val isEmulator: Boolean
+            get() = (android.os.Build.BRAND.startsWith("generic") && android.os.Build.DEVICE.startsWith("generic"))
+                    || android.os.Build.FINGERPRINT.startsWith("generic")
+                    || android.os.Build.HARDWARE.contains("goldfish")
+                    || android.os.Build.HARDWARE.contains("ranchu")
+                    || android.os.Build.PRODUCT.contains("sdk")
+                    || android.os.Build.PRODUCT.contains("emulator")
+
+        /** Default backend base URL. Emulator → 10.0.2.2 (host loopback); physical device → dev API
+         * (192.168.100.56:8001) for testing on the dev database. `127.0.0.1` on a phone refers to
+         * the phone itself, never the dev Mac. Switch to live server when ready to merge to main. */
+        val DEFAULT_LOCAL_URL: String
+            get() = if (isEmulator) DEFAULT_LOCAL_EMULATOR_URL else "http://192.168.100.56:8001/api"
     }
 
     var baseUrl: String
-        get() = prefs.getString(KEY_BASE_URL, DEFAULT_LOCAL_EMULATOR_URL) ?: DEFAULT_LOCAL_EMULATOR_URL
+        get() {
+            var url = prefs.getString(KEY_BASE_URL, DEFAULT_LOCAL_URL) ?: DEFAULT_LOCAL_URL
+            // Migrate stale localhost URLs stored on physical devices → dev API,
+            // because 127.0.0.1 on a phone refers to the phone, not the dev Mac.
+            if (!isEmulator && (url.contains("127.0.0.1") || url.contains("localhost"))) {
+                url = "http://192.168.100.56:8001/api"
+                prefs.edit().putString(KEY_BASE_URL, url).apply()
+            }
+            return url.trimEnd('/')
+        }
         set(value) = prefs.edit().putString(KEY_BASE_URL, value.trimEnd('/')).apply()
 
     var authToken: String?
@@ -38,13 +66,22 @@ class SessionManager(context: Context) {
         set(value) = prefs.edit().putString(KEY_REMEMBERED_IDENTIFIER, value).apply()
 
     fun saveUser(token: String, user: UserProfile) {
+        authToken = token
+        updateUser(user)
+    }
+
+    /** Updates the cached profile fields without touching the auth token. */
+    fun updateUser(user: UserProfile) {
         prefs.edit().apply {
-            putString(KEY_AUTH_TOKEN, token)
             putLong(KEY_USER_ID, user.id)
             putString(KEY_USER_NAME, user.name)
             putString(KEY_USER_EMAIL, user.email)
             putString(KEY_USER_PHONE, user.contact_number)
             putInt(KEY_ROLE_ID, user.role_id)
+            putString(KEY_QUALIFICATION, user.qualification)
+            putString(KEY_EMERGENCY_CONTACT, user.emergency_contact)
+            putString(KEY_USER_IMAGE, user.image)
+            putString(KEY_USER_SIGNATURE, user.signature)
             apply()
         }
     }
@@ -60,7 +97,11 @@ class SessionManager(context: Context) {
             email = prefs.getString(KEY_USER_EMAIL, null),
             contact_number = prefs.getString(KEY_USER_PHONE, null),
             role_id = prefs.getInt(KEY_ROLE_ID, 2),
-            is_active = true
+            is_active = true,
+            qualification = prefs.getString(KEY_QUALIFICATION, null),
+            emergency_contact = prefs.getString(KEY_EMERGENCY_CONTACT, null),
+            image = prefs.getString(KEY_USER_IMAGE, null),
+            signature = prefs.getString(KEY_USER_SIGNATURE, null)
         )
     }
 

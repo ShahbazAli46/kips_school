@@ -64,7 +64,7 @@ class ClassDiaryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'class_id' => 'required|exists:academy_classes,id',
+            'class_id' => 'required|exists:classes,id',
             'subject_id' => 'required|exists:subjects,id',
             'section_id' => 'nullable|exists:sections,id',
             'diary_date' => 'required|date',

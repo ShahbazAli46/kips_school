@@ -10,8 +10,25 @@ data class UserProfile(
     val className: String? = null,
     val sectionName: String? = null,
     val majorName: String? = null,
+    val qualification: String? = null,
+    val emergency_contact: String? = null,
+    val image: String? = null,
+    val signature: String? = null,
     val permissions: List<String> = emptyList()
-)
+) {
+    /** Uppercase initials (max 2) derived from the full name, for avatar fallbacks. */
+    val initials: String
+        get() = name.split(" ")
+            .filter { it.isNotBlank() }
+            .take(2)
+            .map { it.first().uppercaseChar() }
+            .joinToString("")
+            .ifBlank { "T" }
+
+    /** True when the teacher has uploaded an official signature. */
+    val hasSignature: Boolean
+        get() = !signature.isNullOrBlank()
+}
 
 data class LoginResult(
     val success: Boolean,

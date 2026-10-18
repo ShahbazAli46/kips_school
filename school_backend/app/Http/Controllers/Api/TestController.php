@@ -24,7 +24,86 @@ class TestController extends Controller
         if ($request->has('subject_id')) {
             $query->where('subject_id', $request->subject_id);
         }
+
+        // Teachers (role 2) may only see tests for their own assigned class & subject
+        if ((int) $request->user()->role_id === 2) {
+            $this->applyTeacherScope($query, $request->user());
+        }
+
         return response()->json($query->get());
+    }
+
+    /**
+     * Restricts the query to tests that belong to one of the teacher's assignments
+     * (matching class & subject; section/major must be compatible).
+     */
+    private function applyTeacherScope($query, $user): void
+    {
+        $assignments = \App\Models\TeacherAssignment::where('teacher_id', $user->id)->get();
+
+        if ($assignments->isEmpty()) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
+        $query->where(function ($outer) use ($assignments) {
+            foreach ($assignments as $assignment) {
+                $outer->orWhere(function ($sub) use ($assignment) {
+                    $sub->where('academy_class_id', $assignment->class_id)
+                        ->where('subject_id', $assignment->subject_id);
+
+                    // Class-wide tests (section null) always match; section-specific
+                    // tests match same-section or class-wide assignments.
+                    $sub->where(function ($section) use ($assignment) {
+                        $section->whereNull('section_id');
+                        if ($assignment->section_id) {
+                            $section->orWhere('section_id', $assignment->section_id);
+                        }
+                    });
+
+                    // Subject-major tests match only the teacher's assigned major;
+                    // a teacher without a major only gets general (non-major) tests.
+                    $sub->where(function ($major) use ($assignment) {
+                        $major->whereNull('major_id');
+                        if ($assignment->major_id) {
+                            $major->orWhere('major_id', $assignment->major_id);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    /**
+     * Whether this test belongs to one of the given teacher's assigned
+     * class & subject (section/major compatible).
+     */
+    private function matchesTeacherAssignment(Test $test, $user): bool
+    {
+        return \App\Models\TeacherAssignment::where('teacher_id', $user->id)
+            ->where('class_id', $test->academy_class_id)
+            ->where('subject_id', $test->subject_id)
+            ->get()
+            ->contains(function ($assignment) use ($test) {
+                $sectionOk = $test->section_id === null || $assignment->section_id === null
+                    || (int) $test->section_id === (int) $assignment->section_id;
+
+                $majorOk = $test->major_id === null
+                    || ($assignment->major_id !== null && (int) $test->major_id === (int) $assignment->major_id);
+
+                return $sectionOk && $majorOk;
+            });
+    }
+
+    /**
+     * Blocks teachers (role 2) from managing tests outside their assignments.
+     */
+    private function authorizeForTeacher(Request $request, Test $test): void
+    {
+        $user = $request->user();
+        if ((int) $user->role_id === 2 && !$this->matchesTeacherAssignment($test, $user)) {
+            abort(403, 'You can only enter marks for your assigned class & subject.');
+        }
     }
 
     private function generateDefaultTitle($category, int $count): string
@@ -172,6 +251,8 @@ class TestController extends Controller
     // Custom endpoint to fetch students for this test to enter marks
     public function students(Request $request, Test $test)
     {
+        $this->authorizeForTeacher($request, $test);
+
         // Get students in the class
         $query = User::where('role_id', 3)
             ->where('class_id', $test->academy_class_id);

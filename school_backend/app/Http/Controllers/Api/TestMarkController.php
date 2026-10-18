@@ -30,6 +30,10 @@ class TestMarkController extends Controller
             'remarks' => 'nullable|string',
         ]);
 
+        $markTest = \App\Models\Test::findOrFail($validated['test_id']);
+        $this->authorizeForTeacher($request, $markTest);
+        $this->validateObtainedAgainstTotal($validated['obtained_marks'] ?? null, $markTest);
+
         $mark = TestMark::create($validated);
 
         // Push notification on single test mark create
@@ -87,6 +91,10 @@ class TestMarkController extends Controller
             'remarks' => 'nullable|string',
         ]);
 
+        $testMark->load('test');
+        $this->authorizeForTeacher($request, $testMark->test);
+        $this->validateObtainedAgainstTotal($validated['obtained_marks'] ?? $testMark->obtained_marks, $testMark->test);
+
         $testMark->update($validated);
 
         // Push notification on mark update
@@ -131,10 +139,53 @@ class TestMarkController extends Controller
         return response()->json($testMark);
     }
 
-    public function destroy(TestMark $testMark)
+    public function destroy(Request $request, TestMark $testMark)
     {
+        $this->authorizeForTeacher($request, $testMark->load('test')->test);
         $testMark->delete();
         return response()->json(null, 204);
+    }
+
+    /**
+     * Blocks teachers (role 2) from managing test marks outside their assignments.
+     */
+    private function authorizeForTeacher(Request $request, Test $test): void
+    {
+        $user = $request->user();
+        if ((int) $user->role_id === 2 && !$this->matchesTeacherAssignment($test, $user)) {
+            abort(403, 'You can only enter marks for your assigned class & subject.');
+        }
+    }
+
+    /**
+     * Whether this test belongs to one of the given teacher's assigned
+     * class & subject (section/major compatible).
+     */
+    private function matchesTeacherAssignment(Test $test, $user): bool
+    {
+        return \App\Models\TeacherAssignment::where('teacher_id', $user->id)
+            ->where('class_id', $test->academy_class_id)
+            ->where('subject_id', $test->subject_id)
+            ->get()
+            ->contains(function ($assignment) use ($test) {
+                $sectionOk = $test->section_id === null || $assignment->section_id === null
+                    || (int) $test->section_id === (int) $assignment->section_id;
+
+                $majorOk = $test->major_id === null
+                    || ($assignment->major_id !== null && (int) $test->major_id === (int) $assignment->major_id);
+
+                return $sectionOk && $majorOk;
+            });
+    }
+
+    /**
+     * Entered marks can never exceed the test's total marks.
+     */
+    private function validateObtainedAgainstTotal($obtainedMarks, Test $test): void
+    {
+        if ($obtainedMarks !== null && (float) $obtainedMarks > (float) $test->total_marks) {
+            abort(422, "Obtained marks cannot exceed the test's total marks ({$test->total_marks}).");
+        }
     }
 
     // Custom endpoint to bulk store/update marks for a test
@@ -149,6 +200,16 @@ class TestMarkController extends Controller
         ]);
 
         $test = \App\Models\Test::findOrFail($test_id);
+        $this->authorizeForTeacher($request, $test);
+
+        // Teachers can never submit marks above the test's total
+        foreach ($validated['marks'] as $markData) {
+            $obtained = $markData['obtained_marks'] ?? null;
+            if ($obtained !== null && (float) $obtained > (float) $test->total_marks) {
+                abort(422, "Obtained marks cannot exceed the test's total marks ({$test->total_marks}).");
+            }
+        }
+
         $now = now();
 
         $rows = array_map(function ($markData) use ($test_id, $test, $now) {

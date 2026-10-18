@@ -115,7 +115,16 @@ class BookImportController extends Controller
         ]);
         $session = trim($data['session_label'] ?? '');
         $list = DB::transaction(function () use ($data, $session, $payload, $request) {
-            // Database uniqueness handles retries AND concurrent confirms, even across app servers.
+            // Serialize imports for this class, including requests uploading different files.
+            $class = DB::table('classes')->where('id', $data['class_id'])->lockForUpdate()->first();
+            if (!$class) {
+                throw ValidationException::withMessages(['class_id' => 'The selected class no longer exists.']);
+            }
+            if (BookList::where('class_id', $data['class_id'])->exists()) {
+                throw ValidationException::withMessages([
+                    'class_id' => 'A booklist has already been uploaded for this class. Another upload is not allowed.',
+                ]);
+            }
             $list = BookList::firstOrCreate([
                 'source_hash' => $payload['source_hash'],
                 'class_id' => $data['class_id'],

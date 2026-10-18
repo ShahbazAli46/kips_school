@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.sp
 import com.kipsschool.chunian.ui.theme.BannerErrorBorder
 import com.kipsschool.chunian.ui.theme.InputBorderFocus
 import com.kipsschool.chunian.ui.theme.SkyGlow
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import kotlin.math.roundToInt
 
 @Composable
@@ -59,6 +61,7 @@ fun AnimatedOtpInput(
     onComplete: () -> Unit = {}
 ) {
     val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     val shakeOffset = remember { Animatable(0f) }
 
     LaunchedEffect(isError) {
@@ -73,6 +76,7 @@ fun AnimatedOtpInput(
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        keyboardController?.show()
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "cursor_anim")
@@ -101,96 +105,108 @@ fun AnimatedOtpInput(
                     onComplete()
                 }
             },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.NumberPassword,
+                imeAction = ImeAction.Done
+            ),
             keyboardActions = KeyboardActions(onDone = {
                 if (otpValue.length == length) onComplete()
             }),
             modifier = Modifier
-                .size(1.dp)
-                .focusRequester(focusRequester),
-            singleLine = true
-        )
-
-        Row(
-            modifier = Modifier
                 .fillMaxWidth()
+                .focusRequester(focusRequester)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
                     focusRequester.requestFocus()
+                    keyboardController?.show()
                 },
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (index in 0 until length) {
-                val digit = otpValue.getOrNull(index)?.toString() ?: ""
-                val isFocused = otpValue.length == index
-                val isFilled = digit.isNotEmpty()
-
-                val digitScale = remember { Animatable(1f) }
-                LaunchedEffect(digit) {
-                    if (digit.isNotEmpty()) {
-                        digitScale.snapTo(1.22f)
-                        digitScale.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 420f))
-                    }
-                }
-
-                // Web exact colors: border-sky-500/40, focus:border-sky-400, bg-white/[0.05]
-                val borderColor by animateColorAsState(
-                    targetValue = when {
-                        isError -> BannerErrorBorder
-                        isFocused -> InputBorderFocus // #38bdf8
-                        isFilled -> Color(0x9938BDF8)
-                        else -> Color(0x660EA5E9) // border-sky-500/40
-                    },
-                    animationSpec = tween(220),
-                    label = "border_color"
-                )
-
-                val boxBg by animateColorAsState(
-                    targetValue = when {
-                        isFocused -> Color(0x1F0284C7)
-                        isFilled -> Color(0x140EA5E9)
-                        else -> Color(0x0DFFFFFF) // bg-white/[0.05]
-                    },
-                    animationSpec = tween(220),
-                    label = "box_bg"
-                )
-
-                Box(
+            singleLine = true,
+            decorationBox = {
+                Row(
                     modifier = Modifier
-                        .width(46.dp)
-                        .height(56.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(boxBg)
-                        .border(
-                            width = if (isFocused || isFilled) 1.8.dp else 1.dp,
-                            color = borderColor,
-                            shape = RoundedCornerShape(14.dp)
-                        ),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            focusRequester.requestFocus()
+                            keyboardController?.show()
+                        },
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (digit.isNotEmpty()) {
-                        Text(
-                            text = digit,
-                            // Exact web text-sky-300: #7dd3fc
-                            color = Color(0xFF7DD3FC),
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.scale(digitScale.value)
+                    for (index in 0 until length) {
+                        val digit = otpValue.getOrNull(index)?.toString() ?: ""
+                        val isFocused = otpValue.length == index
+                        val isFilled = digit.isNotEmpty()
+
+                        val digitScale = remember { Animatable(1f) }
+                        LaunchedEffect(digit) {
+                            if (digit.isNotEmpty()) {
+                                digitScale.snapTo(1.22f)
+                                digitScale.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 420f))
+                            }
+                        }
+
+                        // Web exact colors: border-sky-500/40, focus:border-sky-400, bg-white/[0.05]
+                        val borderColor by animateColorAsState(
+                            targetValue = when {
+                                isError -> BannerErrorBorder
+                                isFocused -> InputBorderFocus // #38bdf8
+                                isFilled -> Color(0x9938BDF8)
+                                else -> Color(0x660EA5E9) // border-sky-500/40
+                            },
+                            animationSpec = tween(220),
+                            label = "border_color"
                         )
-                    } else if (isFocused) {
+
+                        val boxBg by animateColorAsState(
+                            targetValue = when {
+                                isFocused -> Color(0x1F0284C7)
+                                isFilled -> Color(0x140EA5E9)
+                                else -> Color(0x0DFFFFFF) // bg-white/[0.05]
+                            },
+                            animationSpec = tween(220),
+                            label = "box_bg"
+                        )
+
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(SkyGlow.copy(alpha = cursorAlpha))
-                        )
+                                .weight(1f)
+                                .height(50.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(boxBg)
+                                .border(
+                                    width = if (isFocused || isFilled) 1.8.dp else 1.dp,
+                                    color = borderColor,
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (digit.isNotEmpty()) {
+                                Text(
+                                    text = digit,
+                                    // Exact web text-sky-300: #7dd3fc
+                                    color = Color(0xFF7DD3FC),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.scale(digitScale.value)
+                                )
+                            } else if (isFocused) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(SkyGlow.copy(alpha = cursorAlpha))
+                                )
+                            }
+                        }
                     }
                 }
             }
-        }
+        )
     }
 }

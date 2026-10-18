@@ -14,18 +14,22 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +42,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,10 +54,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,10 +93,12 @@ import com.kipsschool.chunian.ui.theme.TextMuted
 import com.kipsschool.chunian.ui.theme.TextSubheading
 import com.kipsschool.chunian.ui.theme.WebBackground
 import com.kipsschool.chunian.viewmodel.TeacherLoginViewModel
+import com.kipsschool.chunian.viewmodel.TeacherPortalViewModel
 
 @Composable
 fun TeacherLoginScreen(
     viewModel: TeacherLoginViewModel,
+    portalViewModel: TeacherPortalViewModel? = null,
     modifier: Modifier = Modifier
 ) {
     val screenState by viewModel.screenState.collectAsState()
@@ -101,17 +110,36 @@ fun TeacherLoginScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val successMessage by viewModel.successMessage.collectAsState()
     val resendCountdown by viewModel.resendCountdown.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
 
     val focusManager = LocalFocusManager.current
-    var showServerDialog by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+    val isImeOpen = imeInsets.getBottom(density) > 0
+    val isOtp = screenState is AuthScreenState.VerifyOtp
+    val isCompact = isImeOpen || isOtp
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(isOtp, isImeOpen) {
+        if (isOtp || isImeOpen) {
+            delay(120)
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
 
     if (screenState is AuthScreenState.Authenticated) {
         val user = (screenState as AuthScreenState.Authenticated).user
-        TeacherWelcomeScreen(
-            user = user,
-            onLogout = { viewModel.logout() }
-        )
+        if (portalViewModel != null) {
+            TeacherPortalScreen(
+                user = user,
+                viewModel = portalViewModel,
+                onLogout = { viewModel.logout() }
+            )
+        } else {
+            TeacherWelcomeScreen(
+                user = user,
+                onLogout = { viewModel.logout() }
+            )
+        }
         return
     }
 
@@ -119,6 +147,10 @@ fun TeacherLoginScreen(
         modifier = modifier
             .fillMaxSize()
             .background(WebBackground)
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) { focusManager.clearFocus() }
     ) {
         // Layer 0: Bioluminescent Fireflies Field with web-exact colors & blooms
         AnimatedFireflyField(particleCount = 38)
@@ -126,18 +158,21 @@ fun TeacherLoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .imePadding()
-                .padding(horizontal = 24.dp, vertical = 28.dp),
+                .verticalScroll(scrollState)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(
+                    horizontal = 24.dp,
+                    vertical = if (isCompact) 12.dp else 28.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = if (isCompact) Arrangement.Top else Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(if (isCompact) 6.dp else 16.dp))
 
             // Animated Floating KIPS Logo & Header
-            GlowingKipsLogo()
+            GlowingKipsLogo(compact = isCompact)
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(if (isCompact) 10.dp else 24.dp))
 
             // Crystal Glass Card
             AnimatedGlassCard(
@@ -294,105 +329,10 @@ fun TeacherLoginScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Bottom Server Environment Switcher Pill
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(100.dp))
-                    .background(Color(0x1AFFFFFF))
-                    .border(1.dp, Color(0x3338BDF8), RoundedCornerShape(100.dp))
-                    .clickable { showServerDialog = !showServerDialog }
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(if (serverUrl.contains("kips.usachunian.com")) AuraGold else BannerSuccessText)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (serverUrl.contains("kips.usachunian.com")) "Server: Live VPS" else "Server: Local (${serverUrl.substringAfter("://").substringBefore("/")})",
-                    color = TextSubheading,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "⚙️", fontSize = 10.sp)
-            }
-
-            // Server Dialog
-            AnimatedVisibility(visible = showServerDialog) {
-                Column(
-                    modifier = Modifier
-                        .padding(top = 10.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Brand900.copy(alpha = 0.95f))
-                        .border(1.dp, SkyGlow.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = "Select Backend Endpoint",
-                        color = TextHeading,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ServerOption(
-                        title = "Android Emulator (10.0.2.2:8000)",
-                        selected = serverUrl == SessionManager.DEFAULT_LOCAL_EMULATOR_URL,
-                        onClick = {
-                            viewModel.setServerUrl(SessionManager.DEFAULT_LOCAL_EMULATOR_URL)
-                            showServerDialog = false
-                        }
-                    )
-                    ServerOption(
-                        title = "Live Production (kips.usachunian.com)",
-                        selected = serverUrl == SessionManager.DEFAULT_LIVE_SERVER_URL,
-                        onClick = {
-                            viewModel.setServerUrl(SessionManager.DEFAULT_LIVE_SERVER_URL)
-                            showServerDialog = false
-                        }
-                    )
-                    ServerOption(
-                        title = "Localhost Direct (127.0.0.1:8000)",
-                        selected = serverUrl == "http://127.0.0.1:8000/api",
-                        onClick = {
-                            viewModel.setServerUrl("http://127.0.0.1:8000/api")
-                            showServerDialog = false
-                        }
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(30.dp))
+        }
         }
     }
-}
-
-@Composable
-private fun ServerOption(title: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) Color(0x3338BDF8) else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = if (selected) "✓" else "•",
-            color = if (selected) SkyGlow else TextMuted,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(18.dp)
-        )
-        Text(
-            text = title,
-            color = if (selected) TextHeading else TextSubheading,
-            fontSize = 12.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-        )
-    }
-}
 
 @Composable
 private fun StageIdentifier(
@@ -535,7 +475,7 @@ private fun StageOtp(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         AnimatedOtpInput(
             otpValue = otp,
@@ -544,7 +484,7 @@ private fun StageOtp(
             onComplete = onSubmit
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         AnimatedGradientButton(
             text = "Verify & Sign In",
@@ -553,7 +493,7 @@ private fun StageOtp(
             onClick = onSubmit
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Row(
             verticalAlignment = Alignment.CenterVertically,

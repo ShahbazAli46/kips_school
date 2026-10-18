@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,7 +45,8 @@ import com.kipsschool.chunian.ui.theme.TextWhite
 
 @Composable
 fun GlowingKipsLogo(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "logo_anim")
 
@@ -67,6 +69,57 @@ fun GlowingKipsLogo(
         ),
         label = "halo_alpha"
     )
+
+    if (compact) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = modifier.padding(vertical = 4.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(46.dp)
+                    .shadow(
+                        elevation = 10.dp,
+                        shape = RoundedCornerShape(12.dp),
+                        ambientColor = SkyGlow.copy(alpha = 0.35f),
+                        spotColor = SkyGlow.copy(alpha = 0.35f)
+                    )
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.95f))
+                    .border(
+                        width = 1.dp,
+                        color = Color(0x7338BDF8),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(5.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.kips_logo),
+                    contentDescription = "KIPS School Emblem",
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "TEACHER PORTAL",
+                    color = AuraGold,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.2.sp
+                )
+                Text(
+                    text = "KIPS School System",
+                    color = TextWhite,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        return
+    }
 
     Column(
         modifier = modifier,
