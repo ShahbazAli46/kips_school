@@ -5,8 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AcademicSession;
 use App\Models\ExtraChargeItem;
-use App\Models\FeePayment;
-use App\Models\FeePaymentItem;
+use App\Models\PosPayment;
 use App\Models\StudentExtraCharge;
 use App\Models\StudentFeeItem;
 use App\Models\User;
@@ -311,29 +310,7 @@ class ExtraChargeController extends Controller
                 $feePayment = null;
 
                 if ($paymentOption === 'pay_now') {
-                    // 1. Create a FeePayment so it enters daily school receivings and finance reports
-                    $feePayment = FeePayment::create([
-                        'student_id' => $student->id,
-                        'month' => $currentMonthStr,
-                        'amount_paid' => $totalAmountPerStudent,
-                        'discount_amount' => 0,
-                        'payment_date' => now()->format('Y-m-d'),
-                        'payer_name' => $student->name,
-                        'received_by' => auth()->id(),
-                    ]);
-
-                    // Create item breakdown
-                    FeePaymentItem::create([
-                        'fee_payment_id' => $feePayment->id,
-                        'student_fee_item_id' => null,
-                        'head_key' => 'extra_charge_' . time(),
-                        'head_name' => $title . ($quantity > 1 ? " (Qty: {$quantity})" : ""),
-                        'amount_paid' => $totalAmountPerStudent,
-                        'discount_applied' => 0,
-                        'month' => $currentMonthStr,
-                    ]);
-
-                    // Also create a cleared student_fee_item record so it appears in the master ledger
+                    // 1. Create a cleared student_fee_item record (billing trail for the student)
                     $feeItem = StudentFeeItem::create([
                         'student_id' => $student->id,
                         'academic_session_id' => $activeSession?->id,
@@ -352,7 +329,7 @@ class ExtraChargeController extends Controller
                         'student_id' => $student->id,
                         'extra_charge_item_id' => $catalogItem?->id,
                         'student_fee_item_id' => $feeItem->id,
-                        'fee_payment_id' => $feePayment->id,
+                        'fee_payment_id' => null,
                         'title' => $title,
                         'category' => $category,
                         'charge_type' => $chargeType,
@@ -368,14 +345,24 @@ class ExtraChargeController extends Controller
                         'created_by' => auth()->id(),
                     ]);
 
-                    $createdRecords[] = $charge;
+                    // Record collection in the separate POS received ledger (NOT fee_payments)
+                    $posPayment = PosPayment::create([
+                        'category' => 'extra',
+                        'student_id' => $student->id,
+                        'month' => $currentMonthStr,
+                        'amount_paid' => $totalAmountPerStudent,
+                        'payment_date' => now()->format('Y-m-d'),
+                        'payer_name' => $student->name,
+                        'payment_method' => $paymentMethod,
+                        'description' => $title . ($quantity > 1 ? " (Qty: {$quantity})" : ""),
+                        'student_fee_item_id' => $feeItem->id,
+                        'student_extra_charge_id' => $charge->id,
+                        'received_by' => auth()->id(),
+                    ]);
+                    $charge->pos_payment_id = $posPayment->id;
+                    $charge->save();
 
-                    // Dispatch WhatsApp Fee Receipt
-                    try {
-                        \App\Jobs\SendFeeReceiptWhatsAppJob::dispatch($feePayment);
-                    } catch (\Throwable $e) {
-                        \Illuminate\Support\Facades\Log::error('[Extra Charge WhatsApp Receipt Error] ' . $e->getMessage());
-                    }
+                    $createdRecords[] = $charge;
 
                 } else {
                     // 2. Bill to Voucher / Pay Later -> Creates an unpaid debit head in StudentFeeItem
@@ -528,25 +515,19 @@ class ExtraChargeController extends Controller
 
         DB::beginTransaction();
         try {
-            // Create Fee Payment record for daily collection
-            $feePayment = FeePayment::create([
+            // Create POS payment record (separate Books/Extra received ledger, NOT in fee_payments)
+            $posPayment = PosPayment::create([
+                'category' => 'extra',
                 'student_id' => $charge->student_id,
                 'month' => $currentMonthStr,
                 'amount_paid' => $amount,
-                'discount_amount' => 0,
                 'payment_date' => now()->format('Y-m-d'),
                 'payer_name' => $charge->student?->name,
-                'received_by' => auth()->id(),
-            ]);
-
-            FeePaymentItem::create([
-                'fee_payment_id' => $feePayment->id,
+                'payment_method' => $paymentMethod,
+                'description' => $charge->title,
                 'student_fee_item_id' => $charge->student_fee_item_id,
-                'head_key' => $charge->studentFeeItem?->head_key ?? ('extra_charge_' . $charge->id),
-                'head_name' => $charge->title,
-                'amount_paid' => $amount,
-                'discount_applied' => 0,
-                'month' => $currentMonthStr,
+                'student_extra_charge_id' => $charge->id,
+                'received_by' => auth()->id(),
             ]);
 
             // Update linked student fee item
@@ -561,18 +542,11 @@ class ExtraChargeController extends Controller
             $charge->balance_amount = max(0, $charge->total_amount - $charge->paid_amount);
             $charge->payment_status = $charge->balance_amount <= 0 ? 'paid' : 'partial';
             $charge->payment_method = $paymentMethod;
-            $charge->fee_payment_id = $feePayment->id;
+            $charge->pos_payment_id = $posPayment->id;
             $charge->paid_at = now();
             $charge->save();
 
             DB::commit();
-
-            // Dispatch WhatsApp Fee Receipt
-            try {
-                \App\Jobs\SendFeeReceiptWhatsAppJob::dispatch($feePayment);
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('[Collect Charge WhatsApp Receipt Error] ' . $e->getMessage());
-            }
 
             return response()->json([
                 'message' => 'Payment collected successfully!',

@@ -1500,7 +1500,21 @@ export default function FeesPage() {
                                   </button>
                                 )}
 
-                                {/* 2. Collect Fee / + Installment */}
+                                {/* 2. Collect Fee */}
+                                <button
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    setCollectTarget(s);
+                                  }}
+                                  className="w-full px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition flex items-center gap-2 cursor-pointer"
+                                >
+                                  <span className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">
+                                    💵
+                                  </span>
+                                  <span>Collect Fee</span>
+                                </button>
+
+                                {/* 3. + Installment */}
                                 <button
                                   onClick={() => {
                                     setOpenDropdownId(null);
@@ -1511,10 +1525,10 @@ export default function FeesPage() {
                                   <span className="w-5 h-5 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold">
                                     +
                                   </span>
-                                  <span>{studentPayments.length === 0 ? "Collect Fee" : "+ Installment"}</span>
+                                  <span>+ Installment</span>
                                 </button>
 
-                                {/* 3. Add Follow Up */}
+                                {/* 4. Add Follow Up */}
                                 <button
                                   onClick={() => {
                                     setOpenDropdownId(null);

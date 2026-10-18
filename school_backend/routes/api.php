@@ -189,7 +189,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Leave Applications
         Route::get('leave-applications', [\App\Http\Controllers\Api\LeaveApplicationController::class, 'index']);
         Route::post('leave-applications/{id}/cancel', [\App\Http\Controllers\Api\LeaveApplicationController::class, 'cancel']);
-        Route::apiResource('subjects', SubjectController::class);
+        Route::apiResource('subjects', SubjectController::class)->except(['index']);
         Route::get('/admin/subject-attendance', [\App\Http\Controllers\Api\AdminSubjectAttendanceController::class, 'index']);
         Route::put('/admin/subject-attendance/{id}', [\App\Http\Controllers\Api\AdminSubjectAttendanceController::class, 'update']);
         Route::apiResource('majors', MajorController::class);
@@ -297,6 +297,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/extra-charges/{id}/collect', [\App\Http\Controllers\Api\ExtraChargeController::class, 'collectChargePayment']);
         Route::get('/books/catalog', [\App\Http\Controllers\Api\BookController::class, 'catalog']);
         Route::get('/books/ledger', [\App\Http\Controllers\Api\BookController::class, 'ledger']);
+        Route::get('/pos-payments', [\App\Http\Controllers\Api\PosPaymentController::class, 'index']);
         Route::get('/books/{book}/movements', [\App\Http\Controllers\Api\BookController::class, 'movements']);
         Route::post('/books/sell', [\App\Http\Controllers\Api\BookController::class, 'sell']);
 
@@ -414,6 +415,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Allow fetching classes and sections for dropdowns
         Route::get('/classes', [ClassController::class, 'index']);
+        Route::get('/subjects', [SubjectController::class, 'index']);
         Route::get('/classes/{class}/subjects', [ClassController::class, 'subjects']);
         Route::get('/sections', [SectionController::class, 'index']);
         Route::get('/academic-sessions', [\App\Http\Controllers\Api\AcademicSessionController::class, 'index']);

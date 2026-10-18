@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
-use App\Models\{AcademicSession,AcademyClass,Book,BookList,BookPackage,BookStockMovement,FeePayment,FeePaymentItem,StaffStudentReceiving,StudentFeeItem,User};
+use App\Models\{AcademicSession,AcademyClass,Book,BookList,BookPackage,BookStockMovement,PosPayment,StaffStudentReceiving,StudentFeeItem,User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -65,13 +65,15 @@ class BookController extends Controller {
     }
     public function movements(Book $book){ return response()->json($book->movements()->with('creator:id,name')->latest()->paginate(50)); }
     public function ledger(Request $r){
-        $items=StudentFeeItem::query()->where('head_key','like','books\_%')
+        $perPage=min(100,max(10,(int)$r->input('per_page',50)));
+        $base=StudentFeeItem::query()->where('head_key','like','books\_%')
             ->when($r->class_id,fn($q,$v)=>$q->whereHas('student',fn($s)=>$s->where('class_id',$v)));
-        if($r->status==='paid')$items->where('balance_amount','<=',0.001);
-        elseif($r->status==='unpaid')$items->where('balance_amount','>',0.001)->where('paid_amount','<=',0.001);
-        elseif($r->status==='partial')$items->where('balance_amount','>',0.001)->where('paid_amount','>',0.001);
-        $rows=$items->with('student:id,name,roll_number,class_id','student.academyClass:id,name')->latest()->limit(1000)->get();
-        $data=$rows->map(function($i){
+        if($r->status==='paid')$base->where('balance_amount','<=',0.001);
+        elseif($r->status==='unpaid')$base->where('balance_amount','>',0.001)->where('paid_amount','<=',0.001);
+        elseif($r->status==='partial')$base->where('balance_amount','>',0.001)->where('paid_amount','>',0.001);
+        $totals=(clone $base)->selectRaw('COUNT(*) as count, COALESCE(SUM(payable_amount),0) as amount, COALESCE(SUM(paid_amount),0) as paid, COALESCE(SUM(balance_amount),0) as unpaid')->first();
+        $rows=$base->with('student:id,name,roll_number,class_id','student.academyClass:id,name')->latest()->paginate($perPage);
+        $data=collect($rows->items())->map(function($i){
             $balance=(float)$i->balance_amount; $paid=(float)$i->paid_amount;
             return ['id'=>$i->id,
                 'student_name'=>$i->student?->name??'Unknown student','roll_number'=>$i->student?->roll_number,
@@ -82,8 +84,9 @@ class BookController extends Controller {
         });
         return response()->json([
             'data'=>$data,
+            'meta'=>['current_page'=>$rows->currentPage(),'per_page'=>$rows->perPage(),'total'=>$rows->total(),'last_page'=>$rows->lastPage()],
             'classes'=>AcademyClass::orderBy('name')->get(['id','name']),
-            'totals'=>['count'=>$data->count(),'amount'=>(float)$data->sum('amount'),'paid'=>(float)$data->sum('paid_amount'),'unpaid'=>(float)$data->sum('balance_amount')],
+            'totals'=>['count'=>$totals?->count ?? 0,'amount'=>(float)($totals?->amount ?? 0),'paid'=>(float)($totals?->paid ?? 0),'unpaid'=>(float)($totals?->unpaid ?? 0)],
         ]);
     }
     public function sell(Request $r){
@@ -173,7 +176,7 @@ class BookController extends Controller {
             $head='Books - '.now()->format('Y-m-d H:i'); $feeItem=StudentFeeItem::create(['student_id'=>$student->id,'academic_session_id'=>$session?->id,'head_key'=>'books_'.uniqid(),'head_name'=>$head,'head_type'=>'one_time','actual_amount'=>$total,'payable_amount'=>$total,'paid_amount'=>$total,'balance_amount'=>0]);
             foreach($items as $i){$b=$books[$i['book_id']];$b->decrement('stock_quantity',$i['quantity']);BookStockMovement::create(['book_id'=>$b->id,'quantity'=>-$i['quantity'],'movement_type'=>'sale','reference_type'=>'student_fee_items','reference_id'=>$feeItem->id,'created_by'=>auth()->id()]);}
             $user=auth()->user(); $direct=(int)$user->role_id===1; $receiving=StaffStudentReceiving::create(['receipt_no'=>StaffStudentReceiving::generateReceiptNo(),'student_id'=>$student->id,'staff_id'=>$user->id,'academic_session_id'=>$session?->id,'amount'=>$total,'description'=>$head,'payment_method'=>$r->payment_method?:'cash','received_date'=>now()->toDateString(),'status'=>$direct?'received_by_admin':'pending_handover','admin_received_by'=>$direct?$user->id:null,'admin_received_at'=>$direct?now():null]);
-            if($direct){$p=FeePayment::create(['student_id'=>$student->id,'month'=>now()->format('Y-m'),'amount_paid'=>$total,'discount_amount'=>0,'payment_date'=>now()->toDateString(),'payer_name'=>$student->name,'received_by'=>$user->id]);FeePaymentItem::create(['fee_payment_id'=>$p->id,'student_fee_item_id'=>$feeItem->id,'head_key'=>$feeItem->head_key,'head_name'=>$head,'amount_paid'=>$total,'discount_applied'=>0,'month'=>now()->format('Y-m')]);$receiving->fee_payment_id=$p->id;$receiving->save();}$sale=['fee_item_id'=>$feeItem->id,'receiving_id'=>$receiving->id,'status'=>$receiving->status];
+            if($direct){PosPayment::create(['category'=>'books','student_id'=>$student->id,'month'=>now()->format('Y-m'),'amount_paid'=>$total,'payment_date'=>now()->toDateString(),'payer_name'=>$student->name,'payment_method'=>$r->payment_method?:'cash','description'=>$head,'student_fee_item_id'=>$feeItem->id,'received_by'=>$user->id]);}$sale=['fee_item_id'=>$feeItem->id,'receiving_id'=>$receiving->id,'status'=>$receiving->status];
         }); return response()->json(['message'=>'Book sale recorded.','total'=>$total,'sale'=>$sale],201);
     }
 }

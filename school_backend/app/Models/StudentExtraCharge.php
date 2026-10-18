@@ -16,6 +16,7 @@ class StudentExtraCharge extends Model
         'extra_charge_item_id',
         'student_fee_item_id',
         'fee_payment_id',
+        'pos_payment_id',
         'title',
         'category',
         'charge_type',

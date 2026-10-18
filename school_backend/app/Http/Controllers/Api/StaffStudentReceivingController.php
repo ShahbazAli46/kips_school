@@ -7,6 +7,7 @@ use App\Jobs\SendStaffReceivingWhatsAppJob;
 use App\Models\AcademicSession;
 use App\Models\FeePayment;
 use App\Models\FeePaymentItem;
+use App\Models\PosPayment;
 use App\Models\StaffStudentReceiving;
 use App\Models\User;
 use Carbon\Carbon;
@@ -270,34 +271,54 @@ class StaffStudentReceivingController extends Controller
         try {
             $paymentMonth = Carbon::parse($receiving->received_date)->format('Y-m');
 
-            // 1. Create official FeePayment record so it appears in Daily Receivings & Master Ledger
-            $feePayment = FeePayment::create([
-                'student_id'      => $receiving->student_id,
-                'month'           => $paymentMonth,
-                'amount_paid'     => $receiving->amount,
-                'discount_amount' => 0,
-                'payment_date'    => now()->format('Y-m-d'),
-                'payer_name'      => $receiving->student?->name ?: 'Student',
-                'received_by'     => $user->id,
-            ]);
+            // Book store sales are booked into the separate POS received ledger — never into fee_payments / Daily Receivings
+            $isBooksSale = str_starts_with($receiving->description, 'Books');
 
-            // 2. Create item breakdown for Daily Receivings
-            FeePaymentItem::create([
-                'fee_payment_id'      => $feePayment->id,
-                'student_fee_item_id' => null,
-                'head_key'            => 'staff_receiving_' . $receiving->id,
-                'head_name'           => $receiving->description . ' (via ' . ($receiving->staff?->name ?? 'Staff') . ')',
-                'amount_paid'         => $receiving->amount,
-                'discount_applied'    => 0,
-                'month'               => $paymentMonth,
-            ]);
+            if ($isBooksSale) {
+                PosPayment::create([
+                    'category'            => 'books',
+                    'student_id'          => $receiving->student_id,
+                    'month'               => $paymentMonth,
+                    'amount_paid'         => $receiving->amount,
+                    'payment_date'        => now()->format('Y-m-d'),
+                    'payer_name'          => $receiving->student?->name ?: 'Student',
+                    'payment_method'      => $receiving->payment_method ?: 'cash',
+                    'description'         => $receiving->description . ' (via ' . ($receiving->staff?->name ?? 'Staff') . ')',
+                    'staff_receiving_id'  => $receiving->id,
+                    'received_by'         => $user->id,
+                ]);
+            } else {
+                // 1. Create official FeePayment record so it appears in Daily Receivings & Master Ledger
+                $feePayment = FeePayment::create([
+                    'student_id'      => $receiving->student_id,
+                    'month'           => $paymentMonth,
+                    'amount_paid'     => $receiving->amount,
+                    'discount_amount' => 0,
+                    'payment_date'    => now()->format('Y-m-d'),
+                    'payer_name'      => $receiving->student?->name ?: 'Student',
+                    'received_by'     => $user->id,
+                ]);
+
+                // 2. Create item breakdown for Daily Receivings
+                FeePaymentItem::create([
+                    'fee_payment_id'      => $feePayment->id,
+                    'student_fee_item_id' => null,
+                    'head_key'            => 'staff_receiving_' . $receiving->id,
+                    'head_name'           => $receiving->description . ' (via ' . ($receiving->staff?->name ?? 'Staff') . ')',
+                    'amount_paid'         => $receiving->amount,
+                    'discount_applied'    => 0,
+                    'month'               => $paymentMonth,
+                ]);
+            }
 
             // 3. Mark staff receiving as received & cleared by admin
             $receiving->status            = 'received_by_admin';
             $receiving->admin_received_by = $user->id;
             $receiving->admin_received_at = now();
             $receiving->admin_notes       = $request->input('notes') ?: 'Handed over by ' . ($receiving->staff?->name ?? 'Staff');
-            $receiving->fee_payment_id    = $feePayment->id;
+            if (isset($feePayment)) {
+                $receiving->fee_payment_id = $feePayment->id;
+            }
             $receiving->save();
 
             DB::commit();
@@ -310,8 +331,10 @@ class StaffStudentReceivingController extends Controller
                 'feePayment',
             ]);
 
+            $bookedInto = $isBooksSale ? 'Books POS Received Ledger' : 'Daily Receivings';
+
             return response()->json([
-                'message'   => "Successfully received Rs. " . number_format((float)$receiving->amount) . " from {$receiving->staff?->name}! Added to Daily Receivings.",
+                'message'   => "Successfully received Rs. " . number_format((float)$receiving->amount) . " from {$receiving->staff?->name}! Added to {$bookedInto}.",
                 'receiving' => $receiving,
             ]);
         } catch (\Throwable $e) {
@@ -360,33 +383,54 @@ class StaffStudentReceivingController extends Controller
             foreach ($pendingRecords as $rec) {
                 $paymentMonth = Carbon::parse($rec->received_date)->format('Y-m');
 
-                // Create FeePayment record
-                $feePayment = FeePayment::create([
-                    'student_id'      => $rec->student_id,
-                    'month'           => $paymentMonth,
-                    'amount_paid'     => $rec->amount,
-                    'discount_amount' => 0,
-                    'payment_date'    => now()->format('Y-m-d'),
-                    'payer_name'      => $rec->student?->name ?: 'Student',
-                    'received_by'     => $user->id,
-                ]);
+                // Book store sales go to the separate POS received ledger, not fee_payments
+                $isBooksSale = str_starts_with($rec->description, 'Books');
 
-                FeePaymentItem::create([
-                    'fee_payment_id'      => $feePayment->id,
-                    'student_fee_item_id' => null,
-                    'head_key'            => 'staff_receiving_' . $rec->id,
-                    'head_name'           => $rec->description . ' (via ' . ($rec->staff?->name ?? 'Staff') . ')',
-                    'amount_paid'         => $rec->amount,
-                    'discount_applied'    => 0,
-                    'month'               => $paymentMonth,
-                ]);
+                if ($isBooksSale) {
+                    PosPayment::create([
+                        'category'           => 'books',
+                        'student_id'         => $rec->student_id,
+                        'month'              => $paymentMonth,
+                        'amount_paid'        => $rec->amount,
+                        'payment_date'       => now()->format('Y-m-d'),
+                        'payer_name'         => $rec->student?->name ?: 'Student',
+                        'payment_method'     => $rec->payment_method ?: 'cash',
+                        'description'        => $rec->description . ' (via ' . ($rec->staff?->name ?? 'Staff') . ')',
+                        'staff_receiving_id' => $rec->id,
+                        'received_by'        => $user->id,
+                    ]);
+                } else {
+                    // Create FeePayment record
+                    $feePayment = FeePayment::create([
+                        'student_id'      => $rec->student_id,
+                        'month'           => $paymentMonth,
+                        'amount_paid'     => $rec->amount,
+                        'discount_amount' => 0,
+                        'payment_date'    => now()->format('Y-m-d'),
+                        'payer_name'      => $rec->student?->name ?: 'Student',
+                        'received_by'     => $user->id,
+                    ]);
+
+                    FeePaymentItem::create([
+                        'fee_payment_id'      => $feePayment->id,
+                        'student_fee_item_id' => null,
+                        'head_key'            => 'staff_receiving_' . $rec->id,
+                        'head_name'           => $rec->description . ' (via ' . ($rec->staff?->name ?? 'Staff') . ')',
+                        'amount_paid'         => $rec->amount,
+                        'discount_applied'    => 0,
+                        'month'               => $paymentMonth,
+                    ]);
+                }
 
                 $rec->status            = 'received_by_admin';
                 $rec->admin_received_by = $user->id;
                 $rec->admin_received_at = now();
                 $rec->admin_notes       = $request->input('notes') ?: 'Batch handover received by ' . $user->name;
-                $rec->fee_payment_id    = $feePayment->id;
+                if (isset($feePayment)) {
+                    $rec->fee_payment_id = $feePayment->id;
+                }
                 $rec->save();
+                unset($feePayment);
 
                 $totalClearedAmount += (float) $rec->amount;
                 $clearedCount++;

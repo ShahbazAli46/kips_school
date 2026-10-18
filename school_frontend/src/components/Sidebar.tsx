@@ -53,6 +53,7 @@ export const adminMenu: NavItem[] = [
       { label: "Advance Salaries", href: "/dashboard/advance-salaries" },
       { label: "Master Ledger", href: "/dashboard/ledger" },
       { label: "Financial Report", href: "/dashboard/ledger/financial-report" },
+      { label: "POS Received Ledger", href: "/dashboard/pos-payments" },
     ],
   },
   {
@@ -186,6 +187,7 @@ export const accountantMenu: NavItem[] = [
       { label: "Advance Salaries", href: "/dashboard/advance-salaries" },
       { label: "Master Ledger", href: "/dashboard/ledger" },
       { label: "Financial Report", href: "/dashboard/ledger/financial-report" },
+      { label: "POS Received Ledger", href: "/dashboard/pos-payments" },
     ],
   },
   {

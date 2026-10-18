@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\FeePayment;
+use App\Models\PosPayment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -51,12 +52,23 @@ class FeePaymentController extends Controller
         $data = $validator->validated();
         $data['received_by'] = auth()->id();
 
-        $payment = FeePayment::create($data);
-        $payment->load('student:id,name,email');
+        $student = \App\Models\User::find($data['student_id']);
 
-        // Head-wise Payment Allocation
-        $remainingPayment = (float)$payment->amount_paid;
-        $studentFeeItems = \App\Models\StudentFeeItem::where('student_id', $payment->student_id)
+        // Head-wise Payment Allocation.
+        // Books & Extra Charges heads are diverted to the POS received ledgers
+        // (pos_payments) — their cash never enters fee_payments / the fee ledgers.
+        $isPosKey = fn (string $key): bool => str_starts_with($key, 'books_') || str_starts_with($key, 'extra_charge_');
+        $posAllocations = [];      // ['item' => ?StudentFeeItem, 'amount' => float, 'category' => books|extra]
+        $academicAllocations = []; // ['head_key' => string, 'head_name' => ?string, 'amount' => float, 'item' => ?StudentFeeItem]
+
+        $applyToItem = function (\App\Models\StudentFeeItem $item, float $take): void {
+            $item->paid_amount = (float) $item->paid_amount + $take;
+            $item->balance_amount = max(0, (float) $item->payable_amount - (float) $item->paid_amount);
+            $item->save();
+        };
+
+        $remainingPayment = (float) $data['amount_paid'];
+        $studentFeeItems = \App\Models\StudentFeeItem::where('student_id', $data['student_id'])
             ->where('balance_amount', '>', 0)
             ->get();
 
@@ -69,32 +81,26 @@ class FeePaymentController extends Controller
                 if ($allocAmount <= 0) continue;
 
                 $item = $studentFeeItems->firstWhere('head_key', $headKey);
-                if ($item) {
+
+                if ($item && $isPosKey($headKey)) {
+                    // POS head → separate Books / Extra ledger
+                    $applyToItem($item, $allocAmount);
+                    $posAllocations[] = ['item' => $item, 'amount' => $allocAmount, 'category' => str_starts_with($headKey, 'books_') ? 'books' : 'extra'];
+                    $remainingPayment -= $allocAmount;
+                } elseif ($item) {
                     $item->paid_amount = (float)$item->paid_amount + $allocAmount;
                     $item->balance_amount = max(0, (float)$item->payable_amount - (float)$item->paid_amount);
                     $item->save();
 
-                    \App\Models\FeePaymentItem::create([
-                        'fee_payment_id' => $payment->id,
-                        'student_fee_item_id' => $item->id,
-                        'head_key' => $headKey,
-                        'head_name' => $item->head_name,
-                        'amount_paid' => $allocAmount,
-                        'discount_applied' => 0,
-                        'month' => $payment->month,
-                    ]);
+                    $academicAllocations[] = ['head_key' => $headKey, 'head_name' => $item->head_name, 'amount' => $allocAmount, 'item' => $item];
                     $remainingPayment -= $allocAmount;
                 } elseif ($headKey === 'tuition_fee') {
                     // Current month tuition fee doesn't have a student_fee_item
-                    \App\Models\FeePaymentItem::create([
-                        'fee_payment_id' => $payment->id,
-                        'student_fee_item_id' => null,
-                        'head_key' => 'tuition_fee',
-                        'head_name' => 'Tuition Fee',
-                        'amount_paid' => $allocAmount,
-                        'discount_applied' => 0,
-                        'month' => $payment->month,
-                    ]);
+                    $academicAllocations[] = ['head_key' => 'tuition_fee', 'head_name' => 'Tuition Fee', 'amount' => $allocAmount, 'item' => null];
+                    $remainingPayment -= $allocAmount;
+                } elseif ($isPosKey($headKey)) {
+                    // POS head without a fee item row — still divert the cash to the POS ledger
+                    $posAllocations[] = ['item' => null, 'amount' => $allocAmount, 'category' => str_starts_with($headKey, 'books_') ? 'books' : 'extra'];
                     $remainingPayment -= $allocAmount;
                 }
             }
@@ -120,38 +126,121 @@ class FeePaymentController extends Controller
 
                 $take = min($remainingPayment, $balance);
                 $remainingPayment -= $take;
+                $applyToItem($item, $take);
 
-                $item->paid_amount = (float)$item->paid_amount + $take;
-                $item->balance_amount = max(0, (float)$item->payable_amount - (float)$item->paid_amount);
-                $item->save();
-
-                \App\Models\FeePaymentItem::create([
-                    'fee_payment_id' => $payment->id,
-                    'student_fee_item_id' => $item->id,
-                    'head_key' => $item->head_key,
-                    'head_name' => $item->head_name,
-                    'amount_paid' => $take,
-                    'discount_applied' => 0,
-                    'month' => $payment->month,
-                ]);
+                if ($isPosKey($item->head_key)) {
+                    $posAllocations[] = ['item' => $item, 'amount' => $take, 'category' => str_starts_with($item->head_key, 'books_') ? 'books' : 'extra'];
+                } else {
+                    $academicAllocations[] = ['head_key' => $item->head_key, 'head_name' => $item->head_name, 'amount' => $take, 'item' => $item];
+                }
             }
         }
 
-        if ($payment->student && $payment->student->email) {
+        // Create POS ledger records for books / extra charges cash
+        $createdPos = collect();
+        foreach ($posAllocations as $alloc) {
+            $item = $alloc['item'];
+            $pos = PosPayment::create([
+                'category'            => $alloc['category'],
+                'student_id'          => $data['student_id'],
+                'month'               => $data['month'],
+                'amount_paid'         => $alloc['amount'],
+                'payment_date'        => $data['payment_date'],
+                'payer_name'          => ($data['payer_name'] ?? null) ?: ($student?->name ?: 'Student'),
+                'payment_method'      => 'cash',
+                'description'         => $item?->head_name ?: ($alloc['category'] === 'books' ? 'Books' : 'Extra Charges'),
+                'student_fee_item_id' => $item?->id,
+                'received_by'         => auth()->id(),
+            ]);
+            $createdPos->push($pos);
+
+            // Keep the linked extra charge transaction in sync
+            if ($alloc['category'] === 'extra' && $item) {
+                $charge = \App\Models\StudentExtraCharge::where('student_fee_item_id', $item->id)->latest('id')->first();
+                if ($charge) {
+                    $charge->paid_amount = (float) $item->paid_amount;
+                    $charge->balance_amount = (float) $item->balance_amount;
+                    $charge->payment_status = (float) $item->balance_amount <= 0.001 ? 'paid' : 'partial';
+                    $charge->payment_method = 'cash';
+                    $charge->pos_payment_id = $pos->id;
+                    if ((float) $item->balance_amount <= 0.001) {
+                        $charge->paid_at = now();
+                    }
+                    $charge->save();
+                }
+            }
+        }
+
+        // Academic fee payment — only created when there is an academic part
+        $academicTotal = (float) collect($academicAllocations)->sum('amount') + max(0, $remainingPayment);
+        $payment = null;
+        if ($academicTotal > 0) {
+            $payment = FeePayment::create([
+                'student_id'      => $data['student_id'],
+                'month'           => $data['month'],
+                'amount_paid'     => $academicTotal,
+                'discount_amount' => $data['discount_amount'] ?? 0,
+                'payment_date'    => $data['payment_date'],
+                'payer_name'      => $data['payer_name'] ?? null,
+                'received_by'     => auth()->id(),
+            ]);
+            $payment->load('student:id,name,email');
+
+            foreach ($academicAllocations as $a) {
+                \App\Models\FeePaymentItem::create([
+                    'fee_payment_id'      => $payment->id,
+                    'student_fee_item_id' => $a['item']?->id,
+                    'head_key'            => $a['head_key'],
+                    'head_name'           => $a['head_name'],
+                    'amount_paid'         => $a['amount'],
+                    'discount_applied'    => 0,
+                    'month'               => $data['month'],
+                ]);
+            }
+
+            // Unallocated leftover cash (all items exhausted) stays in the fee ledger as before
+            if ($remainingPayment > 0.001) {
+                \App\Models\FeePaymentItem::create([
+                    'fee_payment_id'      => $payment->id,
+                    'student_fee_item_id' => null,
+                    'head_key'            => 'other',
+                    'head_name'           => 'Other / unallocated amount',
+                    'amount_paid'         => $remainingPayment,
+                    'discount_applied'    => 0,
+                    'month'               => $data['month'],
+                ]);
+            }
+        } elseif (max(0, $remainingPayment) > 0.001) {
+            // No academic part and cash matched nothing — record as an unclassified POS receipt
+            $createdPos->push(PosPayment::create([
+                'category'       => 'extra',
+                'student_id'     => $data['student_id'],
+                'month'          => $data['month'],
+                'amount_paid'    => $remainingPayment,
+                'payment_date'   => $data['payment_date'],
+                'payer_name'     => ($data['payer_name'] ?? null) ?: ($student?->name ?: 'Student'),
+                'payment_method' => 'cash',
+                'description'    => 'Unclassified cash (fee collection)',
+                'received_by'    => auth()->id(),
+            ]));
+            $remainingPayment = 0;
+        }
+
+        if ($payment && $payment->student && $payment->student->email) {
             \App\Jobs\SendFeeReceiptEmailJob::dispatch($payment);
         }
 
-        // Dispatch WhatsApp Fee Receipt to Parent
-        try {
-            \App\Jobs\SendFeeReceiptWhatsAppJob::dispatch($payment);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('[Fee WhatsApp Receipt Error] ' . $e->getMessage());
+        // Dispatch WhatsApp Fee Receipt to Parent (academic fee part only)
+        if ($payment) {
+            try {
+                \App\Jobs\SendFeeReceiptWhatsAppJob::dispatch($payment);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('[Fee WhatsApp Receipt Error] ' . $e->getMessage());
+            }
         }
-
-        // Send Push Notification
-        try {
-            $student = \App\Models\User::find($payment->student_id);
-            if ($student) {
+        // Send Push Notification (academic fee part only)
+        if ($payment) {
+            try {
                 $targetUserIds = \App\Models\User::where('id', $student->id)
                     ->orWhere('contact_number', $student->contact_number)
                     ->orWhere('emergency_contact', $student->contact_number)
@@ -159,7 +248,7 @@ class FeePaymentController extends Controller
                     ->unique()
                     ->toArray();
 
-                $formattedAmount = number_format($payment->amount_paid);
+                $formattedAmount = number_format((float) $payment->amount_paid);
                 app(\App\Services\FcmService::class)->sendToUsers(
                     $targetUserIds,
                     "Fee Payment Received: {$student->name}",
@@ -177,14 +266,15 @@ class FeePaymentController extends Controller
                     null,
                     $student->name
                 );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('[Fee Push Error] ' . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('[Fee Push Error] ' . $e->getMessage());
         }
 
         return response()->json([
-            'message' => 'Fee payment recorded successfully',
-            'payment' => $payment->load('items')
+            'message' => $payment ? 'Fee payment recorded successfully' : 'Payment recorded in POS received ledger',
+            'payment' => $payment ? $payment->load('items') : null,
+            'pos_recorded' => $createdPos->count(),
         ]);
     }
 

@@ -19,6 +19,7 @@ type LedgerRow = {
   status: "paid" | "unpaid" | "partial";
 };
 type Totals = { count: number; amount: number; paid: number; unpaid: number };
+type PageMeta = { current_page: number; per_page: number; total: number; last_page: number };
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001/api";
 const money = (n: number) => `Rs ${Number(n).toLocaleString("en-PK", { maximumFractionDigits: 2 })}`;
 const badge = {
@@ -37,19 +38,20 @@ async function request(path: string, options: RequestInit = {}) {
 export default function BooksLedgerPage() {
   const [rows, setRows] = useState<LedgerRow[]>(([] as LedgerRow[])), [totals, setTotals] = useState<Totals | null>(null), [classes, setClasses] = useState<ClassRow[]>([]);
   const [classId, setClassId] = useState(""), [status, setStatus] = useState("");
+  const [page, setPage] = useState(1), [meta, setMeta] = useState<PageMeta | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page) });
       if (classId) params.set("class_id", classId);
       if (status) params.set("status", status);
       const d = await request(`/books/ledger?${params.toString()}`);
-      setRows(d.data || []); setClasses(d.classes || []); setTotals(d.totals || null);
+      setRows(d.data || []); setClasses(d.classes || []); setTotals(d.totals || null); setMeta(d.meta || null);
       setError("");
     } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
-  }, [classId, status]);
+  }, [classId, status, page]);
   useEffect(() => { void load(); }, [load]);
   const dateText = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -67,8 +69,8 @@ export default function BooksLedgerPage() {
     {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
     <div className="flex flex-wrap items-center gap-3">
-      <CustomDropdown name="books_ledger_class" className="w-full sm:w-48" value={classId} onChange={(_, value) => setClassId(String(value))} options={[{ label: "All classes", value: "" }, ...Array.isArray(classes) ? classes.map(c => ({ label: c.name, value: c.id })) : []]}/>
-      <CustomDropdown name="books_ledger_status" className="w-full sm:w-44" value={status} onChange={(_, value) => setStatus(String(value))} options={[{ label: "All statuses", value: "" }, { label: "Paid", value: "paid" }, { label: "Not paid", value: "unpaid" }, { label: "Partial", value: "partial" }]}/>
+      <CustomDropdown name="books_ledger_class" className="w-full sm:w-48" value={classId} onChange={(_, value) => { setPage(1); setClassId(String(value)); }} options={[{ label: "All classes", value: "" }, ...Array.isArray(classes) ? classes.map(c => ({ label: c.name, value: c.id })) : []]}/>
+      <CustomDropdown name="books_ledger_status" className="w-full sm:w-44" value={status} onChange={(_, value) => { setPage(1); setStatus(String(value)); }} options={[{ label: "All statuses", value: "" }, { label: "Paid", value: "paid" }, { label: "Not paid", value: "unpaid" }, { label: "Partial", value: "partial" }]}/>
     </div>
 
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -81,7 +83,7 @@ export default function BooksLedgerPage() {
           <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{["Sr.", "Student Name", "Class", "Date", "Amount", "Status"].map(h => <th key={h} className="whitespace-nowrap px-4 py-3">{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((r, i) => <tr key={r.id} className="hover:bg-blue-50/40">
-              <td className="px-4 py-3 text-slate-400">{i + 1}</td>
+              <td className="px-4 py-3 text-slate-400">{meta ? (meta.current_page - 1) * meta.per_page + i + 1 : i + 1}</td>
               <td className="min-w-48 px-4 py-3"><span className="block font-medium text-slate-800">{r.student_name}</span>{r.roll_number && <span className="mt-0.5 block text-xs text-slate-400">{r.roll_number}</span>}</td>
               <td className="whitespace-nowrap px-4 py-3 text-slate-500">{r.class_name || "—"}</td>
               <td className="whitespace-nowrap px-4 py-3 text-slate-500">{dateText(r.date)}</td>
@@ -90,6 +92,13 @@ export default function BooksLedgerPage() {
             </tr>)}
           </tbody>
         </table></div>}
+      {meta && meta.total > 0 && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 text-sm">
+        <p className="text-xs text-slate-400">{meta.total.toLocaleString()} records · Page {meta.current_page} of {meta.last_page}</p>
+        <div className="flex gap-2">
+          <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40" disabled={meta.current_page <= 1 || loading} onClick={() => setPage(p => p - 1)}>← Previous</button>
+          <button className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40" disabled={meta.current_page >= meta.last_page || loading} onClick={() => setPage(p => p + 1)}>Next →</button>
+        </div>
+      </div>}
     </section>
   </div></DashboardLayout>;
 }
