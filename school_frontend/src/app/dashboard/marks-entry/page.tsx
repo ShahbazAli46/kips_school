@@ -181,7 +181,25 @@ export default function MarksEntryPage() {
 
       setTests(Array.isArray(dataTests) ? dataTests : []);
       setClasses(Array.isArray(dataCls) ? dataCls : []);
-      setSubjects(Array.isArray(dataSubj) ? dataSubj : []);
+
+      // Teachers only see the subjects assigned to them; others see all subjects
+      const userRole = localStorage.getItem("userRole");
+      let subjectList = Array.isArray(dataSubj) ? dataSubj : [];
+      if (userRole === "2") {
+        try {
+          const resAssign = await fetch(`${API}/teacher/subject-attendance/assignments`, { headers: getAuthHeaders() });
+          const dataAssign = await resAssign.json();
+          const rows = dataAssign?.data || [];
+          const unique = new Map<number, any>();
+          rows.forEach((a: any) => {
+            if (a.subject) unique.set(a.subject.id, a.subject);
+          });
+          subjectList = Array.from(unique.values()).sort((a: any, b: any) =>
+            String(a.name).localeCompare(String(b.name))
+          );
+        } catch { }
+      }
+      setSubjects(subjectList);
     } catch { } finally { setLoadingTests(false); }
   }, []);
 
