@@ -296,6 +296,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/extra-charges/sales', [\App\Http\Controllers\Api\ExtraChargeController::class, 'getSalesLog']);
         Route::post('/extra-charges/{id}/collect', [\App\Http\Controllers\Api\ExtraChargeController::class, 'collectChargePayment']);
         Route::get('/books/catalog', [\App\Http\Controllers\Api\BookController::class, 'catalog']);
+        Route::get('/books/ledger', [\App\Http\Controllers\Api\BookController::class, 'ledger']);
         Route::get('/books/{book}/movements', [\App\Http\Controllers\Api\BookController::class, 'movements']);
         Route::post('/books/sell', [\App\Http\Controllers\Api\BookController::class, 'sell']);
 

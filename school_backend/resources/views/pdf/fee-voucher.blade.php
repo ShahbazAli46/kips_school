@@ -393,7 +393,12 @@
 
     $totalPayable = isset($voucher['total_payable']) ? (float)$voucher['total_payable'] : array_sum(array_column($feeItems, 'amount'));
     if (empty($feeItems)) {
-        $feeItems[] = ['label' => 'Tuition Fee', 'amount' => $tuitionFee];
+        $includedCategories = $voucher['include_categories'] ?? null;
+        if (is_array($includedCategories) && !in_array('academic', $includedCategories)) {
+            $feeItems[] = ['label' => 'No Payable Charges For Selected Voucher Type', 'amount' => 0];
+        } else {
+            $feeItems[] = ['label' => 'Tuition Fee', 'amount' => $tuitionFee];
+        }
     }
 
     // Number to words helper

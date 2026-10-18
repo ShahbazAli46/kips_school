@@ -34,10 +34,34 @@ class FeeVoucherController extends Controller
     }
 
     /**
+     * Map a fee item head key to its voucher category (academic, books or extra).
+     */
+    private function categorizeHeadKey(?string $headKey): string
+    {
+        if ($headKey && str_starts_with($headKey, 'books_')) return 'books';
+        if ($headKey && str_starts_with($headKey, 'extra_charge_')) return 'extra';
+        return 'academic';
+    }
+
+    /**
+     * Normalize the requested voucher categories (academic, books, extra).
+     */
+    private function resolveIncludeCategories(Request $request): array
+    {
+        $allowed = ['academic', 'books', 'extra'];
+        $raw = $request->input('include', $request->input('heads', $allowed));
+        if (is_string($raw)) $raw = explode(',', $raw);
+        $include = array_values(array_intersect($allowed, array_map(fn($v) => strtolower(trim((string)$v)), (array)$raw)));
+        return $include ?: $allowed;
+    }
+
+    /**
      * Compute fee breakdown for a single student for a target month.
      */
-    private function calculateStudentVoucher(User $student, string $targetMonthStr, Carbon $sessionStart, Carbon $targetCarbon, string $monthFormatted): array
+    private function calculateStudentVoucher(User $student, string $targetMonthStr, Carbon $sessionStart, Carbon $targetCarbon, string $monthFormatted, array $include = ['academic', 'books', 'extra']): array
     {
+        $include = $include ?: ['academic', 'books', 'extra'];
+        $includeAcademic = in_array('academic', $include, true);
         $start = $student->getEffectiveEnrollmentStart($sessionStart);
         $monthlyFee = (float)($student->monthly_fee ?: 0);
 
@@ -86,10 +110,10 @@ class FeeVoucherController extends Controller
             // Current Month Payments & Discounts for Tuition Fee
             $currentMonthPayments = $student->feePayments->where('month', $targetMonthStr);
             [$currentMonthPaid, $currentMonthDiscount] = $getTuitionPaidAndDiscount($currentMonthPayments);
-            $currentMonthNetDue = max(0, $monthlyFee - ($currentMonthPaid + $currentMonthDiscount));
+            $currentMonthNetDue = $includeAcademic ? max(0, $monthlyFee - ($currentMonthPaid + $currentMonthDiscount)) : 0;
 
             // Prior Months (from admission month up to month before targetMonthStr)
-            if ($start->lt($targetCarbon)) {
+            if ($includeAcademic && $start->lt($targetCarbon)) {
                 $curr = $start->copy();
                 while ($curr->lt($targetCarbon)) {
                     $mStr = $curr->format('Y-m');
@@ -111,12 +135,14 @@ class FeeVoucherController extends Controller
             }
         }
 
-        // Unpaid non-monthly Fee Heads (Admission Fee, Security Fee, ID Card, Board Reg, Exam Charges, etc.)
+        // Unpaid non-monthly Fee Heads (Admission Fee, Security Fee, ID Card, Board Reg, Exam Charges, Books, Extra Charges, etc.)
         $unpaidHeads = [];
         $unpaidOneTimeBalance = 0;
         if ($student->relationLoaded('feeItems') || $student->feeItems) {
             foreach ($student->feeItems as $fi) {
                 if ($fi->head_key !== 'tuition_fee' && (float)$fi->balance_amount > 0) {
+                    $category = $this->categorizeHeadKey($fi->head_key);
+                    if (!in_array($category, $include, true)) continue;
                     $unpaidHeads[] = [
                         'label' => $fi->head_name . ' (Unpaid)',
                         'head_key' => $fi->head_key,
@@ -125,7 +151,7 @@ class FeeVoucherController extends Controller
                     $unpaidOneTimeBalance += (float)$fi->balance_amount;
                 }
             }
-        } elseif ($student->pending_amount > 0) {
+        } elseif ($includeAcademic && $student->pending_amount > 0) {
             $unpaidOneTimeBalance = (float)$student->pending_amount;
             $unpaidHeads[] = [
                 'label' => 'Admission Balance / Old Arrears',
@@ -177,15 +203,15 @@ class FeeVoucherController extends Controller
             }
         } else {
             // Fully paid voucher (Receipt / Zero Balance mode)
-            if ($monthlyFee > 0) {
+            if ($monthlyFee > 0 && $includeAcademic) {
                 $feeItems[] = ['label' => "Tuition Fee ({$monthFormatted})", 'amount' => $monthlyFee, 'head_key' => 'tuition_fee'];
             }
 
-            if ($currentMonthPaid > 0) {
+            if ($currentMonthPaid > 0 && $includeAcademic) {
                 $feeItems[] = ['label' => 'Amount Paid', 'amount' => -$currentMonthPaid];
             }
 
-            if ($currentMonthDiscount > 0) {
+            if ($currentMonthDiscount > 0 && $includeAcademic) {
                 $feeItems[] = ['label' => 'Discount', 'amount' => -$currentMonthDiscount];
             }
         }
@@ -221,6 +247,7 @@ class FeeVoucherController extends Controller
             'total_payable' => $totalPayable,
             'gross_payable' => $grossPayable,
             'status' => $status,
+            'include_categories' => $include,
             'fee_items' => $feeItems,
         ];
     }
@@ -246,6 +273,8 @@ class FeeVoucherController extends Controller
         $monthFormatted = $targetCarbon->format('M Y');
         $monthName = $targetCarbon->format('F Y');
         $monthKey = str_replace('-', '', $targetMonthStr);
+        $include = $this->resolveIncludeCategories($request);
+        $includeQuery = count($include) < 3 ? ('&include=' . implode(',', $include)) : '';
 
         $query = User::with([
             'academyClass:id,name',
@@ -283,8 +312,8 @@ class FeeVoucherController extends Controller
             ->get();
 
         // Calculate voucher data for each student
-        $calculatedStudents = $students->map(function ($student) use ($targetMonthStr, $sessionStart, $targetCarbon, $monthFormatted) {
-            return $this->calculateStudentVoucher($student, $targetMonthStr, $sessionStart, $targetCarbon, $monthFormatted);
+        $calculatedStudents = $students->map(function ($student) use ($targetMonthStr, $sessionStart, $targetCarbon, $monthFormatted, $include) {
+            return $this->calculateStudentVoucher($student, $targetMonthStr, $sessionStart, $targetCarbon, $monthFormatted, $include);
         });
 
         // Filter only unpaid if requested
@@ -298,9 +327,9 @@ class FeeVoucherController extends Controller
         $frontendUrl = rtrim(config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:3000')), '/');
 
         // Individual Student Vouchers (1 voucher per student)
-        $individualVouchers = $calculatedStudents->values()->map(function ($item) use ($targetMonthStr, $monthName, $monthKey, $dueDate, $footerInstructions, $signatureImage) {
+        $individualVouchers = $calculatedStudents->values()->map(function ($item) use ($targetMonthStr, $monthName, $monthKey, $dueDate, $footerInstructions, $signatureImage, $includeQuery) {
             $voucherNumber = "KIPS-VCH-{$monthKey}-" . str_pad($item['student_id'], 4, '0', STR_PAD_LEFT);
-            $pdfUrl = url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucherNumber));
+            $pdfUrl = url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucherNumber) . $includeQuery);
             return array_merge($item, [
                 'voucher_number' => $voucherNumber,
                 'voucher_type' => 'individual',
@@ -433,8 +462,10 @@ class FeeVoucherController extends Controller
         $monthFormatted = $targetCarbon->format('M Y');
         $monthName = $targetCarbon->format('F Y');
         $monthKey = str_replace('-', '', $targetMonthStr);
+        $include = $this->resolveIncludeCategories($request);
+        $includeQuery = count($include) < 3 ? ('&include=' . implode(',', $include)) : '';
 
-        $calculated = $this->calculateStudentVoucher($student, $targetMonthStr, $sessionStart, $targetCarbon, $monthFormatted);
+        $calculated = $this->calculateStudentVoucher($student, $targetMonthStr, $sessionStart, $targetCarbon, $monthFormatted, $include);
 
         $voucherNumber = $rawVoucherNo ?: "KIPS-VCH-{$monthKey}-" . str_pad($student->id, 4, '0', STR_PAD_LEFT);
         $dueDate = $request->input('due_date', Carbon::parse($targetMonthStr . '-10')->format('Y-m-d'));
@@ -455,7 +486,7 @@ class FeeVoucherController extends Controller
         });
 
         // Direct PDF URL for QR code and instant download
-        $pdfUrl = url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucherNumber));
+        $pdfUrl = url("/api/public/vouchers/pdf?voucher_no=" . urlencode($voucherNumber) . $includeQuery);
 
         // Generate QR code Data URI with direct PDF URL
         $qrCodeDataUri = $this->generateQrCodeDataUri($pdfUrl);

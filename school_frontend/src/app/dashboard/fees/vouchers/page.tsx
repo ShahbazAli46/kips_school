@@ -94,6 +94,18 @@ export default function FeeVouchersPage() {
   const [selectedSection, setSelectedSection] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [filterType, setFilterType] = useState<"all" | "with_arrears" | "unpaid">("all");
+  const [showZeroPayable, setShowZeroPayable] = useState(false);
+
+  // Voucher content options: whichever is selected is what the voucher is generated for
+  const chargeTypeOptions: { key: string; label: string; icon: string }[] = [
+    { key: "academic", label: "Academic", icon: "🎓" },
+    { key: "books", label: "Books Charges", icon: "📚" },
+    { key: "extra", label: "Extra Charges", icon: "🛒" },
+  ];
+  const [includeTypes, setIncludeTypes] = useState<string[]>(["academic", "books", "extra"]);
+  const toggleIncludeType = (key: string) => {
+    setIncludeTypes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
 
   const [vouchers, setVouchers] = useState<StudentVoucher[]>([]);
   const [summary, setSummary] = useState<VoucherSummary | null>(null);
@@ -151,6 +163,12 @@ export default function FeeVouchersPage() {
 
   // Fetch Vouchers Data
   const fetchVouchers = useCallback(async () => {
+    if (includeTypes.length === 0) {
+      setVouchers([]);
+      setSummary(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setSelectedVoucherKeys(new Set());
     try {
@@ -162,6 +180,7 @@ export default function FeeVouchersPage() {
       if (selectedClass) params.append("class_id", selectedClass);
       if (selectedSection) params.append("section_id", selectedSection);
       if (search) params.append("search", search);
+      if (includeTypes.length < 3) params.append("include", includeTypes.join(","));
 
       const res = await fetch(`${API}/fees/vouchers?${params.toString()}`, {
         headers: getAuthHeaders(),
@@ -180,7 +199,7 @@ export default function FeeVouchersPage() {
     } finally {
       setLoading(false);
     }
-  }, [targetMonth, dueDate, selectedClass, selectedSection, search]);
+  }, [targetMonth, dueDate, selectedClass, selectedSection, search, includeTypes]);
 
   useEffect(() => {
     fetchVouchers();
@@ -194,14 +213,19 @@ export default function FeeVouchersPage() {
   }, [classes, selectedClass]);
 
   // Client-side filtering
+  const zeroPayableCount = useMemo(
+    () => vouchers.filter((v) => v && (v.total_payable ?? 0) <= 0).length,
+    [vouchers]
+  );
   const filteredVouchers = useMemo(() => {
     return vouchers.filter((v) => {
       if (!v) return false;
+      if (!showZeroPayable && ((v.total_payable ?? 0) <= 0)) return false;
       if (filterType === "with_arrears" && ((v.previous_arrears ?? 0) <= 0)) return false;
       if (filterType === "unpaid" && ((v.total_payable ?? 0) <= 0)) return false;
       return true;
     });
-  }, [vouchers, filterType]);
+  }, [vouchers, filterType, showZeroPayable]);
 
   // Toggle Selection
   const toggleSelectAll = () => {
@@ -229,6 +253,7 @@ export default function FeeVouchersPage() {
     if (selectedClass) params.append("class_id", selectedClass);
     if (selectedSection) params.append("section_id", selectedSection);
     if (search) params.append("search", search);
+    if (includeTypes.length > 0 && includeTypes.length < 3) params.append("include", includeTypes.join(","));
 
     if (onlySelected && selectedVoucherKeys.size > 0) {
       params.append("selected_keys", Array.from(selectedVoucherKeys).join(","));
@@ -255,6 +280,7 @@ export default function FeeVouchersPage() {
           class_id: selectedClass || undefined,
           section_id: selectedSection || undefined,
           search: search || undefined,
+          include: includeTypes.length > 0 && includeTypes.length < 3 ? includeTypes.join(",") : undefined,
           selected_keys: keysToSend,
           sync: isSingle,
         }),
@@ -606,6 +632,35 @@ export default function FeeVouchersPage() {
           </div>
         </div>
 
+        {/* Voucher Content Options: Academic / Books / Extra Charges */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 pt-2 border-t" style={{ borderColor: "#dbeafe" }}>
+          <label className="block text-xs font-bold text-[#1e3a8a] whitespace-nowrap">
+            Voucher Contents <span className="font-normal text-[#38bdf8]">(choose one or more — voucher will be generated for the selected options only)</span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            {chargeTypeOptions.map((opt) => {
+              const active = includeTypes.includes(opt.key);
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => toggleIncludeType(opt.key)}
+                  aria-pressed={active}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                    active
+                      ? "bg-[#2563eb] text-white shadow-sm"
+                      : "bg-[#f0f4f8] text-[#1e40af] border border-[#bfdbfe] hover:bg-[#bfdbfe]"
+                  }`}
+                >
+                  <span>{opt.icon}</span>
+                  <span>{opt.label}</span>
+                  {active ? <span className=" text-[10px]">✓</span> : <span className="text-[10px]">+</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Filter Badges & Search */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t" style={{ borderColor: "#dbeafe" }}>
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
@@ -616,6 +671,15 @@ export default function FeeVouchersPage() {
               }`}
             >
               All Vouchers ({vouchers.length})
+            </button>
+
+            <button
+              onClick={() => setShowZeroPayable((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                showZeroPayable ? "bg-emerald-600 text-white shadow-sm" : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+              }`}
+            >
+              ✅ Show Paid (Rs. 0) {showZeroPayable ? "✓" : `(${zeroPayableCount})`}
             </button>
 
             <button
@@ -657,6 +721,11 @@ export default function FeeVouchersPage() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <svg className="animate-spin w-8 h-8 text-[#2563eb]" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
             <p className="text-xs font-medium text-[#2563eb]">Calculating student vouchers and arrears...</p>
+          </div>
+        ) : includeTypes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <svg className="w-14 h-14 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <p className="text-sm font-semibold text-[#2563eb]">Select at least one option — Academic, Books Charges or Extra Charges.</p>
           </div>
         ) : filteredVouchers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -976,7 +1045,7 @@ export default function FeeVouchersPage() {
                 <span>Public Portal</span>
               </Link>
               <a
-                href={`${API}/public/vouchers/pdf?voucher_no=${encodeURIComponent(previewVoucher.voucher_number || `KIPS-VCH-${targetMonth.replace('-', '')}-${previewVoucher.student_id}`)}`}
+                href={`${API}/public/vouchers/pdf?voucher_no=${encodeURIComponent(previewVoucher.voucher_number || `KIPS-VCH-${targetMonth.replace('-', '')}-${previewVoucher.student_id}`)}${includeTypes.length > 0 && includeTypes.length < 3 ? `&include=${includeTypes.join(",")}` : ""}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-2xs border border-slate-300 dark:border-slate-700"
@@ -999,7 +1068,7 @@ export default function FeeVouchersPage() {
                 <span>WhatsApp</span>
               </button>
               <Link
-                href={`/dashboard/fees/vouchers/print?month=${targetMonth}&due_date=${dueDate}&selected_keys=${previewVoucher.voucher_number || previewVoucher.student_id}`}
+                href={`/dashboard/fees/vouchers/print?month=${targetMonth}&due_date=${dueDate}&selected_keys=${previewVoucher.voucher_number || previewVoucher.student_id}${includeTypes.length > 0 && includeTypes.length < 3 ? `&include=${includeTypes.join(",")}` : ""}`}
                 target="_blank"
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold text-white transition shadow-2xs hover:opacity-90 bg-blue-600"
               >

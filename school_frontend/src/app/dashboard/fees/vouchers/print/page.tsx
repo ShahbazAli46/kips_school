@@ -626,6 +626,7 @@ function PrintVouchersContent() {
   const classId = searchParams.get("class_id") || "";
   const sectionId = searchParams.get("section_id") || "";
   const search = searchParams.get("search") || "";
+  const includeParam = searchParams.get("include") || "";
 
   const [studentList, setStudentList] = useState<StudentVoucher[]>([]);
   const [summaryData, setSummaryData] = useState<any>(null);
@@ -641,6 +642,7 @@ function PrintVouchersContent() {
         if (classId) params.append("class_id", classId);
         if (sectionId) params.append("section_id", sectionId);
         if (search) params.append("search", search);
+        if (includeParam) params.append("include", includeParam);
 
         const res = await fetch(`${API}/fees/vouchers?${params.toString()}`, {
           headers: getAuthHeaders(),
@@ -681,7 +683,7 @@ function PrintVouchersContent() {
       }
     }
     loadData();
-  }, [targetMonth, dueDate, selectedKeysParam, classId, sectionId, search]);
+  }, [targetMonth, dueDate, selectedKeysParam, classId, sectionId, search, includeParam]);
 
   const issueDate = formatIssueDate(targetMonth);
   const monthName = summaryData?.month_name || targetMonth;

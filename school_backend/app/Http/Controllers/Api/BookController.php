@@ -64,6 +64,28 @@ class BookController extends Controller {
         $p=DB::transaction(function()use($data){$p=BookPackage::create(collect($data)->only(['class_id','name','price'])->all());foreach($data['items'] as $i)$p->books()->attach($i['book_id'],['quantity'=>$i['quantity']]);return $p->load('books');}); return response()->json($p,201);
     }
     public function movements(Book $book){ return response()->json($book->movements()->with('creator:id,name')->latest()->paginate(50)); }
+    public function ledger(Request $r){
+        $items=StudentFeeItem::query()->where('head_key','like','books\_%')
+            ->when($r->class_id,fn($q,$v)=>$q->whereHas('student',fn($s)=>$s->where('class_id',$v)));
+        if($r->status==='paid')$items->where('balance_amount','<=',0.001);
+        elseif($r->status==='unpaid')$items->where('balance_amount','>',0.001)->where('paid_amount','<=',0.001);
+        elseif($r->status==='partial')$items->where('balance_amount','>',0.001)->where('paid_amount','>',0.001);
+        $rows=$items->with('student:id,name,roll_number,class_id','student.academyClass:id,name')->latest()->limit(1000)->get();
+        $data=$rows->map(function($i){
+            $balance=(float)$i->balance_amount; $paid=(float)$i->paid_amount;
+            return ['id'=>$i->id,
+                'student_name'=>$i->student?->name??'Unknown student','roll_number'=>$i->student?->roll_number,
+                'class_id'=>$i->student?->class_id,'class_name'=>$i->student?->academyClass?->name,
+                'date'=>$i->created_at,'item'=>$i->head_name,'amount'=>$i->payable_amount,
+                'paid_amount'=>$i->paid_amount,'balance_amount'=>$i->balance_amount,
+                'status'=>$balance<=0.001?'paid':($paid>0.001?'partial':'unpaid')];
+        });
+        return response()->json([
+            'data'=>$data,
+            'classes'=>AcademyClass::orderBy('name')->get(['id','name']),
+            'totals'=>['count'=>$data->count(),'amount'=>(float)$data->sum('amount'),'paid'=>(float)$data->sum('paid_amount'),'unpaid'=>(float)$data->sum('balance_amount')],
+        ]);
+    }
     public function sell(Request $r){
         $r->validate(['student_id'=>['required','integer',Rule::exists('users','id')->where('role_id',3)->where('is_active',true)->whereNull('deleted_at')],'items'=>'nullable|array','items.*.book_id'=>'required|integer|exists:books,id','items.*.quantity'=>'required|integer|min:1','package_id'=>['nullable','integer',Rule::exists('book_packages','id')->where('is_active',true)],'payment_option'=>'required|in:voucher,cash','payment_method'=>'nullable|in:cash,online,bank']);
         $sale=null; $total=0; DB::transaction(function()use(&$sale,&$total,$r){
