@@ -19,9 +19,9 @@ echo "=========================================================="
 
 cd $PROJECT_ROOT
 
-# 1. Pull Latest Code
+# 1. Pull Latest Code (autostash keeps any server-side local edits and re-applies them after pull)
 echo "📥 Pulling latest git repository updates..."
-git pull origin main || true
+git pull --rebase --autostash origin main || true
 
 # 2. Deploy Laravel Backend
 echo "🐘 Updating Backend (Composer, Migrations, Cache)..."
