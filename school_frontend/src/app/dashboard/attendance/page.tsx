@@ -27,6 +27,7 @@ function getAuthHeaders() {
 interface ClassItem {
   id: number;
   name: string;
+  sections?: Array<{ id: number; name: string }>;
 }
 
 interface SectionItem {
@@ -118,13 +119,32 @@ export default function AttendancePage() {
           fetch(`${API}/sections`, { headers: getAuthHeaders() }),
         ]);
 
+        let hasNestedSections = false;
         if (cRes.ok) {
           const cData = await cRes.json();
-          setClasses(Array.isArray(cData) ? cData : []);
+          const classList: ClassItem[] = Array.isArray(cData) ? cData : [];
+          setClasses(classList);
+
+          // Sections belong to classes through the class_sections pivot table.
+          // Normalize the nested class response so filtering by class_id works.
+          const nestedSections = classList.flatMap((classItem) =>
+            (classItem.sections || []).map((section) => ({
+              ...section,
+              class_id: classItem.id,
+            }))
+          );
+          if (nestedSections.length > 0) {
+            hasNestedSections = true;
+            setSections(nestedSections);
+          }
         }
         if (sRes.ok) {
           const sData = await sRes.json();
-          setSections(Array.isArray(sData) ? sData : []);
+          // Keep the standalone response only when the class response did not
+          // include relationships; it does not contain class_id by itself.
+          if (!hasNestedSections && Array.isArray(sData) && sData.length > 0) {
+            setSections(sData);
+          }
         }
       } catch (err) {
         console.error("Failed to load classes and sections", err);

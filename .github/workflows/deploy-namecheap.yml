@@ -1,0 +1,96 @@
+name: Deploy KIPS to Namecheap
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - frontend-static-hosting
+      - main
+
+jobs:
+  backend:
+    name: Deploy Laravel backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: school_backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          extensions: mbstring, xml, ctype, curl, fileinfo, gd, intl, pdo, pdo_mysql, zip
+
+      - name: Install production dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Upload backend through FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.KIPS_FTP_SERVER }}
+          username: ${{ secrets.KIPS_BACKEND_FTP_USERNAME }}
+          password: ${{ secrets.KIPS_BACKEND_FTP_PASSWORD }}
+          port: ${{ secrets.KIPS_FTP_PORT || 21 }}
+          protocol: ftp
+          local-dir: school_backend/
+          server-dir: ${{ secrets.KIPS_BACKEND_SERVER_DIR }}
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.env
+            **/.env.*
+            **/storage/logs/**
+            **/storage/framework/cache/**
+            **/storage/framework/sessions/**
+            **/storage/framework/views/**
+            **/storage/app/public/**
+            **/public/storage/**
+            **/tests/**
+            **/*.DS_Store
+
+  frontend:
+    name: Build and deploy static frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: school_frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build static frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.KIPS_API_URL || 'https://kips-backend.usachunian.com/api' }}
+          NEXT_PUBLIC_STORAGE_URL: ${{ secrets.KIPS_STORAGE_URL || 'https://kips-backend.usachunian.com/storage' }}
+          NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.KIPS_PUSHER_APP_KEY }}
+          NEXT_PUBLIC_PUSHER_APP_CLUSTER: ${{ secrets.KIPS_PUSHER_APP_CLUSTER }}
+        run: bun run build
+
+      - name: Upload static export through FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.KIPS_FTP_SERVER }}
+          username: ${{ secrets.KIPS_FRONTEND_FTP_USERNAME }}
+          password: ${{ secrets.KIPS_FRONTEND_FTP_PASSWORD }}
+          port: ${{ secrets.KIPS_FTP_PORT || 21 }}
+          protocol: ftp
+          local-dir: school_frontend/out/
+          server-dir: ${{ secrets.KIPS_FRONTEND_SERVER_DIR }}
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/*.DS_Store

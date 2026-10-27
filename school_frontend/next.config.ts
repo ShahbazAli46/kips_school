@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  trailingSlash: false,
+  output: "export",
+  // Directory-style URLs let Apache serve exported routes on shared hosting.
+  trailingSlash: true,
   images: {
     unoptimized: true,
   },
