@@ -8,8 +8,30 @@ on:
       - main
 
 jobs:
+  changes:
+    name: Detect changed application areas
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - name: Check changed files
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'school_backend/**'
+            frontend:
+              - 'school_frontend/**'
+            shared:
+              - '.github/workflows/deploy-namecheap.yml'
+
   backend:
     name: Deploy Laravel backend
+    needs: changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,6 +77,8 @@ jobs:
 
   frontend:
     name: Build and deploy static frontend
+    needs: changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
