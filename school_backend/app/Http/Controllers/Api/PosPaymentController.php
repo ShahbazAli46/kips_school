@@ -43,7 +43,10 @@ class PosPaymentController extends Controller
             ->orderByDesc('id');
 
         // Totals over the whole filtered set (single aggregate query), independent of paging.
-        $summary = (clone $query)->selectRaw(
+        // The main query is ordered for the paginated records. Remove that
+        // ordering from the aggregate query; MySQL rejects ORDER BY columns
+        // that are neither grouped nor aggregated when ONLY_FULL_GROUP_BY is on.
+        $summary = (clone $query)->reorder()->selectRaw(
             "COUNT(*) as count, COALESCE(SUM(amount_paid),0) as total, "
             . "COALESCE(SUM(CASE WHEN category = 'books' THEN amount_paid ELSE 0 END),0) as books, "
             . "COALESCE(SUM(CASE WHEN category = 'extra' THEN amount_paid ELSE 0 END),0) as extra"
