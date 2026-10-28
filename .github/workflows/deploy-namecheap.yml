@@ -16,6 +16,9 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       shared: ${{ steps.filter.outputs.shared }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Check changed files
         id: filter
         uses: dorny/paths-filter@v3
