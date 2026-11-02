@@ -49,7 +49,7 @@ function formatMonthName(monthStr: string) {
 
 function LedgerContent() {
   const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const id = searchParams.get("id") || searchParams.get("student_id");
   const router = useRouter();
 
   const [student, setStudent] = useState<any>(null);
@@ -71,7 +71,10 @@ function LedgerContent() {
   const [submittingCharge, setSubmittingCharge] = useState(false);
 
   const fetchLedger = React.useCallback(() => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
     fetch(`${API}/fees/ledger/${id}`, { headers: getAuthHeaders() })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load");

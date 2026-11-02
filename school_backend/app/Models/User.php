@@ -165,16 +165,6 @@ class User extends Authenticatable
         return $this->hasOne(\App\Models\FeeFollowUp::class, 'student_id')->latestOfMany();
     }
 
-    public function sentMessages()
-    {
-        return $this->hasMany(Message::class, 'sender_id');
-    }
-
-    public function receivedMessages()
-    {
-        return $this->hasMany(Message::class, 'receiver_id');
-    }
-
     public function fcmTokens()
     {
         return $this->hasMany(FcmToken::class, 'user_id');

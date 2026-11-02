@@ -48,7 +48,7 @@ function formatMonthName(monthStr: string) {
 
 function PrintLedgerContent() {
   const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const id = searchParams.get("id") || searchParams.get("student_id");
 
   const [student, setStudent] = useState<any>(null);
   const [summary, setSummary] = useState<any>(null);

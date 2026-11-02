@@ -31,8 +31,6 @@ Route::post('/masjid-madrasa/records', [\App\Http\Controllers\Api\MasjidMadrasaC
 Route::put('/masjid-madrasa/records/{id}', [\App\Http\Controllers\Api\MasjidMadrasaController::class, 'update']);
 Route::delete('/masjid-madrasa/records/{id}', [\App\Http\Controllers\Api\MasjidMadrasaController::class, 'destroy']);
 
-\Illuminate\Support\Facades\Broadcast::routes(['middleware' => ['auth:sanctum']]);
-
 // Direct file server for shared hosting environments where symlinks don't work
 Route::get('/storage/{path}', function ($path) {
     $fullPath = storage_path('app/public/' . $path);
@@ -126,13 +124,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/admin/teacher-leaves/{id}/status', [\App\Http\Controllers\Api\AdminTeacherLeaveController::class, 'updateStatus']);
     });
 
-    // Messaging Routes
-    Route::get('/messages/support-contact', [\App\Http\Controllers\Api\MessageController::class, 'getSupportContact']);
-    Route::get('/messages/conversations', [\App\Http\Controllers\Api\MessageController::class, 'getConversations']);
-    Route::get('/messages/{userId}', [\App\Http\Controllers\Api\MessageController::class, 'getMessages']);
-    Route::post('/messages', [\App\Http\Controllers\Api\MessageController::class, 'sendMessage']);
-    Route::post('/messages/read/{userId}', [\App\Http\Controllers\Api\MessageController::class, 'markAsRead']);
-
     // Parent Portal Routes
     Route::prefix('parent')->group(function () {
         Route::get('/my-students', [\App\Http\Controllers\Api\ParentPortalController::class, 'myStudents']);
@@ -146,7 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Student Ledger (Accessible by Admins & Parents)
-    Route::get('/fees/ledger/{student:uuid}', [\App\Http\Controllers\Api\FeePaymentController::class, 'ledger']);
+    Route::get('/fees/ledger/{student}', [\App\Http\Controllers\Api\FeePaymentController::class, 'ledger']);
 
     // Strictly Super Admin (role:1) Management APIs
     Route::middleware('role:1')->group(function () {
@@ -168,6 +159,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/books/{book}', [\App\Http\Controllers\Api\BookController::class, 'updateBook']);
         Route::post('/books/packages', [\App\Http\Controllers\Api\BookController::class, 'storePackage']);
         Route::post('/books/{book}/stock-in', [\App\Http\Controllers\Api\BookController::class, 'stockIn']);
+        Route::get('/ledger/daily-finance-report', [\App\Http\Controllers\Api\LedgerController::class, 'dailyFinanceReport']);
     });
 
     // Super Admin, Accountant & Coordinator Management APIs (role: 1, 5, 7)
@@ -275,7 +267,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/fees/defaulters', [\App\Http\Controllers\Api\FeePaymentController::class, 'defaulters']);
         Route::get('/fees/defaulters/pdf', [\App\Http\Controllers\Api\FeePaymentController::class, 'defaultersPdf']);
         Route::post('/fees/ledger/bulk-email', [\App\Http\Controllers\Api\FeePaymentController::class, 'bulkEmailLedger']);
-        Route::post('/fees/ledger/{student:uuid}/email', [\App\Http\Controllers\Api\FeePaymentController::class, 'emailLedger']);
+        Route::post('/fees/ledger/{student}/email', [\App\Http\Controllers\Api\FeePaymentController::class, 'emailLedger']);
         Route::post('/fees/whatsapp-reminder/{studentId}', [\App\Http\Controllers\Api\FeePaymentController::class, 'sendWhatsAppReminder']);
         Route::post('/fees/whatsapp-reminder-bulk', [\App\Http\Controllers\Api\FeePaymentController::class, 'sendBulkWhatsAppReminders']);
         Route::post('/fees', [\App\Http\Controllers\Api\FeePaymentController::class, 'store']);

@@ -73,11 +73,12 @@ class BookListParser
             $atoms = [];
             $headers = [];
             foreach ($page->getDataTm() as $entry) {
-                $value = trim($entry[1] ?? '');
-                if ($value === '') {
+                $rawValue = (string) ($entry[1] ?? '');
+                $value = trim($rawValue);
+                if ($value === '' && !preg_match('/\s/u', $rawValue)) {
                     continue;
                 }
-                $atom = ['x' => (float) $entry[0][4], 'y' => (float) $entry[0][5], 'text' => $value];
+                $atom = ['x' => (float) $entry[0][4], 'y' => (float) $entry[0][5], 'text' => $value === '' ? ' ' : $value];
                 $atoms[] = $atom;
                 $key = $this->header($value);
                 if ($key && !isset($headers[$key])) {
@@ -154,7 +155,7 @@ class BookListParser
                 }
             }
             usort($centers, fn ($a, $b) => $b['y'] <=> $a['y']);
-            $subjectGroups = $this->lines($columns['subject'], 12);
+            $subjectGroups = $this->lines(array_filter($columns['subject'], fn ($atom) => trim($atom['text']) !== ''), 12);
             $pageRows = [];
             foreach ($centers as $center) {
                 $row = ['title' => '', 'page' => $pageIndex + 1, 'baseline' => $center['y']];
@@ -163,8 +164,17 @@ class BookListParser
                         $closest = $this->nearest($centers, $atom['y'], 10);
                         return $closest && $closest['y'] === $center['y'];
                     });
-                    usort($parts, fn ($a, $b) => ($b['y'] <=> $a['y']) ?: ($a['x'] <=> $b['x']));
-                    $value = trim(implode(' ', array_column($parts, 'text')));
+                    // PDF text matrices for Arabic/Urdu commonly expose glyph runs
+                    // in visual left-to-right order. Reversing only RTL rows restores
+                    // their logical reading order without changing Latin columns.
+                    $hasRtl = (bool) preg_match('/\p{Arabic}/u', implode('', array_column($parts, 'text')));
+                    usort($parts, function ($a, $b) use ($hasRtl) {
+                        if ($a['y'] !== $b['y']) {
+                            return $b['y'] <=> $a['y'];
+                        }
+                        return $hasRtl ? ($b['x'] <=> $a['x']) : ($a['x'] <=> $b['x']);
+                    });
+                    $value = trim(implode('', array_column($parts, 'text')));
                     $row[$key] = $key === 'price' ? $this->price($value, $result['warnings']) : ($value !== '' ? $value : null);
                 }
                 if (!$row['title']) {

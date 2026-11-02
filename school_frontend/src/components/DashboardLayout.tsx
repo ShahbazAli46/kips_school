@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import FloatingChat from "@/components/FloatingChat";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -183,9 +182,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             return children;
           })()}
         </main>
-
-        {/* Floating Chat for Admin/Parents/Students */}
-        {(role === "1" || role === "3" || role === "4") && <FloatingChat />}
       </div>
     </div>
   );

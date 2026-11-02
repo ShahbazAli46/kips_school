@@ -77,6 +77,11 @@ class FeeVoucherController extends Controller
                     if ($tuitionItems->isNotEmpty()) {
                         $paid += (float)$tuitionItems->sum('amount_paid');
                         $discount += (float)$tuitionItems->sum('discount_applied');
+                    } else {
+                        // Fallback: no tuition head mapped on this payment (e.g. auto-created as "Other / unallocated")
+                        // -> attribute the full payment amount to tuition (mirrors ledger logic)
+                        $paid += (float)$p->amount_paid;
+                        $discount += (float)$p->discount_amount;
                     }
                 } else {
                     // Legacy payments without itemized breakdown

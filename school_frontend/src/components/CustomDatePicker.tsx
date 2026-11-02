@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 
 interface CustomDatePickerProps {
   value?: string; // Format: "YYYY-MM-DD"
@@ -43,8 +44,10 @@ export default function CustomDatePicker({
   const [resolvedAlign, setResolvedAlign] = useState<"left" | "right">("left");
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const monthDropdownRef = useRef<HTMLDivElement>(null);
   const yearDropdownRef = useRef<HTMLDivElement>(null);
+  const [popoverCoords, setPopoverCoords] = useState<{ top?: number; bottom?: number; left?: number; right?: number }>({});
 
   // Parse initial selected date or fallback to current date
   const parsedValue = useMemo(() => {
@@ -77,7 +80,11 @@ export default function CustomDatePicker({
   // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        (!popoverRef.current || !popoverRef.current.contains(target))
+      ) {
         setIsOpen(false);
         setIsMonthOpen(false);
         setIsYearOpen(false);
@@ -110,7 +117,7 @@ export default function CustomDatePicker({
   }, [isMonthOpen, isYearOpen]);
 
   // Dynamic placement & alignment calculation to prevent overflowing viewport
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return;
 
     const updatePosition = () => {
@@ -118,10 +125,11 @@ export default function CustomDatePicker({
       const rect = containerRef.current.getBoundingClientRect();
 
       // Vertical placement
+      let vertical: "top" | "bottom";
       if (placement === "top") {
-        setResolvedPlacement("top");
+        vertical = "top";
       } else if (placement === "bottom") {
-        setResolvedPlacement("bottom");
+        vertical = "bottom";
       } else {
         // "auto" calculation
         const spaceBelow = window.innerHeight - rect.bottom;
@@ -129,27 +137,44 @@ export default function CustomDatePicker({
         const estimatedHeight = 360;
 
         if (spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove) {
-          setResolvedPlacement("bottom");
+          vertical = "bottom";
         } else {
-          setResolvedPlacement("top");
+          vertical = "top";
         }
       }
+      setResolvedPlacement(vertical);
 
       // Horizontal alignment
+      let horizontal: "left" | "right";
       if (align === "left") {
-        setResolvedAlign("left");
+        horizontal = "left";
       } else if (align === "right") {
-        setResolvedAlign("right");
+        horizontal = "right";
       } else {
         // "auto" calculation
         const estimatedWidth = 330;
         const spaceRight = window.innerWidth - rect.left;
         if (spaceRight < estimatedWidth && rect.right >= estimatedWidth) {
-          setResolvedAlign("right");
+          horizontal = "right";
         } else {
-          setResolvedAlign("left");
+          horizontal = "left";
         }
       }
+      setResolvedAlign(horizontal);
+
+      // Fixed coordinates for portal rendering (avoids clipping by overflow ancestors)
+      const coords: { top?: number; bottom?: number; left?: number; right?: number } = {};
+      if (vertical === "top") {
+        coords.bottom = window.innerHeight - rect.top + 8;
+      } else {
+        coords.top = rect.bottom + 8;
+      }
+      if (horizontal === "right") {
+        coords.right = window.innerWidth - rect.right;
+      } else {
+        coords.left = rect.left;
+      }
+      setPopoverCoords(coords);
     };
 
     updatePosition();
@@ -347,14 +372,16 @@ export default function CustomDatePicker({
       </div>
 
       {/* Popover Calendar Container */}
-      {isOpen && (
+      {isOpen && typeof document !== "undefined" && createPortal(
         <div
-          className={`absolute z-[9999] ${
-            resolvedPlacement === "top" ? "bottom-full mb-2" : "top-full mt-2"
-          } ${
-            resolvedAlign === "right" ? "right-0 left-auto" : "left-0 right-auto"
-          } bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-[310px] sm:w-[330px] select-none`}
-          style={{ boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.16), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
+          ref={popoverRef}
+          className={`bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 w-[310px] sm:w-[330px] select-none`}
+          style={{
+            position: "fixed",
+            zIndex: 99999,
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.16), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+            ...popoverCoords,
+          }}
         >
           {/* Header Controls: Prev Button, Custom Month Dropdown, Custom Year Dropdown, Next Button */}
           <div className="flex items-center justify-between gap-1.5 mb-3.5 relative">
@@ -545,7 +572,7 @@ export default function CustomDatePicker({
             )}
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

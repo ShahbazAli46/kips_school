@@ -14,6 +14,37 @@
   text-align: right;
 }
 
+/* Book titles and imported catalogue fields can contain Urdu mixed with English. */
+.bookstore-urdu {
+  font-family: 'Jameel Noori Nastaleeq', 'Jameel Noori Nastaleeq Regular', serif;
+  line-height: 1.9;
+  direction: rtl;
+  text-align: right;
+  font-variant-ligatures: contextual;
+}
+
+.bookstore-urdu-input {
+  font-family: 'Jameel Noori Nastaleeq', 'Jameel Noori Nastaleeq Regular', serif;
+  line-height: 1.9;
+  direction: rtl;
+  text-align: right;
+}
+
+.bookstore-page input,
+.bookstore-page textarea {
+  font-family: 'Jameel Noori Nastaleeq', 'Jameel Noori Nastaleeq Regular', serif;
+  line-height: 1.9;
+}
+
+.bookstore-page article h3,
+.bookstore-page table td:first-child p:first-child,
+.bookstore-page aside p.font-medium {
+  font-family: 'Jameel Noori Nastaleeq', 'Jameel Noori Nastaleeq Regular', serif;
+  line-height: 1.9;
+  direction: rtl;
+  text-align: right;
+}
+
 /* ============================================================
    Brand Color System - Blue/Navy (Logo Theme)
    Primary palette extracted from the new branding.

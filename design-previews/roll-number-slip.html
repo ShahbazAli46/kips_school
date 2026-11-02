@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KIPS · Roll number slip design preview</title>
+<style>
+@font-face{font-family:Urdu;src:url('../school_frontend/public/jameel-noori-nastaleeq.ttf')}
+*{box-sizing:border-box}body{margin:0;background:#e9eef2;color:#172d42;font-family:Arial,Helvetica,sans-serif}.intro{max-width:920px;margin:36px auto 24px;padding:0 24px}.eyebrow{font-size:11px;letter-spacing:2px;font-weight:700;color:#14796f}.intro h1{font-size:28px;margin:10px 0}.intro p{color:#586a79;font-size:14px;line-height:1.6}.sheet{width:194mm;margin:0 auto 36px;background:white;padding:0;box-shadow:0 12px 55px #21364a18}.slip{height:136mm;padding:5mm 6mm;border:1px solid #cbd5df;border-top:4px solid #14796f;display:flex;flex-direction:column;gap:9px;overflow:hidden}header{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid #dce4e9}.brand{display:flex;align-items:center;gap:11px}.brand img{width:48px;height:48px;object-fit:contain}.brand strong{font-size:21px;letter-spacing:.5px}.brand small{display:block;font-size:11px;margin-top:4px;color:#637585}.document{text-align:right}.document strong{font-size:12px;letter-spacing:1.4px}.document small{display:block;font-size:10px;color:#637585;margin-top:6px}.exam{display:flex;align-items:center;justify-content:space-between}.exam h2{font-size:17px;margin:0}.exam span{font-size:10px;color:#14796f;background:#eef7f5;border:1px solid #d1e9e3;border-radius:4px;padding:5px 8px}.profile{display:grid;grid-template-columns:1fr 115px 62px;gap:16px;align-items:center;background:#f4f7f9;border:1px solid #e0e7ec;border-radius:5px;padding:10px 12px}.details{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}.label{display:block;font-size:8px;letter-spacing:1px;color:#637585;text-transform:uppercase;margin-bottom:4px}.value{font-size:11px;font-weight:700}.name{font-size:14px}.roll{border-left:1px solid #d4dfe5;padding-left:16px}.roll strong{display:block;font-size:32px;letter-spacing:2px;line-height:1.1}.photo{height:70px;border:1px dashed #b8c7d1;display:flex;align-items:center;justify-content:center;text-align:center;font-size:8px;line-height:1.6;color:#728391;background:white}.venue{display:flex;gap:28px;font-size:10px;padding:0 2px}.venue b{font-weight:700}.section-label{font-size:9px;font-weight:700;letter-spacing:1.2px;margin-bottom:6px}table{border-collapse:collapse;width:100%;font-size:10px}th{background:#193449;color:white;text-align:left;font-size:8px;letter-spacing:.4px;padding:8px 7px}td{padding:7px;border-bottom:1px solid #e1e7eb}tbody tr:nth-child(even){background:#f6f8fa}td:nth-child(2){font-weight:700}td:first-child{color:#7b8995}th:last-child,td:last-child{text-align:center;width:82px}.notice{border-left:3px solid #b08b37;background:#fbf8ef;padding:6px 9px;display:flex;align-items:center;justify-content:space-between;gap:12px}.notice p{margin:0;font-size:8px;line-height:1.5;max-width:265px}.urdu{font-family:Urdu,serif;font-size:15px;line-height:1.7;text-align:right}.rules{font-size:8.5px;color:#4b5d6d;line-height:1.6}.rules b{color:#193449;font-size:9px}.rules ol{margin:3px 0 0;padding-left:14px}.signatures{display:flex;justify-content:space-between;margin-top:auto;padding-top:14px}.signature{width:145px;border-top:1px solid #8698a6;padding-top:5px;font-size:9px;font-weight:700}.signature small{display:block;font-size:7px;font-weight:400;color:#718391;margin-top:3px}footer{display:flex;justify-content:space-between;border-top:1px solid #dce4e9;padding-top:6px;font-size:7.5px;color:#637585}.cut{height:9mm;display:flex;align-items:center;justify-content:center;gap:12px;color:#8a99a4;font-size:8px;letter-spacing:1px}.cut:before,.cut:after{content:'';flex:1;border-top:1px dashed #bdc8d0}.note{font-size:12px;color:#637585;text-align:center;padding:0 20px 30px}@media(max-width:760px){.sheet{margin-left:12px;margin-right:12px}.intro{margin-top:24px}}@page{size:A4;margin:6mm 8mm}@media print{body{background:white}.intro,.note{display:none}.sheet{margin:0;box-shadow:none;width:194mm}.slip{break-inside:avoid}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+/* Reference-inspired decoration, repeated on each individual slip. */
+.slip{position:relative;isolation:isolate;border:1px solid #cbd5e1;border-radius:0;padding-top:11mm;padding-bottom:12mm;background:#fff}
+.slip:before,.slip:after{content:"";position:absolute;left:0;right:0;height:12mm;z-index:-1;background-repeat:no-repeat;background-size:100% 100%;pointer-events:none}
+.slip:before{top:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 50' preserveAspectRatio='none'%3E%3Cpath fill='%23bfdbfe' d='M0 0H800V48H530C440 48 418 10 320 10H0Z'/%3E%3Cpath fill='%232563eb' d='M0 0H800V45H550C465 45 443 4 340 4H0Z'/%3E%3Cg fill='none' stroke='%2393c5fd' stroke-width='1.5'%3E%3Cpath d='M630 16l-12 7 12 7zM658 16l-12 7 12 7zM686 16l-12 7 12 7zM714 16l-12 7 12 7zM742 16l-12 7 12 7zM770 16l-12 7 12 7z'/%3E%3C/g%3E%3C/svg%3E")}
+.slip:after{bottom:0;transform:rotate(180deg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 50' preserveAspectRatio='none'%3E%3Cpath fill='%23bfdbfe' d='M0 0H800V48H530C440 48 418 10 320 10H0Z'/%3E%3Cpath fill='%232563eb' d='M0 0H800V45H550C465 45 443 4 340 4H0Z'/%3E%3Cg fill='none' stroke='%2393c5fd' stroke-width='1.5'%3E%3Cpath d='M630 16l-12 7 12 7zM658 16l-12 7 12 7zM686 16l-12 7 12 7zM714 16l-12 7 12 7zM742 16l-12 7 12 7zM770 16l-12 7 12 7z'/%3E%3C/g%3E%3C/svg%3E")}
+.slip{gap:6px}header{padding-bottom:6px}.brand strong,.document strong{color:#1e3a8a}.exam span{color:#2563eb;background:#eff6ff;border-color:#bfdbfe}.eyebrow{color:#2563eb}th{background:#2563eb}.profile{background:#f5f8ff}.section-label{color:#2563eb}td{padding:6px 7px}.signatures{padding-top:10px}.signature{color:#1e3a8a}footer{color:#526783}
+
+/* Compact candidate panel: 58px photo and tighter field spacing. */
+.profile{grid-template-columns:1fr 92px 49px;gap:12px;padding:7px 10px}
+.details{gap:6px 16px}.profile .label{font-size:7px;margin-bottom:3px;letter-spacing:.8px}
+.profile .value{font-size:10px}.profile .name{font-size:12px}
+.roll{padding-left:12px}.roll strong{font-size:26px;letter-spacing:1px}
+.photo{height:56px;font-size:7px}.exam h2{font-size:16px}
+
+/* Reserve room for every section within each half-page slip. */
+.slip{padding:9mm 6mm 9mm;gap:6px;overflow:visible;height:136mm}
+.slip:before,.slip:after{height:8mm}
+.slip>header,.slip>.exam,.slip>.profile,.slip>.venue,.slip>div,.slip>footer{flex-shrink:0}
+header{padding-bottom:5px}.brand img{width:36px;height:36px}.brand strong{font-size:18px}.brand small{font-size:9px;margin-top:3px}.document strong{font-size:10px}.document small{font-size:8px;margin-top:4px}
+.exam h2{font-size:15px}.exam span{font-size:8px;padding:4px 7px}
+.profile{padding:6px 9px}.photo{height:49px}.details{gap:5px 14px}
+.venue{font-size:9px;gap:30px}.venue .label{font-size:7px;margin-bottom:3px}
+.section-label{font-size:8px;margin-bottom:4px}
+th{padding:6px 7px;font-size:7.5px}td{padding:5px 7px;font-size:9px}
+.notice{padding:4px 8px}.notice p{font-size:7.5px}.urdu{font-size:13px;line-height:1.65}
+.rules{padding:6px 8px;background:#f5f8ff;border:1px solid #dce6f5;border-radius:4px;font-size:8px;line-height:1.55}.rules b{font-size:7.5px;letter-spacing:.6px;color:#1e40af}
+.instruction-flow{margin-top:3px}.instruction-flow span{display:inline}.instruction-flow span:before{content:'•';color:#2563eb;font-weight:bold;padding:0 5px}
+.signatures{margin-top:auto;padding-top:15px;padding-bottom:2px;gap:24px}.signature{width:160px;font-size:8.5px;padding-top:4px}.signature small{font-size:7px;margin-top:3px}
+footer{font-size:7px;padding-top:5px;gap:12px;line-height:1.4}
+
+/* Larger waves, readable content, and a shared bilingual instructions row. */
+.slip{padding:12mm 6mm 12mm;gap:8px}
+.slip:before,.slip:after{height:12mm}
+.brand img{width:42px;height:42px}.brand strong{font-size:20px}.brand small{font-size:10px}
+.document strong{font-size:11px}.document small{font-size:9px}
+.exam h2{font-size:17px}.exam span{font-size:9px}
+.profile{padding:7px 10px}.profile .label{font-size:8px}.profile .value{font-size:11px}.profile .name{font-size:13px}.photo{height:54px}
+.venue{font-size:10px}.venue .label{font-size:8px}
+.section-label{font-size:9px}th{font-size:8px;padding:7px}td{font-size:10px;padding:6px 7px}
+.rules{display:grid;grid-template-columns:1.65fr 1fr;gap:16px;align-items:center;padding:8px 0;background:white;border:0;border-top:1px solid #dce6f5;border-bottom:1px solid #dce6f5;border-radius:0;font-size:9px;line-height:1.5}
+.rules b{font-size:8px}.instruction-flow{margin-top:5px}.instruction-flow span{display:block;position:relative;padding-left:10px;margin-bottom:3px}.instruction-flow span:before{position:absolute;left:0;padding:0}
+.rules .urdu{font-size:17px;line-height:1.9;border-left:1px solid #dce6f5;padding-left:14px;color:#1e3a8a}
+.signatures{padding-top:13px}.signature{font-size:9px}.signature small{font-size:8px}footer{font-size:8px}
+
+.slip:after{display:none}.slip{padding-bottom:6mm}
+
+.schedule-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
+.schedule-columns table{table-layout:fixed;font-size:8px}
+.schedule-columns th{font-size:6.5px;letter-spacing:0;padding:7px 3px;overflow-wrap:anywhere}
+.schedule-columns td{font-size:8px;padding:8px 3px;vertical-align:top;overflow-wrap:anywhere}
+.schedule-columns th:nth-child(1){width:7%}
+.schedule-columns th:nth-child(2){width:23%}
+.schedule-columns th:nth-child(3){width:22%}
+.schedule-columns th:nth-child(4){width:23%}
+.schedule-columns th:nth-child(5){width:10%}
+.schedule-columns th:nth-child(6){width:15%;font-size:6px}
+.schedule-columns td:nth-child(4){font-size:7.5px}
+
+/* Lift the branding and center the document heading on the slip. */
+.slip{padding-top:8mm}
+header{position:relative;min-height:46px;align-items:center;padding-bottom:5px}
+.document{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;width:220px;padding-bottom:5px}
+.brand{gap:8px}.brand img{width:36px;height:36px}.brand strong{font-size:17px}.brand small{font-size:9px;margin-top:3px}
+.document strong{font-size:11px;letter-spacing:1px}.document small{font-size:9px;margin-top:5px}
+
+.slip{padding-top:6mm}
+header{min-height:45px}
+.document{top:auto;bottom:5px;transform:translateX(-50%);padding:0;width:auto;white-space:nowrap;line-height:1.3}
+.document strong{display:inline;font-size:10px;letter-spacing:.6px}
+.document small{display:inline;font-size:9px;margin:0}
+.document small:before{content:' · ';padding:0 5px;color:#94a3b8}
+
+.header-helpline{position:absolute;right:0;bottom:5px;font-size:9px;line-height:1.3;color:#526783;white-space:nowrap}
+.header-helpline b{color:#1e3a8a}
+
+.venue{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:2px 2px;font-size:10px}
+.venue>span{display:flex;align-items:baseline;gap:7px}
+.venue .label{display:inline;margin:0;font-size:9px;letter-spacing:0;text-transform:none;color:#637585}
+.venue .label:after{content:':'}
+.venue b{font-size:10px;white-space:nowrap}
+
+.brand img{width:52px;height:52px}.brand{gap:10px}header{min-height:58px}
+
+.schedule-columns th:nth-child(1){width:7%}
+.schedule-columns th:nth-child(2){width:26%}
+.schedule-columns th:nth-child(3){width:25%}
+.schedule-columns th:nth-child(4){width:30%}
+.schedule-columns th:nth-child(5){width:12%}
+.schedule-columns th:last-child,.schedule-columns td:last-child{text-align:center;width:12%}
+</style>
+</head>
+<body>
+<div class="intro"><div class="eyebrow">DESIGN PROPOSAL / 01</div><h1>Blue wave header &amp; footer.</h1><p>Inspired by your reference. Matching blue waves appear on every slip.<br>Sample details only. Proposed print layout: two slips per A4 sheet.<br>The existing application and roll number slip have not been changed.</p></div>
+<main class="sheet">
+<article class="slip">
+<header><div class="brand"><img src="../school_frontend/public/logo.jpg" alt="KIPS logo"><div><strong>KIPS SCHOOL</strong><small>Chunian Campus</small></div></div><div class="document"><strong>ROLL NUMBER SLIP</strong><small>Academic session 2026–2027</small></div><div class="header-helpline">Helpline: <b>0300 39 39 581</b></div></header>
+
+<div class="profile"><div class="details"><div><span class="label">Candidate name</span><span class="value name">Muhammad Ahmed</span></div><div><span class="label">Father’s name</span><span class="value">Muhammad Aslam</span></div><div><span class="label">Class &amp; section</span><span class="value">Class 9 · Section A</span></div><div><span class="label">Session</span><span class="value">2026–2027</span></div></div><div class="roll"><span class="label">Roll number</span><strong>0247</strong></div><div class="photo">CANDIDATE<br>PHOTO</div></div>
+<div class="venue"><span><span class="label">Examination venue</span><b>Main Examination Hall</b></span><span><span class="label">Reporting time</span><b>08:00 AM sharp</b></span></div>
+<div><div class="section-label">EXAMINATION SCHEDULE</div><div class="schedule-columns"><table><thead><tr><th>#</th><th>PAPER / SUBJECT</th><th>DATE / DAY</th><th>PAPER TIMING</th><th>MARKS</th></tr></thead><tbody><tr><td>01</td><td>English</td><td>02 Nov 2026 · Mon</td><td>08:30 – 11:30 AM</td><td>75</td></tr><tr><td>02</td><td>Mathematics</td><td>03 Nov 2026 · Tue</td><td>08:30 – 11:30 AM</td><td>75</td></tr><tr><td>03</td><td>Physics</td><td>04 Nov 2026 · Wed</td><td>08:30 – 11:30 AM</td><td>60</td></tr><tr><td>04</td><td>Chemistry</td><td>05 Nov 2026 · Thu</td><td>08:30 – 11:30 AM</td><td>60</td></tr><tr><td>05</td><td>Urdu</td><td>06 Nov 2026 · Fri</td><td>08:30 – 11:30 AM</td><td>75</td></tr></tbody></table><table><thead><tr><th>#</th><th>PAPER / SUBJECT</th><th>DATE / DAY</th><th>PAPER TIMING</th><th>MARKS</th></tr></thead><tbody><tr><td>06</td><td>Biology</td><td>09 Nov 2026 · Mon</td><td>08:30 – 11:30 AM</td><td>60</td></tr><tr><td>07</td><td>Islamiyat</td><td>10 Nov 2026 · Tue</td><td>08:30 – 11:30 AM</td><td>50</td></tr><tr><td>08</td><td>Pakistan Studies</td><td>11 Nov 2026 · Wed</td><td>08:30 – 11:30 AM</td><td>50</td></tr><tr><td>09</td><td>Computer Science</td><td>12 Nov 2026 · Thu</td><td>08:30 – 11:30 AM</td><td>50</td></tr><tr><td>10</td><td>Tarjuma-tul-Quran</td><td>13 Nov 2026 · Fri</td><td>08:30 – 11:30 AM</td><td>50</td></tr></tbody></table></div></div>
+
+<div class="rules"><div class="instructions-left"><b>IMPORTANT INSTRUCTIONS</b><div class="instruction-flow"><span>Bring this roll number slip to every paper and arrive at the reporting time.</span><span>Bring your own stationery. Mobile phones and unauthorized materials are prohibited.</span><span>Follow the invigilator’s instructions and maintain discipline in the examination hall.</span></div></div><div class="urdu" lang="ur" dir="rtl">واجبات کی ادائیگی کے بغیر امتحان میں بیٹھنے کی اجازت نہیں ہے۔</div></div>
+<div class="signatures"><div class="signature">Controller of Exams</div><div class="signature">Campus Principal</div></div>
+
+</article>
+<div class="cut">CUT ALONG DOTTED LINE</div>
+<article class="slip">
+<header><div class="brand"><img src="../school_frontend/public/logo.jpg" alt="KIPS logo"><div><strong>KIPS SCHOOL</strong><small>Chunian Campus</small></div></div><div class="document"><strong>ROLL NUMBER SLIP</strong><small>Academic session 2026–2027</small></div><div class="header-helpline">Helpline: <b>0300 39 39 581</b></div></header>
+
+<div class="profile"><div class="details"><div><span class="label">Candidate name</span><span class="value name">Ali Hassan</span></div><div><span class="label">Father’s name</span><span class="value">Muhammad Hassan</span></div><div><span class="label">Class &amp; section</span><span class="value">Class 9 · Section A</span></div><div><span class="label">Session</span><span class="value">2026–2027</span></div></div><div class="roll"><span class="label">Roll number</span><strong>0248</strong></div><div class="photo">CANDIDATE<br>PHOTO</div></div>
+<div class="venue"><span><span class="label">Examination venue</span><b>Main Examination Hall</b></span><span><span class="label">Reporting time</span><b>08:00 AM sharp</b></span></div>
+<div><div class="section-label">EXAMINATION SCHEDULE</div><div class="schedule-columns"><table><thead><tr><th>#</th><th>PAPER / SUBJECT</th><th>DATE / DAY</th><th>PAPER TIMING</th><th>MARKS</th></tr></thead><tbody><tr><td>01</td><td>English</td><td>02 Nov 2026 · Mon</td><td>08:30 – 11:30 AM</td><td>75</td></tr><tr><td>02</td><td>Mathematics</td><td>03 Nov 2026 · Tue</td><td>08:30 – 11:30 AM</td><td>75</td></tr><tr><td>03</td><td>Physics</td><td>04 Nov 2026 · Wed</td><td>08:30 – 11:30 AM</td><td>60</td></tr><tr><td>04</td><td>Chemistry</td><td>05 Nov 2026 · Thu</td><td>08:30 – 11:30 AM</td><td>60</td></tr><tr><td>05</td><td>Urdu</td><td>06 Nov 2026 · Fri</td><td>08:30 – 11:30 AM</td><td>75</td></tr></tbody></table><table><thead><tr><th>#</th><th>PAPER / SUBJECT</th><th>DATE / DAY</th><th>PAPER TIMING</th><th>MARKS</th></tr></thead><tbody><tr><td>06</td><td>Biology</td><td>09 Nov 2026 · Mon</td><td>08:30 – 11:30 AM</td><td>60</td></tr><tr><td>07</td><td>Islamiyat</td><td>10 Nov 2026 · Tue</td><td>08:30 – 11:30 AM</td><td>50</td></tr><tr><td>08</td><td>Pakistan Studies</td><td>11 Nov 2026 · Wed</td><td>08:30 – 11:30 AM</td><td>50</td></tr><tr><td>09</td><td>Computer Science</td><td>12 Nov 2026 · Thu</td><td>08:30 – 11:30 AM</td><td>50</td></tr><tr><td>10</td><td>Tarjuma-tul-Quran</td><td>13 Nov 2026 · Fri</td><td>08:30 – 11:30 AM</td><td>50</td></tr></tbody></table></div></div>
+
+<div class="rules"><div class="instructions-left"><b>IMPORTANT INSTRUCTIONS</b><div class="instruction-flow"><span>Bring this roll number slip to every paper and arrive at the reporting time.</span><span>Bring your own stationery. Mobile phones and unauthorized materials are prohibited.</span><span>Follow the invigilator’s instructions and maintain discipline in the examination hall.</span></div></div><div class="urdu" lang="ur" dir="rtl">واجبات کی ادائیگی کے بغیر امتحان میں بیٹھنے کی اجازت نہیں ہے۔</div></div>
+<div class="signatures"><div class="signature">Controller of Exams</div><div class="signature">Campus Principal</div></div>
+
+</article>
+</main>
+<p class="note">Static design preview · sample content · no scripts, API calls, or database connections</p>
+</body>
+</html>

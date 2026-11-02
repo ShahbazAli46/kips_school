@@ -803,8 +803,16 @@ class FeePaymentController extends Controller
         ];
     }
 
-    public function ledger(User $student)
+    public function ledger(Request $request, $student)
     {
+        $studentModel = $student instanceof \App\Models\User
+            ? $student
+            : (\App\Models\User::where('uuid', $student)->first() ?? \App\Models\User::find($student));
+        if (!$studentModel) {
+            return response()->json(['message' => 'Student not found'], 404);
+        }
+        $student = $studentModel;
+
         if ($student->role_id !== 3) {
             return response()->json(['message' => 'Not a student'], 400);
         }
@@ -975,10 +983,8 @@ class FeePaymentController extends Controller
                             $itemDisc = (float)$tuitionItems->sum('discount_applied');
                             $tuitionDisc += $itemDisc > 0 ? $itemDisc : (float)$mp->discount_amount;
                         } else {
-                            $nonTuitionSum = (float)$pItems->filter(function($it) {
-                                return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
-                            })->sum('amount_paid');
-                            $tuitionPaid += max(0, (float)$mp->amount_paid - $nonTuitionSum);
+                            // Fallback: no tuition head mapped on this payment -> attribute full amount to tuition
+                            $tuitionPaid += (float)$mp->amount_paid;
                             $tuitionDisc += (float)$mp->discount_amount;
                         }
                     } else {
@@ -1103,8 +1109,16 @@ class FeePaymentController extends Controller
         ]);
     }
 
-    public function emailLedger(User $student)
+    public function emailLedger(Request $request, $student)
     {
+        $studentModel = $student instanceof \App\Models\User
+            ? $student
+            : (\App\Models\User::where('uuid', $student)->first() ?? \App\Models\User::find($student));
+        if (!$studentModel) {
+            return response()->json(['message' => 'Student not found'], 404);
+        }
+        $student = $studentModel;
+
         if ($student->role_id !== 3) {
             return response()->json(['message' => 'Not a student'], 400);
         }

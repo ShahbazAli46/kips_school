@@ -1412,7 +1412,7 @@ export default function FeeDefaultersPage() {
 
                                         {/* Ledger */}
                                         <button
-                                          onClick={() => router.push(`/dashboard/fees/ledger?student_id=${student.id}`)}
+                                          onClick={() => router.push(`/dashboard/fees/ledger?id=${student.uuid}`)}
                                           className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-95"
                                           title="View Ledger Statement"
                                         >
@@ -1602,7 +1602,7 @@ export default function FeeDefaultersPage() {
 
                             {/* Ledger */}
                             <button
-                              onClick={() => router.push(`/dashboard/fees/ledger?student_id=${student.id}`)}
+                              onClick={() => router.push(`/dashboard/fees/ledger?id=${student.uuid}`)}
                               className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-95"
                               title="View Ledger Statement"
                             >

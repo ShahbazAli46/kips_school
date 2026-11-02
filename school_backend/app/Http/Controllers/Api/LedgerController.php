@@ -308,6 +308,86 @@ class LedgerController extends Controller
         ]);
     }
 
+    /**
+     * Daily cash report: fee collections are credits and recorded expenses are
+     * debits. Prior closing balance is calculated from all earlier transactions.
+     */
+    public function dailyFinanceReport(Request $request)
+    {
+        $date = Carbon::parse($request->input('date', now()->toDateString()))->toDateString();
+
+        $openingCredits = (float) DB::table('fee_payments')
+            ->where('payment_date', '<', $date)
+            ->sum('amount_paid');
+        $openingDebits = (float) DB::table('expenses')
+            ->whereNull('deleted_at')
+            ->where('expense_date', '<', $date)
+            ->sum('amount');
+        $openingBalance = $openingCredits - $openingDebits;
+
+        $credits = DB::table('fee_payments')
+            ->join('users as students', 'fee_payments.student_id', '=', 'students.id')
+            ->leftJoin('users as receivers', 'fee_payments.received_by', '=', 'receivers.id')
+            ->whereDate('fee_payments.payment_date', $date)
+            ->orderBy('fee_payments.id')
+            ->get([
+                'fee_payments.id',
+                'fee_payments.amount_paid as amount',
+                'fee_payments.payment_date as date',
+                'fee_payments.month',
+                'fee_payments.payer_name',
+                'students.name as student_name',
+                'receivers.name as recorded_by',
+            ])
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'date' => $item->date,
+                'source' => 'Fee receiving',
+                'description' => $item->student_name,
+                'reference' => $item->payer_name ?: ('Fee month ' . $item->month),
+                'amount' => (float) $item->amount,
+                'recorded_by' => $item->recorded_by ?: 'System',
+            ])->values();
+
+        $debits = DB::table('expenses')
+            ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
+            ->leftJoin('users as recorders', 'expenses.recorded_by', '=', 'recorders.id')
+            ->whereNull('expenses.deleted_at')
+            ->whereDate('expenses.expense_date', $date)
+            ->orderBy('expenses.id')
+            ->get([
+                'expenses.id',
+                'expenses.amount',
+                'expenses.expense_date as date',
+                'expenses.title',
+                'expenses.description',
+                'expense_categories.name as category',
+                'recorders.name as recorded_by',
+            ])
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'date' => $item->date,
+                'item' => $item->title,
+                'category' => $item->category ?: 'Uncategorized',
+                'description' => $item->description,
+                'amount' => (float) $item->amount,
+                'recorded_by' => $item->recorded_by ?: 'System',
+            ])->values();
+
+        $creditTotal = (float) $credits->sum('amount');
+        $debitTotal = (float) $debits->sum('amount');
+
+        return response()->json([
+            'date' => $date,
+            'opening_balance' => $openingBalance,
+            'credit_total' => $creditTotal,
+            'debit_total' => $debitTotal,
+            'closing_balance' => $openingBalance + $creditTotal - $debitTotal,
+            'credits' => $credits,
+            'debits' => $debits,
+        ]);
+    }
+
     public function destroy($id)
     {
         if (str_starts_with($id, 'exp_')) {

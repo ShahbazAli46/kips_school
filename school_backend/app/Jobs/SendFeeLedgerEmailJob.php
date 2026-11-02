@@ -34,7 +34,7 @@ class SendFeeLedgerEmailJob implements ShouldQueue
         }
 
         $controller = app(FeePaymentController::class);
-        $response = $controller->ledger($this->student);
+        $response = $controller->ledger(app(\Illuminate\Http\Request::class), $this->student);
         
         if ($response->getStatusCode() !== 200) {
             return;
