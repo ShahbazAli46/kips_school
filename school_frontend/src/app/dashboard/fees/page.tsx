@@ -273,7 +273,15 @@ function FeeCollectionModal({
 
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: '#1e3a8a' }}>Amount Paid (Rs)</label>
-            <input type="number" min="0" value={amount} onChange={e => setAmount(e.target.value)} disabled={isCustomAllocation} placeholder="e.g. 5000" className={`w-full px-3 py-2.5 rounded-lg border text-sm outline-none ${isCustomAllocation ? 'bg-gray-100 cursor-not-allowed text-gray-500 font-bold' : ''}`} style={{ borderColor: '#bfdbfe' }} autoFocus={!isCustomAllocation} />
+            <input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} disabled={isCustomAllocation} placeholder="e.g. 5000" className={`w-full px-3 py-2.5 rounded-lg border text-sm outline-none ${isCustomAllocation ? 'bg-gray-100 cursor-not-allowed text-gray-500 font-bold' : ''}`} style={{ borderColor: '#bfdbfe' }} autoFocus={!isCustomAllocation} />
+            <p className="text-[11px] mt-1 text-gray-500">
+              You can enter more than the voucher total to collect advance fee for future months.
+            </p>
+            {voucher && voucher.total_payable != null && amount && parseFloat(amount) > (parseFloat(voucher.total_payable) || 0) && (
+              <p className="text-[11px] mt-1 font-semibold text-blue-700">
+                Advance amount: Rs {(parseFloat(amount) - (parseFloat(voucher.total_payable) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </p>
+            )}
           </div>
 
           <div>
