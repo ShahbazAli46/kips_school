@@ -1249,6 +1249,7 @@ export default function FeesPage() {
             options={[
               {label: "All Statuses", value: ""},
               {label: "Paid", value: "paid"},
+              {label: "Advance", value: "advance"},
               {label: "Unpaid", value: "unpaid"},
               {label: "Partial", value: "partial"},
             ]}
@@ -1321,7 +1322,7 @@ export default function FeesPage() {
                   const totalPaidThisMonth = s.current_month_paid !== undefined ? parseFloat(s.current_month_paid || '0') : studentPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount_paid), 0);
                   const monthlyFee = parseFloat(s.monthly_fee || '0');
                   const totalPayable = s.total_payable !== undefined ? parseFloat(s.total_payable || '0') : (s.arrears !== undefined ? parseFloat(s.arrears || '0') : Math.max(0, monthlyFee - totalPaidThisMonth));
-                  const feeStatus = s.computed_status || (totalPayable <= 0 ? 'paid' : (totalPaidThisMonth > 0 ? 'partial' : 'unpaid'));
+                  const feeStatus = s.computed_status || (totalPaidThisMonth > totalPayable + 0.001 ? 'advance' : (totalPayable <= 0.001 ? 'paid' : (totalPaidThisMonth >= totalPayable - 0.001 ? 'paid' : (totalPaidThisMonth > 0 ? 'partial' : 'unpaid'))));
 
                   return (
                     <tr key={s.id} className="hover:bg-gray-50/50 transition">
@@ -1567,7 +1568,7 @@ export default function FeesPage() {
               const totalPaidThisMonth = s.current_month_paid !== undefined ? parseFloat(s.current_month_paid || '0') : studentPayments.reduce((sum: number, p: any) => sum + parseFloat(p.amount_paid), 0);
               const monthlyFee = parseFloat(s.monthly_fee || '0');
               const totalPayable = s.total_payable !== undefined ? parseFloat(s.total_payable || '0') : (s.arrears !== undefined ? parseFloat(s.arrears || '0') : Math.max(0, monthlyFee - totalPaidThisMonth));
-              const feeStatus = s.computed_status || (totalPayable <= 0 ? 'paid' : (totalPaidThisMonth > 0 ? 'partial' : 'unpaid'));
+              const feeStatus = s.computed_status || (totalPaidThisMonth > totalPayable + 0.001 ? 'advance' : (totalPayable <= 0.001 ? 'paid' : (totalPaidThisMonth >= totalPayable - 0.001 ? 'paid' : (totalPaidThisMonth > 0 ? 'partial' : 'unpaid'))));
 
               return (
                 <div key={s.id} className="bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-shadow relative flex flex-col" style={{ borderColor: "#bfdbfe" }}>
@@ -1641,7 +1642,8 @@ export default function FeesPage() {
                     <div className="text-right flex flex-col items-end">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Status ({monthStr})</p>
                       {feeStatus === 'paid' && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-green-100 text-green-800 shadow-sm">Paid</span>}
-                      {feeStatus === 'partial' && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 shadow-sm">Partial</span>}
+                      {feeStatus === 'advance' && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-100 text-indigo-800 shadow-sm">Advance</span>}
+{feeStatus === 'partial' && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 shadow-sm">Partial</span>}
                       {feeStatus === 'unpaid' && <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 text-gray-600 shadow-sm">Unpaid</span>}
                       {totalPayable > 0 && (
                         <span className="text-[10px] font-extrabold text-red-600 mt-1">

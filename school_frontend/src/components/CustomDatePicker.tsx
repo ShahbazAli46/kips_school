@@ -572,7 +572,9 @@ export default function CustomDatePicker({
             )}
           </div>
         </div>
-      , document.body)}
+        ,
+        document.body
+      )}
     </div>
   );
 }

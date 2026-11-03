@@ -426,7 +426,11 @@ class FeePaymentController extends Controller
             $totalPayable = $currentMonthNetDue + $previousArrears;
 
             $status = 'unpaid';
-            if ($totalPayable <= 0) {
+            if ($totalMonthPaid > $totalPayable + 0.001) {
+                $status = 'advance';
+            } elseif ($totalPayable <= 0.001) {
+                $status = 'paid';
+            } elseif ($totalMonthPaid >= $totalPayable - 0.001) {
                 $status = 'paid';
             } elseif ($totalMonthPaid > 0 || $totalMonthDiscount > 0) {
                 $status = 'partial';
@@ -646,7 +650,11 @@ class FeePaymentController extends Controller
             $totalPayable = $currentMonthNetDue + $previousArrears;
 
             $status = 'unpaid';
-            if ($totalPayable <= 0) {
+            if ($totalMonthPaid > $totalPayable + 0.001) {
+                $status = 'advance';
+            } elseif ($totalPayable <= 0.001) {
+                $status = 'paid';
+            } elseif ($totalMonthPaid >= $totalPayable - 0.001) {
                 $status = 'paid';
             } elseif ($totalMonthPaid > 0 || $totalMonthDiscount > 0) {
                 $status = 'partial';
@@ -693,7 +701,7 @@ class FeePaymentController extends Controller
                 'is_this_month_unpaid' => $isThisMonthUnpaid,
                 'is_this_month_partial' => $isThisMonthPartial,
                 'is_past_arrears_only' => $isPastArrearsOnly,
-                'is_defaulter' => ($totalPayable > 0),
+                'is_defaulter' => ($totalPayable > 0.001 && !($totalMonthPaid >= $totalPayable - 0.001)),
                 'months_overdue' => $monthsOverdue,
                 'is_critical' => ($monthsOverdue >= 2 || $totalPayable >= ($monthlyFee * 2 && $monthlyFee > 0)),
                 'last_payment_date' => $latestPayment ? $latestPayment->payment_date : null,
