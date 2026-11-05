@@ -78,9 +78,16 @@ class FeeVoucherController extends Controller
                         $paid += (float)$tuitionItems->sum('amount_paid');
                         $discount += (float)$tuitionItems->sum('discount_applied');
                     } else {
-                        // Fallback: no tuition head mapped on this payment (e.g. auto-created as "Other / unallocated")
-                        // -> attribute the full payment amount to tuition (mirrors ledger logic)
-                        $paid += (float)$p->amount_paid;
+                        // Payment has no tuition item. Subtract only amounts itemized to REAL fee heads
+                        // (arrears, exam, admission, ...) — those already reduced their own fee-item
+                        // balances, so crediting them to tuition would double-count. The `other`
+                        // (unallocated) head consumes no fee item, so that cash — plus any unitemized
+                        // remainder — stays creditable to tuition, mirroring the ledger headline.
+                        $realHeadPaid = (float)$p->items->filter(function ($it) {
+                            if ($it->head_key === 'other') return false;
+                            return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
+                        })->sum('amount_paid');
+                        $paid += max(0, (float)$p->amount_paid - $realHeadPaid);
                         $discount += (float)$p->discount_amount;
                     }
                 } else {

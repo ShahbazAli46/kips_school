@@ -360,6 +360,7 @@ class FeePaymentController extends Controller
                         $tuitionDiscount += $itemDisc > 0 ? $itemDisc : (float)$p->discount_amount;
                     } else {
                         $nonTuitionPaid = (float)$pItems->filter(function($it) {
+                            if ($it->head_key === 'other') return false; // unallocated cash consumed no fee item
                             return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
                         })->sum('amount_paid');
                         $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
@@ -585,6 +586,7 @@ class FeePaymentController extends Controller
                         $tuitionDiscount += $itemDisc > 0 ? $itemDisc : (float)$p->discount_amount;
                     } else {
                         $nonTuitionPaid = (float)$pItems->filter(function($it) {
+                            if ($it->head_key === 'other') return false; // unallocated cash consumed no fee item
                             return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
                         })->sum('amount_paid');
                         $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
@@ -991,8 +993,13 @@ class FeePaymentController extends Controller
                             $itemDisc = (float)$tuitionItems->sum('discount_applied');
                             $tuitionDisc += $itemDisc > 0 ? $itemDisc : (float)$mp->discount_amount;
                         } else {
-                            // Fallback: no tuition head mapped on this payment -> attribute full amount to tuition
-                            $tuitionPaid += (float)$mp->amount_paid;
+                            // Subtract only REAL fee-head allocations; `other` (unallocated) cash
+                            // consumed no fee item, so it stays creditable to tuition.
+                            $realHeadPaid = (float)$pItems->filter(function ($it) {
+                                if ($it->head_key === 'other') return false;
+                                return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
+                            })->sum('amount_paid');
+                            $tuitionPaid += max(0, (float)$mp->amount_paid - $realHeadPaid);
                             $tuitionDisc += (float)$mp->discount_amount;
                         }
                     } else {
