@@ -345,86 +345,28 @@ class FeePaymentController extends Controller
 
         $allStudents = $query->get();
 
-        $getTuitionPaidAndDiscount = function ($paymentsCollection) {
-            $tuitionPaid = 0;
-            $tuitionDiscount = 0;
-            foreach ($paymentsCollection as $p) {
-                $pItems = $p->relationLoaded('items') ? $p->items : $p->items()->get();
-                if ($pItems && $pItems->isNotEmpty()) {
-                    $tuitionItems = $pItems->filter(function($it) {
-                        return $it->head_key === 'tuition_fee' || stripos($it->head_name ?? '', 'Tuition') !== false;
-                    });
-                    if ($tuitionItems->isNotEmpty()) {
-                        $tuitionPaid += (float)$tuitionItems->sum('amount_paid');
-                        $itemDisc = (float)$tuitionItems->sum('discount_applied');
-                        $tuitionDiscount += $itemDisc > 0 ? $itemDisc : (float)$p->discount_amount;
-                    } else {
-                        $nonTuitionPaid = (float)$pItems->filter(function($it) {
-                            if ($it->head_key === 'other') return false; // unallocated cash consumed no fee item
-                            return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
-                        })->sum('amount_paid');
-                        $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
-                        $tuitionDiscount += (float)$p->discount_amount;
-                    }
-                } else {
-                    $isExtra = $p->relationLoaded('studentExtraCharge')
-                        ? (bool)$p->studentExtraCharge
-                        : \App\Models\StudentExtraCharge::where('fee_payment_id', $p->id)->exists();
-                    if (!$isExtra) {
-                        $tuitionPaid += (float)$p->amount_paid;
-                        $tuitionDiscount += (float)$p->discount_amount;
-                    }
-                }
-            }
-            return [$tuitionPaid, $tuitionDiscount];
-        };
-
+        // Shared arithmetics (FeeArrears service) — the exact same math used by vouchers,
+        // defaulters and the student ledger, so all views agree per student.
         $totalReceivedMonth = 0;
         $totalRemainingOverall = 0;
 
-        $calculatedList = $allStudents->map(function ($student) use ($monthStr, $startMonthStr, $sessionStart, $targetCarbon, $getTuitionPaidAndDiscount, &$totalReceivedMonth, &$totalRemainingOverall) {
+        $calculatedList = $allStudents->map(function ($student) use ($monthStr, $sessionStart, $targetCarbon, &$totalReceivedMonth, &$totalRemainingOverall) {
             $monthlyFee = (float)($student->monthly_fee ?: 0);
 
-            // Payments this month
+            $calc = \App\Services\FeeArrears::compute($student, $targetCarbon, $sessionStart, $student->feePayments);
+
+            // Payments this month (raw cash, for status & statistics)
             $monthPayments = $student->feePayments->filter(fn($p) => $p->month === $monthStr);
             $totalMonthPaid = (float)$monthPayments->sum('amount_paid');
             $totalMonthDiscount = (float)$monthPayments->sum('discount_amount');
 
-            [$currentMonthTuitionPaid, $currentMonthTuitionDiscount] = $getTuitionPaidAndDiscount($monthPayments);
-            $currentMonthNetDue = max(0, $monthlyFee - ($currentMonthTuitionPaid + $currentMonthTuitionDiscount));
-
-            // Prior months tuition arrears
-            $start = $student->getEffectiveEnrollmentStart($sessionStart);
-            $previousTuitionArrears = 0;
-
-            if ($targetCarbon->lt($start)) {
-                $monthlyFee = 0;
-                $currentMonthNetDue = 0;
-                $previousTuitionArrears = 0;
-            } elseif ($start->lt($targetCarbon)) {
-                $priorMonthsCount = $start->diffInMonths($targetCarbon);
-                $priorFeesDue = ($priorMonthsCount * $monthlyFee);
-
-                $priorPayments = $student->feePayments->filter(fn($p) => $p->month < $monthStr);
-                [$priorPaid, $priorDiscount] = $getTuitionPaidAndDiscount($priorPayments);
-
-                $previousTuitionArrears = max(0, $priorFeesDue - ($priorPaid + $priorDiscount));
-            }
+            $currentMonthNetDue = $calc['current_month_net'];
+            $unpaidOneTimeBalance = $calc['outstanding'];
 
             // Unpaid non-monthly Fee Heads
-            $unpaidOneTimeBalance = 0;
-            if ($student->relationLoaded('feeItems') || $student->feeItems) {
-                foreach ($student->feeItems as $fi) {
-                    if ($fi->head_key !== 'tuition_fee' && (float)$fi->balance_amount > 0) {
-                        $unpaidOneTimeBalance += (float)$fi->balance_amount;
-                    }
-                }
-            } elseif ($student->pending_amount > 0) {
-                $unpaidOneTimeBalance = (float)$student->pending_amount;
-            }
-
-            $previousArrears = $previousTuitionArrears + $unpaidOneTimeBalance;
-            $totalPayable = $currentMonthNetDue + $previousArrears;
+            $totalPayable = $calc['total'];
+            $previousArrears = max(0, $totalPayable - $currentMonthNetDue);
+            $previousTuitionArrears = max(0, $previousArrears - $unpaidOneTimeBalance);
 
             $status = 'unpaid';
             if ($totalMonthPaid > $totalPayable + 0.001) {
@@ -571,85 +513,26 @@ class FeePaymentController extends Controller
         $query->orderBy('name', 'asc');
         $allStudents = $query->get();
 
-        $getTuitionPaidAndDiscount = function ($paymentsCollection) {
-            $tuitionPaid = 0;
-            $tuitionDiscount = 0;
-            foreach ($paymentsCollection as $p) {
-                $pItems = $p->relationLoaded('items') ? $p->items : $p->items()->get();
-                if ($pItems && $pItems->isNotEmpty()) {
-                    $tuitionItems = $pItems->filter(function($it) {
-                        return $it->head_key === 'tuition_fee' || stripos($it->head_name ?? '', 'Tuition') !== false;
-                    });
-                    if ($tuitionItems->isNotEmpty()) {
-                        $tuitionPaid += (float)$tuitionItems->sum('amount_paid');
-                        $itemDisc = (float)$tuitionItems->sum('discount_applied');
-                        $tuitionDiscount += $itemDisc > 0 ? $itemDisc : (float)$p->discount_amount;
-                    } else {
-                        $nonTuitionPaid = (float)$pItems->filter(function($it) {
-                            if ($it->head_key === 'other') return false; // unallocated cash consumed no fee item
-                            return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
-                        })->sum('amount_paid');
-                        $tuitionPaid += max(0, (float)$p->amount_paid - $nonTuitionPaid);
-                        $tuitionDiscount += (float)$p->discount_amount;
-                    }
-                } else {
-                    $isExtra = $p->relationLoaded('studentExtraCharge')
-                        ? (bool)$p->studentExtraCharge
-                        : \App\Models\StudentExtraCharge::where('fee_payment_id', $p->id)->exists();
-                    if (!$isExtra) {
-                        $tuitionPaid += (float)$p->amount_paid;
-                        $tuitionDiscount += (float)$p->discount_amount;
-                    }
-                }
-            }
-            return [$tuitionPaid, $tuitionDiscount];
-        };
-
         $defaulterType = $request->input('defaulter_type', 'all_defaulters'); // all_defaulters, this_month_unpaid, this_month_partial, arrears_only, critical
 
-        $calculatedStudents = $allStudents->map(function ($student) use ($monthStr, $sessionStart, $targetCarbon, $getTuitionPaidAndDiscount) {
+        $calculatedStudents = $allStudents->map(function ($student) use ($monthStr, $sessionStart, $targetCarbon) {
             $monthlyFee = (float)($student->monthly_fee ?: 0);
+
+            // Shared arithmetics (FeeArrears service) — the exact same math used by
+            // vouchers, the fees page and the student ledger.
+            $calc = \App\Services\FeeArrears::compute($student, $targetCarbon, $sessionStart, $student->feePayments);
 
             // Payments in the target month
             $monthPayments = $student->feePayments->filter(fn($p) => $p->month === $monthStr);
             $totalMonthPaid = (float)$monthPayments->sum('amount_paid');
             $totalMonthDiscount = (float)$monthPayments->sum('discount_amount');
 
-            [$currentMonthTuitionPaid, $currentMonthTuitionDiscount] = $getTuitionPaidAndDiscount($monthPayments);
-            $currentMonthNetDue = max(0, $monthlyFee - ($currentMonthTuitionPaid + $currentMonthTuitionDiscount));
+            $currentMonthNetDue = $calc['current_month_net'];
+            $unpaidOneTimeBalance = $calc['outstanding'];
 
-            // Prior months tuition arrears
-            $start = $student->getEffectiveEnrollmentStart($sessionStart);
-            $previousTuitionArrears = 0;
-
-            if ($targetCarbon->lt($start)) {
-                $monthlyFee = 0;
-                $currentMonthNetDue = 0;
-                $previousTuitionArrears = 0;
-            } elseif ($start->lt($targetCarbon)) {
-                $priorMonthsCount = $start->diffInMonths($targetCarbon);
-                $priorFeesDue = ($priorMonthsCount * $monthlyFee);
-
-                $priorPayments = $student->feePayments->filter(fn($p) => $p->month < $monthStr);
-                [$priorPaid, $priorDiscount] = $getTuitionPaidAndDiscount($priorPayments);
-
-                $previousTuitionArrears = max(0, $priorFeesDue - ($priorPaid + $priorDiscount));
-            }
-
-            // Unpaid non-monthly Fee Heads
-            $unpaidOneTimeBalance = 0;
-            if ($student->relationLoaded('feeItems') || $student->feeItems) {
-                foreach ($student->feeItems as $fi) {
-                    if ($fi->head_key !== 'tuition_fee' && (float)$fi->balance_amount > 0) {
-                        $unpaidOneTimeBalance += (float)$fi->balance_amount;
-                    }
-                }
-            } elseif ($student->pending_amount > 0) {
-                $unpaidOneTimeBalance = (float)$student->pending_amount;
-            }
-
-            $previousArrears = $previousTuitionArrears + $unpaidOneTimeBalance;
-            $totalPayable = $currentMonthNetDue + $previousArrears;
+            $totalPayable = $calc['total'];
+            $previousArrears = max(0, $totalPayable - $currentMonthNetDue);
+            $previousTuitionArrears = max(0, $previousArrears - $unpaidOneTimeBalance);
 
             $status = 'unpaid';
             if ($totalMonthPaid > $totalPayable + 0.001) {
@@ -844,21 +727,25 @@ class FeePaymentController extends Controller
         $ledger = [];
         $monthlyFee = (float)($student->monthly_fee ?: 0);
         
-        $sessionStart = \Carbon\Carbon::parse($sessionStartDate);
+        $sessionStart = \Carbon\Carbon::parse($sessionStartDate)->startOfMonth();
         $start = $student->getEffectiveEnrollmentStart($sessionStart);
         $end = now()->startOfMonth();
-        $monthsEnrolled = max(1, $start->diffInMonths($end) + 1);
-        $totalPaid = (float)$payments->sum('amount_paid');
-        $totalDiscount = (float)$payments->sum('discount_amount');
 
         $student->loadMissing(['feeItems', 'academyClass', 'section', 'major']);
-        $oneTimePayable = (float)$student->feeItems->where('head_key', '!=', 'tuition_fee')->sum('payable_amount');
-        $oneTimeInitial = $oneTimePayable > 0 ? $oneTimePayable : (float)($student->pending_amount ?: 0);
 
-        $totalDue = ($monthsEnrolled * $monthlyFee) + $oneTimeInitial;
-        $arrears = max(0, $totalDue - ($totalPaid + $totalDiscount));
+        // Shared arithmetics (FeeArrears service) — the exact same math used by
+        // vouchers, the fees page and the defaulters page, so all views agree.
+        $calc = \App\Services\FeeArrears::compute($student, $end, $sessionStart, $payments);
 
-        $remainingCredit = $totalPaid + $totalDiscount;
+        $oneTimeInitial = $calc['one_time_due'];
+        $totalDue = $calc['tuition_due'] + $calc['one_time_due'];
+        $totalDiscount = $calc['discount'];
+        // Net amount credited against dues: cash + discounts + amounts written into
+        // fee items (covers imported rows that have no fee_payments record).
+        $totalPaid = $calc['credit_total'] - $totalDiscount;
+        $arrears = $calc['total'];
+
+        $remainingCredit = $calc['credit_total'];
         
         if ($oneTimeInitial > 0) {
             $allocatedToPending = min($remainingCredit, $oneTimeInitial);
@@ -971,67 +858,39 @@ class FeePaymentController extends Controller
         $statementItems = [];
         $tuitionInserted = false;
 
-        $generateTuitionRows = function() use ($start, $end, $payments, $monthlyFee) {
+        $generateTuitionRows = function() use ($calc, $monthlyFee) {
             $rows = [];
-            $curr = $start->copy();
-            while ($curr->lte($end)) {
-                $mStr = $curr->format('Y-m');
-                $mLabel = $curr->format('M Y');
-                
-                $monthPayments = $payments->where('month', $mStr);
-                $tuitionPaid = 0;
-                $tuitionDisc = 0;
-                
-                foreach ($monthPayments as $mp) {
-                    $pItems = $mp->relationLoaded('items') ? $mp->items : $mp->items()->get();
-                    if ($pItems && $pItems->isNotEmpty()) {
-                        $tuitionItems = $pItems->filter(function($it) {
-                            return $it->head_key === 'tuition_fee' || stripos($it->head_name ?? '', 'Tuition') !== false;
-                        });
-                        if ($tuitionItems->isNotEmpty()) {
-                            $tuitionPaid += (float)$tuitionItems->sum('amount_paid');
-                            $itemDisc = (float)$tuitionItems->sum('discount_applied');
-                            $tuitionDisc += $itemDisc > 0 ? $itemDisc : (float)$mp->discount_amount;
-                        } else {
-                            // Subtract only REAL fee-head allocations; `other` (unallocated) cash
-                            // consumed no fee item, so it stays creditable to tuition.
-                            $realHeadPaid = (float)$pItems->filter(function ($it) {
-                                if ($it->head_key === 'other') return false;
-                                return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
-                            })->sum('amount_paid');
-                            $tuitionPaid += max(0, (float)$mp->amount_paid - $realHeadPaid);
-                            $tuitionDisc += (float)$mp->discount_amount;
-                        }
-                    } else {
-                        $tuitionPaid += (float)$mp->amount_paid;
-                        $tuitionDisc += (float)$mp->discount_amount;
-                    }
-                }
-                
-                $payable = max(0, $monthlyFee - $tuitionDisc);
-                $bal = max(0, $payable - $tuitionPaid);
-                
+            foreach ($calc['month_rows'] as $mRow) {
+                $mStr = $mRow['month'];
+                $mLabel = \Carbon\Carbon::parse($mStr . '-01')->format('M Y');
+
+                // Pooled credit applied to this month (earliest months first), split
+                // into its discount and cash components for display.
+                $applied = (float)$mRow['applied'];
+                $discApplied = (float)($mRow['discount'] ?? 0);
+                $payable = max(0, $monthlyFee - $discApplied);
+                $paid = $applied - $discApplied;
+                $bal = max(0, (float)$mRow['net']);
+
                 $status = 'N/A';
-                if ($payable > 0) {
+                if ($monthlyFee > 0) {
                     if ($bal <= 0) $status = 'Cleared';
-                    elseif ($tuitionPaid > 0) $status = 'Partial';
+                    elseif ($applied > 0) $status = 'Partial';
                     else $status = 'Unpaid';
                 }
-                
+
                 $rows[] = [
                     'id' => 'tuition_' . $mStr,
                     'head_key' => 'tuition_fee_' . $mStr,
                     'head_name' => "Tuition Fee ({$mLabel})",
                     'head_type' => 'monthly',
                     'actual_amount' => $monthlyFee,
-                    'discount_amount' => $tuitionDisc,
+                    'discount_amount' => $discApplied,
                     'payable_amount' => $payable,
-                    'paid_amount' => $tuitionPaid,
+                    'paid_amount' => $paid,
                     'balance_amount' => $bal,
                     'status' => $status,
                 ];
-                
-                $curr->addMonth();
             }
             return $rows;
         };

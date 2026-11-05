@@ -65,85 +65,40 @@ class FeeVoucherController extends Controller
         $start = $student->getEffectiveEnrollmentStart($sessionStart);
         $monthlyFee = (float)($student->monthly_fee ?: 0);
 
-        // Helper to extract tuition-only amount paid and discount from a collection of FeePayments
-        $getTuitionPaidAndDiscount = function ($payments) {
-            $paid = 0.0;
-            $discount = 0.0;
-
-            foreach ($payments as $p) {
-                if ($p->relationLoaded('items') && $p->items->isNotEmpty()) {
-                    // Check if payment has tuition fee head specifically
-                    $tuitionItems = $p->items->where('head_key', 'tuition_fee');
-                    if ($tuitionItems->isNotEmpty()) {
-                        $paid += (float)$tuitionItems->sum('amount_paid');
-                        $discount += (float)$tuitionItems->sum('discount_applied');
-                    } else {
-                        // Payment has no tuition item. Subtract only amounts itemized to REAL fee heads
-                        // (arrears, exam, admission, ...) — those already reduced their own fee-item
-                        // balances, so crediting them to tuition would double-count. The `other`
-                        // (unallocated) head consumes no fee item, so that cash — plus any unitemized
-                        // remainder — stays creditable to tuition, mirroring the ledger headline.
-                        $realHeadPaid = (float)$p->items->filter(function ($it) {
-                            if ($it->head_key === 'other') return false;
-                            return $it->head_key !== 'tuition_fee' && stripos($it->head_name ?? '', 'Tuition') === false;
-                        })->sum('amount_paid');
-                        $paid += max(0, (float)$p->amount_paid - $realHeadPaid);
-                        $discount += (float)$p->discount_amount;
-                    }
-                } else {
-                    // Legacy payments without itemized breakdown
-                    // Check if this payment was created for a standalone POS extra charge
-                    $isExtraCharge = $p->relationLoaded('studentExtraCharge')
-                        ? (bool)$p->studentExtraCharge
-                        : \App\Models\StudentExtraCharge::where('fee_payment_id', $p->id)->exists();
-
-                    if (!$isExtraCharge) {
-                        $paid += (float)$p->amount_paid;
-                        $discount += (float)$p->discount_amount;
-                    }
-                }
-            }
-
-            return [$paid, $discount];
-        };
-
-        $priorMonthItems = [];
-        $previousTuitionArrears = 0;
-        $priorMonthsCount = 0;
+        // Shared arithmetics (FeeArrears service) — the exact same math used by the fees
+        // page, defaulters page and student ledger, so all views agree per student.
+        $calc = \App\Services\FeeArrears::compute($student, $targetCarbon, $sessionStart, $student->feePayments, $include);
 
         // If target month is before admission month, no tuition fees apply for that pre-admission period
         if ($targetCarbon->lt($start)) {
             $monthlyFee = 0;
-            $currentMonthNetDue = 0;
-            $previousTuitionArrears = 0;
-            $currentMonthPaid = 0;
-            $currentMonthDiscount = 0;
-        } else {
-            // Current Month Payments & Discounts for Tuition Fee
-            $currentMonthPayments = $student->feePayments->where('month', $targetMonthStr);
-            [$currentMonthPaid, $currentMonthDiscount] = $getTuitionPaidAndDiscount($currentMonthPayments);
-            $currentMonthNetDue = $includeAcademic ? max(0, $monthlyFee - ($currentMonthPaid + $currentMonthDiscount)) : 0;
+        }
 
-            // Prior Months (from admission month up to month before targetMonthStr)
-            if ($includeAcademic && $start->lt($targetCarbon)) {
-                $curr = $start->copy();
-                while ($curr->lt($targetCarbon)) {
-                    $mStr = $curr->format('Y-m');
-                    $mPayments = $student->feePayments->where('month', $mStr);
-                    [$mPaid, $mDiscount] = $getTuitionPaidAndDiscount($mPayments);
-                    $mNetDue = max(0, $monthlyFee - ($mPaid + $mDiscount));
+        $currentMonthNetDue = $includeAcademic ? $calc['current_month_net'] : 0;
+        $previousTuitionArrears = $includeAcademic ? $calc['prior_tuition_arrears'] : 0;
 
-                    if ($mNetDue > 0) {
-                        $priorMonthItems[] = [
-                            'label' => "Tuition Fee (" . $curr->format('M Y') . ")",
-                            'amount' => $mNetDue,
-                            'head_key' => 'tuition_fee',
-                        ];
-                        $previousTuitionArrears += $mNetDue;
-                    }
-                    $priorMonthsCount++;
-                    $curr->addMonth();
+        // Credit granted to the current month (drives Partial status & zero-balance rows)
+        $currentMonthPaid = 0.0;
+        $currentMonthDiscount = 0.0;
+        if ($includeAcademic) {
+            foreach ($calc['month_rows'] as $row) {
+                if ($row['month'] === $targetMonthStr) {
+                    $currentMonthPaid = (float)$row['applied'] - (float)($row['discount'] ?? 0);
+                    $currentMonthDiscount = (float)($row['discount'] ?? 0);
                 }
+            }
+        }
+
+        // Prior months (enrollment month .. month before target) with a net due
+        $priorMonthItems = [];
+        if ($includeAcademic) {
+            foreach ($calc['month_rows'] as $row) {
+                if ($row['month'] === $targetMonthStr || $row['net'] <= 0) continue;
+                $priorMonthItems[] = [
+                    'label' => "Tuition Fee (" . Carbon::parse($row['month'] . '-01')->format('M Y') . ")",
+                    'amount' => $row['net'],
+                    'head_key' => 'tuition_fee',
+                ];
             }
         }
 
@@ -172,8 +127,16 @@ class FeeVoucherController extends Controller
             ];
         }
 
-        $previousArrears = $previousTuitionArrears + $unpaidOneTimeBalance;
-        $totalPayable = $currentMonthNetDue + $previousArrears;
+        // Total comes straight from the shared formula so the voucher always
+        // matches the fees page, defaulters and ledger exactly. When the academic
+        // category is excluded, only the selected one-time heads are billed.
+        if ($includeAcademic) {
+            $totalPayable = $calc['total'];
+            $previousArrears = max(0, $totalPayable - $currentMonthNetDue);
+        } else {
+            $totalPayable = $unpaidOneTimeBalance;
+            $previousArrears = $unpaidOneTimeBalance;
+        }
         $grossPayable = $monthlyFee + $previousArrears;
 
         // Construct itemized fee items list for this voucher (Only items with amount to get from student)
