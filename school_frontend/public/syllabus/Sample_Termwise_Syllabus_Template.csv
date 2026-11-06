@@ -1,0 +1,28 @@
+Section,SubSection,Term,Number/Name,StartDate,EndDate,WorkingDays,Title/Topic,SyllabusDetails,SLOs,Classwork,Homework
+Yearly,Term-I,Term-I,,,,,"Complete Term-I Syllabus","Unit 1 to Unit 4 + Reader + Grammar",,,
+Yearly,Term-II,Term-II,,,,,"Complete Term-II Syllabus","Unit 5 to Unit 8 + Reader + Grammar",,,
+Fortnight,Term-I,Term-I,Fortnight 1,2026-03-17,2026-03-31,8,"Unit 1 Reading & Dictation","Unit 1 Lessons 1 & 2",,,
+Fortnight,Term-I,Term-I,Fortnight 2,2026-04-01,2026-04-15,11,"Unit 1 Exercises & Unit 2","Unit 1 Comprehension + Unit 2 Vocab",,,
+Fortnight,Term-I,Term-I,Fortnight 3,2026-04-16,2026-04-30,11,"Unit 2 Sentences & Grammar","Sentence Making, Prepositions, Nouns",,,
+Fortnight,Term-I,Term-I,Fortnight 4,2026-05-01,2026-05-15,10,"Unit 3 Reading & Vocab","Unit 3 Comprehension + Dictation",,,
+Fortnight,Term-I,Term-I,Fortnight 5,2026-05-16,2026-05-30,5,"Unit 3 Creative Writing","Paragraph Writing, Reader review",,,
+Fortnight,Term-I,Term-I,Fortnight 6,2026-09-01,2026-09-15,11,"Unit 4 Revision & Reader","Revision for First Term Paper",,,
+Fortnight,Term-II,Term-II,Fortnight 7,2026-10-12,2026-10-15,4,"Unit 5 Reading & Vocab","Unit 5 Lessons 1 & 2",,,
+Fortnight,Term-II,Term-II,Fortnight 8,2026-10-16,2026-10-30,11,"Unit 5 Grammar + Unit 6","Verbs, Tenses, Unit 6 Reading",,,
+Fortnight,Term-II,Term-II,Fortnight 9,2026-11-01,2026-11-15,9,"Unit 6 Comprehension","Q/A, Dictation, Workbook",,,
+Fortnight,Term-II,Term-II,Fortnight 10,2026-11-16,2026-11-30,11,"Unit 7 Reading & Grammar","Adjectives, Pronouns",,,
+Fortnight,Term-II,Term-II,Fortnight 11,2026-12-01,2026-12-15,11,"Unit 7 Exercises + Unit 8","Reading & Comprehension",,,
+Fortnight,Term-II,Term-II,Fortnight 12,2026-12-16,2026-12-31,5,"Unit 8 Completion","Reader Completion & Review",,,
+Fortnight,Term-II,Term-II,Fortnight 13,2027-01-01,2027-01-15,10,"Final Term Revision","Full Term-II Review",,,
+Round,Term-I,Term-I,Round Test 1,2026-04-20,,,Round Test 1 Syllabus,"Unit 1 & Unit 2 (within complete book exercises)",,,
+Round,Term-I,Term-I,Round Test 2,2026-05-14,,,Round Test 2 Syllabus,"Unit 3 & Unit 4 (within complete book exercises)",,,
+Round,Term-II,Term-II,Round Test 3,2026-11-10,,,Round Test 3 Syllabus,"Unit 5 & Unit 6 (within complete book exercises)",,,
+Round,Term-II,Term-II,Round Test 4,2026-12-10,,,Round Test 4 Syllabus,"Unit 7 & Unit 8 (within complete book exercises)",,,
+Paper,Term-I,Term-I,First Term Paper,2026-09-20,,,First Term Paper,"Complete Term-I Syllabus (Units 1-4)",,,
+Paper,Term-II,Term-II,Final Term Paper,2027-02-10,,,Final Term Paper,"Complete Term-II Syllabus (Units 5-8)",,,
+SOS,Term-I,Term-I,Lec 1,2026-03-17,,,Lesson 1.1 Reading,"Textbook Pg. 2","Read with pronunciation","Reading Pg. 2 in class","Read paragraph 1 at home"
+SOS,Term-I,Term-I,Lec 2,2026-03-18,,,Lesson 1.2 Vocabulary,"Notebook Pg. 4-5","Spell & define words","Dictation words 1-8","Learn spellings 1-8"
+SOS,Term-I,Term-I,Lec 3,2026-03-19,,,Lesson 1.3 Sentence Making,"Notebook Pg. 6","Construct sentences","Sentence making in notebook","Make 2 sentences at home"
+SOS,Term-I,Term-I,Lec 4,2026-03-20,,,Lesson 1.4 Comprehension,"Notebook Pg. 8","Answer questions","Question (a) and (b)","Learn answer (a)"
+SOS,Term-I,Term-I,Lec 5,2026-03-24,,,Lesson 1.5 Grammar,"Notebook Pg. 11","Identify compound words","Compound words worksheet","Write 3 compound words"
+
