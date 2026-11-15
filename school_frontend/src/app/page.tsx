@@ -448,7 +448,7 @@ export default function LoginPage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      router.push("/dashboard");
+      router.replace("/dashboard");
     }
   }, [router]);
 
@@ -557,7 +557,7 @@ export default function LoginPage() {
       document.cookie = `userPermissions=${encodeURIComponent(
         JSON.stringify(data.user.all_permissions || [])
       )}; path=/; max-age=86400;`;
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } catch (err: any) {
       setError(err.message);
     } finally {

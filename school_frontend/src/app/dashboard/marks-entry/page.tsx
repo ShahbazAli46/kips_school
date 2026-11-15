@@ -403,7 +403,13 @@ export default function MarksEntryPage() {
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Failed to save marks");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const validationErrors = data?.errors
+          ? Object.values(data.errors).flat().join(" ")
+          : "";
+        throw new Error(validationErrors || data?.message || "Failed to save marks");
+      }
       
       setMessage({ text: "Marks saved successfully!", type: "success" });
       setTimeout(() => setMessage({ text: "", type: "" }), 3000);
@@ -510,7 +516,7 @@ export default function MarksEntryPage() {
               <p className="text-xs text-[#2563eb]">Total Marks: {selectedTest.total_marks} | Passing: {selectedTest.passing_marks}</p>
             </div>
             {message.text && (
-              <div className={`text-sm px-3 py-1 rounded font-medium ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+              <div role="status" className={`text-sm px-3 py-1 rounded font-medium ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                 {message.text}
               </div>
             )}
@@ -554,6 +560,7 @@ export default function MarksEntryPage() {
                             onChange={(e) => handleMarkChange(s.student_id, 'is_absent', e.target.checked)}
                             className="w-4 h-4 text-[#2563eb] rounded" style={{ accentColor: "#2563eb" }}
                           />
+                          <span>Absent<span className="sr-only"> for {s.name}</span></span>
                         </label>
                       </td>
                       <td className="px-5 py-3">
@@ -593,6 +600,9 @@ export default function MarksEntryPage() {
                           />
                           <span className="text-sm text-[#2563eb] font-bold bg-[#f0f4f8] px-2 py-1 rounded-md border border-[#dbeafe]">/ {selectedTest.total_marks}</span>
                         </div>
+                        {s.is_absent && (
+                          <p className="mt-1 text-xs text-gray-500">Uncheck Absent to enter marks.</p>
+                        )}
                       </td>
                       <td className="px-5 py-3">
                         <input 

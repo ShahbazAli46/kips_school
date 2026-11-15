@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Test;
 use App\Models\TestMark;
 use Illuminate\Http\Request;
 
